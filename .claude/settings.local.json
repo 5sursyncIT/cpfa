@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(/home/youssoupha/project/cpfa/generate-project.sh:*)",
+      "Bash(docker-compose exec -T wordpress tail -50 /var/www/html/wp-content/debug.log)",
+      "Bash(docker-compose exec:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(curl:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(done)",
+      "Bash(touch:*)",
+      "Bash(composer install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

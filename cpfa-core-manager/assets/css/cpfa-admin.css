@@ -1,0 +1,588 @@
+/**
+ * CPFA Core Admin Styles
+ * 
+ * @package CpfaCore
+ */
+
+/* ========================================
+   Variables Admin
+   ======================================== */
+:root {
+    --cpfa-admin-primary: #2c5aa0;
+    --cpfa-admin-accent: #28a745;
+    --cpfa-admin-danger: #dc3545;
+    --cpfa-admin-warning: #ffc107;
+    --cpfa-admin-border: #ddd;
+    --cpfa-admin-bg: #f8f9fa;
+}
+
+/* ========================================
+   Menu CPFA
+   ======================================== */
+#adminmenu .toplevel_page_cpfa-dashboard .wp-menu-image::before {
+    content: '\f109';
+    font-family: dashicons;
+}
+
+#adminmenu .toplevel_page_cpfa-dashboard:hover .wp-menu-image::before,
+#adminmenu .toplevel_page_cpfa-dashboard.current .wp-menu-image::before {
+    color: var(--cpfa-admin-accent);
+}
+
+/* ========================================
+   Meta Boxes
+   ======================================== */
+.cpfa-metabox-row {
+    margin-bottom: 1.5rem;
+}
+
+.cpfa-metabox-row:last-child {
+    margin-bottom: 0;
+}
+
+.cpfa-metabox-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #23282d;
+}
+
+.cpfa-metabox-field input[type="text"],
+.cpfa-metabox-field input[type="number"],
+.cpfa-metabox-field input[type="email"],
+.cpfa-metabox-field input[type="url"],
+.cpfa-metabox-field input[type="date"],
+.cpfa-metabox-field select,
+.cpfa-metabox-field textarea {
+    width: 100%;
+    max-width: 500px;
+}
+
+.cpfa-metabox-field textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+.cpfa-metabox-description {
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+    margin-top: 0.5rem;
+}
+
+.cpfa-metabox-file-upload {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.cpfa-metabox-file-preview {
+    margin-top: 1rem;
+}
+
+.cpfa-metabox-file-preview img {
+    max-width: 200px;
+    height: auto;
+    border: 1px solid var(--cpfa-admin-border);
+    border-radius: 4px;
+}
+
+/* Meta box pour calcul automatique */
+.cpfa-calculated-field {
+    background: #fff3cd;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border-left: 4px solid var(--cpfa-admin-warning);
+    font-weight: 600;
+}
+
+.cpfa-penalty-info {
+    background: #f8d7da;
+    padding: 1rem;
+    border-radius: 4px;
+    border-left: 4px solid var(--cpfa-admin-danger);
+    margin-top: 1rem;
+}
+
+.cpfa-penalty-amount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--cpfa-admin-danger);
+}
+
+/* ========================================
+   Pages de réglages
+   ======================================== */
+.cpfa-settings-page {
+    max-width: 1200px;
+}
+
+.cpfa-settings-header {
+    background: white;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cpfa-settings-header h1 {
+    margin: 0;
+    color: var(--cpfa-admin-primary);
+}
+
+.cpfa-settings-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--cpfa-admin-border);
+}
+
+.cpfa-settings-tab {
+    padding: 1rem 1.5rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.cpfa-settings-tab:hover {
+    color: var(--cpfa-admin-primary);
+}
+
+.cpfa-settings-tab.active {
+    color: var(--cpfa-admin-primary);
+    border-bottom-color: var(--cpfa-admin-primary);
+}
+
+.cpfa-settings-section {
+    background: white;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cpfa-settings-section-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--cpfa-admin-border);
+    color: var(--cpfa-admin-primary);
+}
+
+.cpfa-settings-row {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.cpfa-settings-row:last-child {
+    border-bottom: none;
+}
+
+.cpfa-settings-label-col {
+    flex: 0 0 250px;
+}
+
+.cpfa-settings-field-col {
+    flex: 1;
+}
+
+.cpfa-settings-label {
+    font-weight: 600;
+    color: #23282d;
+    margin-bottom: 0.25rem;
+}
+
+.cpfa-settings-description {
+    font-size: 0.9rem;
+    color: #666;
+    line-height: 1.5;
+}
+
+/* Color picker field */
+.cpfa-color-picker-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.cpfa-color-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    border: 2px solid var(--cpfa-admin-border);
+}
+
+/* ========================================
+   Dashboard Widgets
+   ======================================== */
+.cpfa-dashboard-widget {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cpfa-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.cpfa-stat-card {
+    background: linear-gradient(135deg, var(--cpfa-admin-primary) 0%, #1e4070 100%);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cpfa-stat-card.accent {
+    background: linear-gradient(135deg, var(--cpfa-admin-accent) 0%, #1e7e34 100%);
+}
+
+.cpfa-stat-card.warning {
+    background: linear-gradient(135deg, var(--cpfa-admin-warning) 0%, #e0a800 100%);
+}
+
+.cpfa-stat-card.danger {
+    background: linear-gradient(135deg, var(--cpfa-admin-danger) 0%, #bd2130 100%);
+}
+
+.cpfa-stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.cpfa-stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ========================================
+   Liste des posts CPT
+   ======================================== */
+.cpfa-post-status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.cpfa-status-actif {
+    background: #d4edda;
+    color: #155724;
+}
+
+.cpfa-status-en-attente {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.cpfa-status-expire {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.cpfa-price-column {
+    font-weight: 600;
+    color: var(--cpfa-admin-accent);
+}
+
+/* ========================================
+   Boutons admin
+   ======================================== */
+.cpfa-admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.cpfa-admin-btn-primary {
+    background: var(--cpfa-admin-primary);
+    color: white;
+}
+
+.cpfa-admin-btn-primary:hover {
+    background: #1e4070;
+}
+
+.cpfa-admin-btn-success {
+    background: var(--cpfa-admin-accent);
+    color: white;
+}
+
+.cpfa-admin-btn-success:hover {
+    background: #1e7e34;
+}
+
+.cpfa-admin-btn-danger {
+    background: var(--cpfa-admin-danger);
+    color: white;
+}
+
+.cpfa-admin-btn-danger:hover {
+    background: #bd2130;
+}
+
+/* ========================================
+   Notifications admin
+   ======================================== */
+.cpfa-admin-notice {
+    position: relative;
+    padding: 1rem 1.5rem;
+    margin: 1rem 0;
+    border-left: 4px solid;
+    border-radius: 4px;
+}
+
+.cpfa-admin-notice.success {
+    background: #d4edda;
+    border-left-color: var(--cpfa-admin-accent);
+    color: #155724;
+}
+
+.cpfa-admin-notice.warning {
+    background: #fff3cd;
+    border-left-color: var(--cpfa-admin-warning);
+    color: #856404;
+}
+
+.cpfa-admin-notice.error {
+    background: #f8d7da;
+    border-left-color: var(--cpfa-admin-danger);
+    color: #721c24;
+}
+
+.cpfa-admin-notice.info {
+    background: #d1ecf1;
+    border-left-color: #17a2b8;
+    color: #0c5460;
+}
+
+/* ========================================
+   Tableaux admin
+   ======================================== */
+.cpfa-admin-table {
+    width: 100%;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.cpfa-admin-table th {
+    background: var(--cpfa-admin-bg);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--cpfa-admin-border);
+}
+
+.cpfa-admin-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.cpfa-admin-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* ========================================
+   Media Uploader
+   ======================================== */
+.cpfa-media-upload-btn {
+    margin-top: 0.5rem;
+}
+
+.cpfa-media-preview {
+    margin-top: 1rem;
+    position: relative;
+    display: inline-block;
+}
+
+.cpfa-media-preview img {
+    max-width: 300px;
+    height: auto;
+    border-radius: 4px;
+    border: 2px solid var(--cpfa-admin-border);
+}
+
+.cpfa-media-remove {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: var(--cpfa-admin-danger);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.cpfa-media-remove:hover {
+    background: #bd2130;
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+.cpfa-admin-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(44, 90, 160, 0.2);
+    border-top-color: var(--cpfa-admin-primary);
+    border-radius: 50%;
+    animation: cpfa-admin-spin 0.8s linear infinite;
+}
+
+@keyframes cpfa-admin-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   Tooltips Admin
+   ======================================== */
+.cpfa-admin-tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    color: #666;
+    margin-left: 0.25rem;
+}
+
+.cpfa-admin-tooltip:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    z-index: 1000;
+    margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   Responsive Admin
+   ======================================== */
+@media (max-width: 1024px) {
+    .cpfa-settings-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .cpfa-settings-label-col {
+        flex: auto;
+    }
+    
+    .cpfa-stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .cpfa-settings-tabs {
+        flex-direction: column;
+    }
+    
+    .cpfa-stat-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .cpfa-admin-table {
+        font-size: 0.9rem;
+    }
+    
+    .cpfa-admin-table th,
+    .cpfa-admin-table td {
+        padding: 0.5rem;
+    }
+}
+
+/* ========================================
+   WordPress Core Adjustments
+   ======================================== */
+.post-type-cpfa_formation .wp-list-table,
+.post-type-cpfa_seminaire .wp-list-table,
+.post-type-cpfa_concours .wp-list-table,
+.post-type-cpfa_ressource .wp-list-table,
+.post-type-cpfa_abonnement .wp-list-table,
+.post-type-cpfa_emprunt .wp-list-table {
+    background: white;
+}
+
+/* Amélioration de l'interface d'édition */
+.post-type-cpfa_formation #poststuff,
+.post-type-cpfa_seminaire #poststuff,
+.post-type-cpfa_concours #poststuff,
+.post-type-cpfa_ressource #poststuff,
+.post-type-cpfa_abonnement #poststuff,
+.post-type-cpfa_emprunt #poststuff {
+    padding-top: 1rem;
+}
+
+/* Métaboxes personnalisées */
+#cpfa_formation_details,
+#cpfa_seminaire_details,
+#cpfa_concours_details,
+#cpfa_ressource_details,
+#cpfa_abonnement_details,
+#cpfa_emprunt_details {
+    margin-top: 1rem;
+}
+
+/* ========================================
+   Helpers
+   ======================================== */
+.cpfa-hidden {
+    display: none !important;
+}
+
+.cpfa-text-center {
+    text-align: center;
+}
+
+.cpfa-text-right {
+    text-align: right;
+}
+
+.cpfa-mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.cpfa-mt-2 {
+    margin-top: 1rem;
+}
+
+.cpfa-mb-2 {
+    margin-bottom: 1rem;
+}

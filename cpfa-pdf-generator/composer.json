@@ -1,0 +1,21 @@
+{
+	"name": "cpfa/pdf-generator",
+	"description": "CPFA PDF Generator Plugin",
+	"type": "wordpress-plugin",
+	"require": {
+		"php": ">=8.0",
+		"mpdf/mpdf": "^8.2",
+		"endroid/qr-code": "^5.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Cpfa\\Pdf\\": "includes/"
+		}
+	},
+	"config": {
+		"optimize-autoloader": true,
+		"platform": {
+			"php": "8.2"
+		}
+	}
+}

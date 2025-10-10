@@ -1,0 +1,99 @@
+# WordPress Core
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+wp-content/backup-db/
+wp-content/advanced-cache.php
+wp-content/wp-cache-config.php
+wp-content/plugins/hello.php
+wp-content/plugins/akismet/
+wp-content/upgrade/
+wp-content/debug.log
+
+# Docker
+.env
+docker-compose.override.yml
+.docker/
+volumes/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Composer
+vendor/
+composer.lock
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+error_log
+access_log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.sass-cache/
+
+# Build files
+dist/
+build/
+*.min.js
+*.min.css
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Database
+*.sql
+*.sqlite
+*.db
+
+# Security
+.htaccess
+.htpasswd
+wp-config-local.php
+wp-config-production.php
+
+# Test files
+test-*.php
+phpunit.xml
+.phpunit.result.cache
+
+# Local development
+local-config.php
+wp-config-local.php
+wp-content/mu-plugins/local-*.php
+
+# Plugin specific
+cpfa-*/logs/
+cpfa-*/cache/
+cpfa-*/tmp/
+
+# Exclude specific test files
+test-phase1-implementation.php

@@ -1,0 +1,11 @@
+titre,cote,type,auteurs,editeur,annee,isbn,langue,pages,mots_cles,description,statut,exclu_pret
+"PHP 8 - Les fondamentaux","005.133 PHP","livre","Jean Dupont","Eyrolles","2023","978-2-212-12345-6","français","450","programmation, php, web","Guide complet pour apprendre PHP 8 avec exemples pratiques","disponible","0"
+"JavaScript Moderne","005.133 JS","livre","Marie Martin","Dunod","2023","978-2-100-12345-7","français","380","javascript, web, frontend","Découvrez les nouvelles fonctionnalités de JavaScript ES6+","disponible","0"
+"Introduction à WordPress","006.76 WP","livre","Pierre Durand","O'Reilly","2022","978-1-491-12345-8","français","320","wordpress, cms, web","Créez votre site WordPress professionnel","disponible","0"
+"Revue Informatique n°45","R.INF.45","revue","Collectif","TechMag","2024","","français","80","informatique, actualités","Revue mensuelle sur l'actualité informatique","disponible","1"
+"Base de données SQL","005.74 SQL","livre","Sophie Bernard","Pearson","2023","978-2-7440-12345-9","français","520","sql, base de données, mysql","Maîtrisez SQL et la conception de bases de données","disponible","0"
+"Python pour débutants","005.133 PY","livre","Luc Robert","ENI","2023","978-2-409-12345-0","français","400","python, programmation, débutant","Apprenez Python pas à pas","disponible","0"
+"Guide Linux Ubuntu","005.43 LIN","livre","Anne Petit","Eyrolles","2023","978-2-212-67890-1","français","350","linux, ubuntu, système","Administration système Ubuntu Server","disponible","0"
+"Docker en production","004.678 DOC","livre","Thomas Grand","Dunod","2024","978-2-100-67890-2","français","280","docker, devops, containers","Déployez vos applications avec Docker","disponible","0"
+"Sécurité Web","005.8 SEC","livre","Claire Dubois","O'Reilly","2023","978-1-491-67890-3","français","420","sécurité, web, hacking","Protégez vos applications web","disponible","0"
+"Dictionnaire Informatique","R.004 DIC","dictionnaire","Collectif","Larousse","2022","978-2-035-12345-4","français","650","dictionnaire, référence, informatique","Dictionnaire de référence des termes informatiques","disponible","1"
