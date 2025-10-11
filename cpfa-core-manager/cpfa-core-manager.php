@@ -98,6 +98,9 @@ final class CPFA_Core_Manager {
 
 		// Library Manager.
 		require_once CPFA_CORE_PLUGIN_DIR . 'includes/class-library-manager.php';
+
+		// Ajax Handler.
+		require_once CPFA_CORE_PLUGIN_DIR . 'includes/class-ajax-handler.php';
 	}
 
 	/**
@@ -234,6 +237,9 @@ final class CPFA_Core_Manager {
 
 		// Initialize Library Manager.
 		new Cpfa\Core\Library_Manager();
+
+		// Initialize Ajax Handler.
+		new Cpfa\Core\Ajax_Handler();
 	}
 
 	/**

@@ -13,7 +13,9 @@
       "Bash(do)",
       "Bash(done)",
       "Bash(touch:*)",
-      "Bash(composer install:*)"
+      "Bash(composer install:*)",
+      "Bash(do sed -i \"s/''show_in_menu''.*=>.*''cpfa-dashboard''/''show_in_menu''        => ''cpfa-library''/g\" \"$file\")",
+      "Bash(php:*)"
     ],
     "deny": [],
     "ask": []

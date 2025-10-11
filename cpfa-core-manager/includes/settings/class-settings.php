@@ -21,7 +21,7 @@ class Settings {
 	 * Constructor.
 	 */
 	public function __construct() {
-		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
+		add_action( 'admin_menu', array( $this, 'add_admin_menu' ), 200 );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_media' ) );
 	}
@@ -30,22 +30,14 @@ class Settings {
 	 * Add admin menu.
 	 */
 	public function add_admin_menu() {
-		// Main CPFA menu.
-		add_menu_page(
-			__( 'CPFA', 'cpfa-core' ),
-			__( 'CPFA', 'cpfa-core' ),
-			'manage_options',
-			'cpfa-dashboard',
-			array( $this, 'render_dashboard_page' ),
-			'dashicons-book-alt',
-			20
-		);
+		// Note: The main menu is created by Library_Manager with priority 6.
+		// We just add the settings submenus here.
 
 		// General settings.
 		add_submenu_page(
-			'cpfa-dashboard',
+			'cpfa-library',
 			__( 'Réglages généraux', 'cpfa-core' ),
-			__( 'Réglages généraux', 'cpfa-core' ),
+			__( '⚙️ Réglages généraux', 'cpfa-core' ),
 			'manage_options',
 			'cpfa-general-settings',
 			array( $this, 'render_general_settings_page' )
@@ -53,9 +45,9 @@ class Settings {
 
 		// Library settings.
 		add_submenu_page(
-			'cpfa-dashboard',
-			__( 'Bibliothèque', 'cpfa-core' ),
-			__( 'Bibliothèque', 'cpfa-core' ),
+			'cpfa-library',
+			__( 'Réglages Bibliothèque', 'cpfa-core' ),
+			__( '📚 Réglages Bibliothèque', 'cpfa-core' ),
 			'manage_options',
 			'cpfa-library-settings',
 			array( $this, 'render_library_settings_page' )
@@ -63,9 +55,9 @@ class Settings {
 
 		// Payment settings.
 		add_submenu_page(
-			'cpfa-dashboard',
-			__( 'Paiements', 'cpfa-core' ),
-			__( 'Paiements', 'cpfa-core' ),
+			'cpfa-library',
+			__( 'Réglages Paiements', 'cpfa-core' ),
+			__( '💳 Réglages Paiements', 'cpfa-core' ),
 			'manage_options',
 			'cpfa-payment-settings',
 			array( $this, 'render_payment_settings_page' )
@@ -73,9 +65,9 @@ class Settings {
 
 		// PDF & QR settings.
 		add_submenu_page(
-			'cpfa-dashboard',
+			'cpfa-library',
 			__( 'PDF & QR', 'cpfa-core' ),
-			__( 'PDF & QR', 'cpfa-core' ),
+			__( '📄 PDF & QR', 'cpfa-core' ),
 			'manage_options',
 			'cpfa-pdf-settings',
 			array( $this, 'render_pdf_settings_page' )

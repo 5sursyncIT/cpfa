@@ -44,7 +44,7 @@ class Settings_Page {
 	 * Initialize hooks.
 	 */
 	private function init_hooks() {
-		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
+		add_action( 'admin_menu', array( $this, 'add_settings_page' ), 210 );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 	}
 
@@ -53,11 +53,11 @@ class Settings_Page {
 	 */
 	public function add_settings_page() {
 		add_submenu_page(
-			'cpfa-core',
+			'cpfa-library',
 			__( 'Réglages Paiements', 'cpfa-forms' ),
-			__( 'Paiements', 'cpfa-forms' ),
+			__( '💳 Réglages Paiements', 'cpfa-forms' ),
 			'manage_options',
-			'cpfa-payment-settings',
+			'cpfa-payment-settings-forms',
 			array( $this, 'render_settings_page' )
 		);
 	}

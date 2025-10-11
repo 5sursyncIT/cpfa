@@ -47,7 +47,7 @@ class Emprunt {
 			'public'              => false,
 			'publicly_queryable'  => false,
 			'show_ui'             => true,
-			'show_in_menu'        => 'cpfa-dashboard',
+			'show_in_menu'        => 'cpfa-library',
 			'show_in_rest'        => true,
 			'rest_base'           => 'emprunts',
 			'query_var'           => true,

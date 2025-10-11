@@ -48,7 +48,7 @@ class Ressource {
 			'public'              => true,
 			'publicly_queryable'  => true,
 			'show_ui'             => true,
-			'show_in_menu'        => 'cpfa-dashboard',
+			'show_in_menu'        => 'cpfa-library',
 			'show_in_rest'        => true,
 			'rest_base'           => 'ressources',
 			'query_var'           => true,

@@ -278,6 +278,107 @@ class Catalogue_Widget extends Widget_Base {
 			)
 		);
 
+		$this->add_control(
+			'show_reserve_button',
+			array(
+				'label'        => __( 'Afficher le bouton "Réserver" (ressources)', 'cpfa-core' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'label_on'     => __( 'Oui', 'cpfa-core' ),
+				'label_off'    => __( 'Non', 'cpfa-core' ),
+				'return_value' => 'yes',
+				'default'      => 'yes',
+				'description'  => __( 'Affiche un bouton de réservation pour les ressources de la bibliothèque', 'cpfa-core' ),
+			)
+		);
+
+		$this->add_control(
+			'reserve_button_text',
+			array(
+				'label'     => __( 'Texte du bouton réserver', 'cpfa-core' ),
+				'type'      => Controls_Manager::TEXT,
+				'default'   => __( 'Réserver', 'cpfa-core' ),
+				'condition' => array(
+					'show_reserve_button' => 'yes',
+				),
+			)
+		);
+
+		$this->end_controls_section();
+
+		// Style des boutons Section
+		$this->start_controls_section(
+			'button_style_section',
+			array(
+				'label' => __( 'Style des boutons', 'cpfa-core' ),
+				'tab'   => Controls_Manager::TAB_STYLE,
+			)
+		);
+
+		$this->add_control(
+			'button_style',
+			array(
+				'label'   => __( 'Variante', 'cpfa-core' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'filled'  => __( 'Plein', 'cpfa-core' ),
+					'outline' => __( 'Contour', 'cpfa-core' ),
+				),
+				'default' => 'filled',
+			)
+		);
+
+		$this->add_control(
+			'button_shape',
+			array(
+				'label'   => __( 'Forme', 'cpfa-core' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'default' => __( 'Par défaut', 'cpfa-core' ),
+					'rounded' => __( 'Arrondi', 'cpfa-core' ),
+					'square'  => __( 'Carré', 'cpfa-core' ),
+				),
+				'default' => 'default',
+			)
+		);
+
+		$this->add_control(
+			'button_align',
+			array(
+				'label'   => __( 'Alignement', 'cpfa-core' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => array(
+					'stretch' => __( 'Pleine largeur', 'cpfa-core' ),
+					'left'    => __( 'Gauche', 'cpfa-core' ),
+					'center'  => __( 'Centre', 'cpfa-core' ),
+					'right'   => __( 'Droite', 'cpfa-core' ),
+				),
+				'default' => 'stretch',
+			)
+		);
+
+		$this->add_control(
+			'button_spacing',
+			array(
+				'label'      => __( 'Espacement entre boutons', 'cpfa-core' ),
+				'type'       => Controls_Manager::SLIDER,
+				'size_units' => array( 'px' ),
+				'range'      => array(
+					'px' => array(
+						'min'  => 0,
+						'max'  => 30,
+						'step' => 1,
+					),
+				),
+				'default'    => array(
+					'unit' => 'px',
+					'size' => 12,
+				),
+				'selectors'  => array(
+					'{{WRAPPER}} .cpfa-item-actions' => 'gap: {{SIZE}}{{UNIT}};',
+				),
+			)
+		);
+
 		$this->end_controls_section();
 
 		// Filter Options Section
@@ -572,9 +673,12 @@ class Catalogue_Widget extends Widget_Base {
 		$image_ratio_class = ! empty( $settings['image_ratio'] ) ? ' cpfa-ratio-' . $settings['image_ratio'] : '';
 		$filter_style_class = 'yes' === $settings['show_filters'] ? ' cpfa-filter-' . $settings['filter_style'] : '';
 		$pagination_class = 'yes' === $settings['enable_ajax'] ? ' cpfa-pagination-' . $settings['pagination_type'] : '';
+		$button_style_class = ! empty( $settings['button_style'] ) ? ' cpfa-button-style-' . $settings['button_style'] : '';
+		$button_shape_class = ! empty( $settings['button_shape'] ) && 'default' !== $settings['button_shape'] ? ' cpfa-button-style-' . $settings['button_shape'] : '';
+		$button_align_class = ! empty( $settings['button_align'] ) ? ' cpfa-button-align-' . $settings['button_align'] : '';
 
 		?>
-		<div class="cpfa-catalogue-widget cpfa-layout-<?php echo esc_attr( $settings['layout'] ); ?><?php echo esc_attr( $image_ratio_class ); ?><?php echo esc_attr( $filter_style_class ); ?><?php echo esc_attr( $pagination_class ); ?>" data-settings="<?php echo esc_attr( wp_json_encode( $settings ) ); ?>">
+		<div class="cpfa-catalogue-widget cpfa-layout-<?php echo esc_attr( $settings['layout'] ); ?><?php echo esc_attr( $image_ratio_class ); ?><?php echo esc_attr( $filter_style_class ); ?><?php echo esc_attr( $pagination_class ); ?><?php echo esc_attr( $button_style_class ); ?><?php echo esc_attr( $button_shape_class ); ?><?php echo esc_attr( $button_align_class ); ?>" data-settings="<?php echo esc_attr( wp_json_encode( $settings ) ); ?>">
 
 			<?php if ( 'yes' === $settings['show_filters'] ) : ?>
 				<div class="cpfa-catalogue-filters cpfa-filter-style-<?php echo esc_attr( $settings['filter_style'] ); ?>">
@@ -750,15 +854,74 @@ class Catalogue_Widget extends Widget_Base {
 					</div>
 				<?php endif; ?>
 
-				<?php if ( 'yes' === $settings['show_read_more'] ) : ?>
+				<div class="cpfa-item-actions">
+					<?php if ( 'yes' === $settings['show_read_more'] ) : ?>
+						<?php
+						$read_more_text = ! empty( $settings['read_more_text'] ) ? $settings['read_more_text'] : __( 'En savoir plus', 'cpfa-core' );
+						?>
+						<a href="<?php the_permalink(); ?>" class="cpfa-item-link">
+							<?php echo esc_html( $read_more_text ); ?>
+							<span class="cpfa-link-arrow">→</span>
+						</a>
+					<?php endif; ?>
+
 					<?php
-					$read_more_text = ! empty( $settings['read_more_text'] ) ? $settings['read_more_text'] : __( 'En savoir plus', 'cpfa-core' );
+					// Bouton de réservation pour les ressources de la bibliothèque
+					if ( 'cpfa_ressource' === $post_type && 'yes' === $settings['show_reserve_button'] ) :
+					// Vérifier la disponibilité de la ressource
+					$is_excluded = get_post_meta( get_the_ID(), '_cpfa_ressource_exclu_pret', true );
+					$is_available = true; // Par défaut disponible
+
+					// Vérifier s'il y a un emprunt en cours pour cette ressource
+					$args = array(
+						'post_type'      => 'cpfa_emprunt',
+						'posts_per_page' => 1,
+						'meta_query'     => array(
+							array(
+								'key'     => '_cpfa_emprunt_ressource_id',
+								'value'   => get_the_ID(),
+								'compare' => '=',
+							),
+							array(
+								'key'     => '_cpfa_emprunt_statut',
+								'value'   => 'en_cours',
+								'compare' => '=',
+							),
+						),
+					);
+					$loan_query = new \WP_Query( $args );
+					if ( $loan_query->have_posts() ) {
+						$is_available = false;
+					}
+					wp_reset_postdata();
+
+					$reserve_text = ! empty( $settings['reserve_button_text'] ) ? $settings['reserve_button_text'] : __( 'Réserver', 'cpfa-core' );
+
+					// Ne pas afficher le bouton si la ressource est exclue du prêt
+					if ( 'oui' !== $is_excluded ) :
+						if ( $is_available ) :
+							?>
+							<button class="cpfa-reserve-button cpfa-reserve-available"
+									data-resource-id="<?php echo esc_attr( get_the_ID() ); ?>"
+									data-resource-title="<?php echo esc_attr( get_the_title() ); ?>">
+								<span class="cpfa-reserve-icon">📖</span>
+								<?php echo esc_html( $reserve_text ); ?>
+							</button>
+						<?php else : ?>
+							<button class="cpfa-reserve-button cpfa-reserve-unavailable" disabled>
+								<span class="cpfa-reserve-icon">⏱️</span>
+								<?php echo esc_html__( 'Non disponible', 'cpfa-core' ); ?>
+							</button>
+						<?php endif; ?>
+					<?php else : ?>
+						<span class="cpfa-reserve-excluded">
+							<?php echo esc_html__( 'Consultation sur place uniquement', 'cpfa-core' ); ?>
+						</span>
+					<?php
+					endif;
+				endif;
 					?>
-					<a href="<?php the_permalink(); ?>" class="cpfa-item-link">
-						<?php echo esc_html( $read_more_text ); ?>
-						<span class="cpfa-link-arrow">→</span>
-					</a>
-				<?php endif; ?>
+				</div>
 			</div>
 		</div>
 		<?php

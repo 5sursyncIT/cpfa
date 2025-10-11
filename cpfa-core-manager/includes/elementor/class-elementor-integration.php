@@ -91,9 +91,11 @@ class Elementor_Integration {
 			'cpfa-elementor-widgets',
 			'cpfaElementor',
 			array(
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'restUrl' => rest_url( 'cpfa/v1' ),
-				'nonce'   => wp_create_nonce( 'cpfa-elementor-nonce' ),
+				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+				'restUrl'        => rest_url( 'cpfa/v1' ),
+				'nonce'          => wp_create_nonce( 'cpfa-elementor-widgets' ),
+				'isUserLoggedIn' => is_user_logged_in(),
+				'loginUrl'       => wp_login_url( get_permalink() ),
 			)
 		);
 	}

@@ -44,7 +44,7 @@ class Preinscriptions_Page {
 	 * Initialize hooks.
 	 */
 	private function init_hooks() {
-		add_action( 'admin_menu', array( $this, 'add_admin_page' ) );
+		add_action( 'admin_menu', array( $this, 'add_admin_page' ), 100 );
 	}
 
 	/**
@@ -52,9 +52,9 @@ class Preinscriptions_Page {
 	 */
 	public function add_admin_page() {
 		add_submenu_page(
-			'cpfa-core',
+			'cpfa-library',
 			__( 'Préinscriptions en attente', 'cpfa-forms' ),
-			__( 'Préinscriptions', 'cpfa-forms' ),
+			__( '📋 Préinscriptions', 'cpfa-forms' ),
 			'manage_options',
 			'cpfa-preinscriptions',
 			array( $this, 'render_page' )

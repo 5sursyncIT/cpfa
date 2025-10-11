@@ -108,6 +108,7 @@
     display: flex;
     flex-direction: column;
     flex: 1;
+    gap: 0.75rem;
 }
 
 .cpfa-item-title {
@@ -161,8 +162,18 @@
     font-size: 0.85rem;
 }
 
+.cpfa-item-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: auto;
+    padding-top: 1rem;
+}
+
 .cpfa-item-link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: var(--cpfa-primary);
     color: white;
     padding: 0.75rem 1.5rem;
@@ -171,7 +182,8 @@
     transition: var(--cpfa-transition);
     font-weight: 500;
     text-align: center;
-    align-self: flex-start;
+    width: 100%;
+    gap: 0.5rem;
 }
 
 .cpfa-item-link:hover {
@@ -790,5 +802,154 @@
 
     .cpfa-library-widget.layout-list .library-item {
         flex-direction: column;
+    }
+}
+
+/* ========================================
+   Bouton de Réservation
+   ======================================== */
+.cpfa-reserve-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: var(--cpfa-border-radius);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--cpfa-transition);
+    text-decoration: none;
+    font-family: inherit;
+    width: 100%;
+}
+
+.cpfa-reserve-button.cpfa-reserve-available {
+    background: var(--cpfa-accent);
+    color: white;
+    border: 2px solid var(--cpfa-accent);
+}
+
+.cpfa-reserve-button.cpfa-reserve-available:hover {
+    background: #218838;
+    border-color: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.cpfa-reserve-button.cpfa-reserve-available:active {
+    transform: translateY(0);
+}
+
+.cpfa-reserve-button.cpfa-reserve-unavailable {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+    border: 2px solid #e0e0e0;
+}
+
+.cpfa-reserve-button .cpfa-reserve-icon {
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+.cpfa-reserve-excluded {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    background: #fff3cd;
+    color: #856404;
+    border: 2px solid #ffc107;
+    border-radius: var(--cpfa-border-radius);
+    font-size: 0.85rem;
+    font-weight: 500;
+    width: 100%;
+    text-align: center;
+}
+
+/* Animation du bouton lors du clic */
+.cpfa-reserve-button.processing {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.cpfa-reserve-button.processing .cpfa-reserve-icon {
+    animation: cpfa-pulse 1s infinite;
+}
+
+/* État de succès */
+.cpfa-reserve-button.success {
+    background: var(--cpfa-accent);
+    animation: cpfa-success-flash 0.5s;
+}
+
+@keyframes cpfa-success-flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Variantes de style des boutons */
+.cpfa-button-style-outline .cpfa-item-link {
+    background: transparent;
+    color: var(--cpfa-primary);
+    border: 2px solid var(--cpfa-primary);
+}
+
+.cpfa-button-style-outline .cpfa-item-link:hover {
+    background: var(--cpfa-primary);
+    color: white;
+}
+
+.cpfa-button-style-outline .cpfa-reserve-button.cpfa-reserve-available {
+    background: transparent;
+    color: var(--cpfa-accent);
+    border: 2px solid var(--cpfa-accent);
+}
+
+.cpfa-button-style-outline .cpfa-reserve-button.cpfa-reserve-available:hover {
+    background: var(--cpfa-accent);
+    color: white;
+}
+
+.cpfa-button-style-rounded .cpfa-item-link,
+.cpfa-button-style-rounded .cpfa-reserve-button {
+    border-radius: 50px;
+}
+
+.cpfa-button-style-square .cpfa-item-link,
+.cpfa-button-style-square .cpfa-reserve-button {
+    border-radius: 4px;
+}
+
+/* Alignement des boutons */
+.cpfa-button-align-left .cpfa-item-actions {
+    align-items: flex-start;
+}
+
+.cpfa-button-align-center .cpfa-item-actions {
+    align-items: center;
+}
+
+.cpfa-button-align-right .cpfa-item-actions {
+    align-items: flex-end;
+}
+
+.cpfa-button-align-stretch .cpfa-item-link,
+.cpfa-button-align-stretch .cpfa-reserve-button {
+    width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .cpfa-reserve-button,
+    .cpfa-item-link {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .cpfa-item-actions {
+        align-items: stretch;
     }
 }

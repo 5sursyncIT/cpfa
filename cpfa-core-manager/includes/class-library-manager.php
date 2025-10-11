@@ -23,7 +23,7 @@ class Library_Manager {
 	 * Constructor.
 	 */
 	public function __construct() {
-		add_action( 'admin_menu', array( $this, 'add_menu_pages' ) );
+		add_action( 'admin_menu', array( $this, 'add_menu_pages' ), 6 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 
 		// Ajax handlers.
@@ -38,20 +38,31 @@ class Library_Manager {
 	 * Add admin menu pages.
 	 */
 	public function add_menu_pages() {
+		// Create main CPFA menu with library dashboard.
 		add_menu_page(
-			__( 'Bibliothèque', 'cpfa-core' ),
-			__( 'Bibliothèque', 'cpfa-core' ),
+			__( 'CPFA', 'cpfa-core' ),
+			__( 'CPFA', 'cpfa-core' ),
 			'manage_cpfa_biblio',
 			'cpfa-library',
 			array( $this, 'render_library_page' ),
-			'dashicons-book',
-			30
+			'dashicons-book-alt',
+			20
+		);
+
+		// Add first submenu with same slug to rename it.
+		add_submenu_page(
+			'cpfa-library',
+			__( 'Gestion de la Bibliothèque', 'cpfa-core' ),
+			__( '📚 Gestion Bibliothèque', 'cpfa-core' ),
+			'manage_cpfa_biblio',
+			'cpfa-library',
+			array( $this, 'render_library_page' )
 		);
 
 		add_submenu_page(
 			'cpfa-library',
 			__( 'Emprunter', 'cpfa-core' ),
-			__( 'Emprunter', 'cpfa-core' ),
+			__( '➕ Emprunter', 'cpfa-core' ),
 			'manage_cpfa_biblio',
 			'cpfa-library-checkout',
 			array( $this, 'render_checkout_page' )
@@ -60,7 +71,7 @@ class Library_Manager {
 		add_submenu_page(
 			'cpfa-library',
 			__( 'Retours', 'cpfa-core' ),
-			__( 'Retours', 'cpfa-core' ),
+			__( '↩️ Retours', 'cpfa-core' ),
 			'manage_cpfa_biblio',
 			'cpfa-library-return',
 			array( $this, 'render_return_page' )
@@ -69,7 +80,7 @@ class Library_Manager {
 		add_submenu_page(
 			'cpfa-library',
 			__( 'Pénalités', 'cpfa-core' ),
-			__( 'Pénalités', 'cpfa-core' ),
+			__( '💰 Pénalités', 'cpfa-core' ),
 			'manage_cpfa_biblio',
 			'cpfa-library-penalties',
 			array( $this, 'render_penalties_page' )

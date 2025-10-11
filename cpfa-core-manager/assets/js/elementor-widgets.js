@@ -20,6 +20,7 @@
             this.initSearchWidget();
             this.initStatsWidget();
             this.initUpcomingEventsWidget();
+            this.initReserveButton();
         },
 
         /**
@@ -337,6 +338,76 @@
             }
 
             $countdown.text('Dans ' + text);
+        },
+
+        /**
+         * Initialize Reserve Button
+         */
+        initReserveButton: function() {
+            $(document).on('click', '.cpfa-reserve-button.cpfa-reserve-available', function(e) {
+                e.preventDefault();
+
+                var $btn = $(this);
+                var resourceId = $btn.data('resource-id');
+                var resourceTitle = $btn.data('resource-title');
+
+                // Vérifier si l'utilisateur est connecté
+                if (typeof cpfaElementor === 'undefined' || !cpfaElementor.isUserLoggedIn) {
+                    alert('Vous devez être connecté pour réserver une ressource.');
+                    // Rediriger vers la page de connexion
+                    window.location.href = cpfaElementor.loginUrl || '/wp-login.php';
+                    return;
+                }
+
+                // Demander confirmation
+                if (!confirm('Voulez-vous réserver "' + resourceTitle + '" ?')) {
+                    return;
+                }
+
+                // Envoyer la demande de réservation via Ajax
+                $.ajax({
+                    url: cpfaElementor.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'cpfa_reserve_resource',
+                        resource_id: resourceId,
+                        nonce: cpfaElementor.nonce
+                    },
+                    beforeSend: function() {
+                        $btn.addClass('processing').prop('disabled', true);
+                        $btn.find('.cpfa-reserve-icon').text('⏳');
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Succès
+                            $btn.removeClass('processing cpfa-reserve-available')
+                                .addClass('success cpfa-reserve-unavailable')
+                                .prop('disabled', true);
+                            $btn.find('.cpfa-reserve-icon').text('✅');
+                            $btn.html($btn.html().replace(/Réserver/, 'Réservé'));
+
+                            // Afficher un message de succès
+                            alert(response.data.message || 'Réservation effectuée avec succès !');
+
+                            // Optionnel: recharger la page après 2 secondes
+                            setTimeout(function() {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            // Erreur
+                            $btn.removeClass('processing');
+                            $btn.find('.cpfa-reserve-icon').text('📖');
+                            alert(response.data.message || 'Une erreur est survenue lors de la réservation.');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $btn.removeClass('processing');
+                        $btn.find('.cpfa-reserve-icon').text('📖');
+                        alert('Erreur de connexion. Veuillez réessayer.');
+                        console.error('CPFA Reserve Error:', error);
+                    }
+                });
+            });
         },
 
         /**
