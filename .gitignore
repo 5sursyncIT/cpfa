@@ -97,3 +97,11 @@ cpfa-*/tmp/
 
 # Exclude specific test files
 test-phase1-implementation.php
+
+# Documentation temporaire et fichiers de développement
+AMELIORATIONS_*.md
+BOUTON_*.md
+GUIDE_STYLES_*.md
+MENU_STRUCTURE.md
+*_TEMP.md
+*_DEV.md
