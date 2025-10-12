@@ -9,6 +9,9 @@
 
 namespace Cpfa\Core;
 
+use Cpfa\Core\Services\Cache_Service;
+use Cpfa\Core\Services\DB_Transaction;
+
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -32,6 +35,7 @@ class Library_Manager {
 		add_action( 'wp_ajax_cpfa_search_subscriber', array( $this, 'ajax_search_subscriber' ) );
 		add_action( 'wp_ajax_cpfa_search_resource', array( $this, 'ajax_search_resource' ) );
 		add_action( 'wp_ajax_cpfa_mark_penalty_paid', array( $this, 'ajax_mark_penalty_paid' ) );
+		add_action( 'wp_ajax_cpfa_refresh_stats', array( $this, 'ajax_refresh_stats' ) );
 	}
 
 	/**
@@ -49,41 +53,24 @@ class Library_Manager {
 			20
 		);
 
-		// Add first submenu with same slug to rename it.
+		// Dashboard principal
 		add_submenu_page(
 			'cpfa-library',
-			__( 'Gestion de la Bibliothèque', 'cpfa-core' ),
-			__( '📚 Gestion Bibliothèque', 'cpfa-core' ),
+			__( 'Tableau de bord', 'cpfa-core' ),
+			__( '📊 Tableau de bord', 'cpfa-core' ),
 			'manage_cpfa_biblio',
 			'cpfa-library',
 			array( $this, 'render_library_page' )
 		);
 
+		// === Gestion Bibliothèque (Operations quotidiennes) ===
 		add_submenu_page(
 			'cpfa-library',
-			__( 'Emprunter', 'cpfa-core' ),
-			__( '➕ Emprunter', 'cpfa-core' ),
+			__( 'Gestion Bibliothèque', 'cpfa-core' ),
+			__( '📚 Gestion Bibliothèque', 'cpfa-core' ),
 			'manage_cpfa_biblio',
-			'cpfa-library-checkout',
-			array( $this, 'render_checkout_page' )
-		);
-
-		add_submenu_page(
-			'cpfa-library',
-			__( 'Retours', 'cpfa-core' ),
-			__( '↩️ Retours', 'cpfa-core' ),
-			'manage_cpfa_biblio',
-			'cpfa-library-return',
-			array( $this, 'render_return_page' )
-		);
-
-		add_submenu_page(
-			'cpfa-library',
-			__( 'Pénalités', 'cpfa-core' ),
-			__( '💰 Pénalités', 'cpfa-core' ),
-			'manage_cpfa_biblio',
-			'cpfa-library-penalties',
-			array( $this, 'render_penalties_page' )
+			'cpfa-library-operations',
+			array( $this, 'render_operations_page' )
 		);
 	}
 
@@ -97,17 +84,33 @@ class Library_Manager {
 			return;
 		}
 
+		// Enqueue Select2 for better autocomplete.
+		wp_enqueue_style(
+			'select2',
+			'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css',
+			array(),
+			'4.1.0'
+		);
+
 		wp_enqueue_style(
 			'cpfa-library-manager',
 			CPFA_CORE_PLUGIN_URL . 'assets/css/library-manager.css',
-			array(),
+			array( 'select2' ),
 			CPFA_CORE_VERSION
+		);
+
+		wp_enqueue_script(
+			'select2',
+			'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js',
+			array( 'jquery' ),
+			'4.1.0',
+			true
 		);
 
 		wp_enqueue_script(
 			'cpfa-library-manager',
 			CPFA_CORE_PLUGIN_URL . 'assets/js/library-manager.js',
-			array( 'jquery', 'jquery-ui-autocomplete' ),
+			array( 'jquery', 'select2' ),
 			CPFA_CORE_VERSION,
 			true
 		);
@@ -132,7 +135,7 @@ class Library_Manager {
 	}
 
 	/**
-	 * Render main library page.
+	 * Render main library page (Dashboard).
 	 */
 	public function render_library_page() {
 		if ( ! current_user_can( 'manage_cpfa_biblio' ) ) {
@@ -146,42 +149,59 @@ class Library_Manager {
 	}
 
 	/**
-	 * Render checkout page.
+	 * Render operations page (Emprunter, Retours, Pénalités).
 	 */
-	public function render_checkout_page() {
+	public function render_operations_page() {
 		if ( ! current_user_can( 'manage_cpfa_biblio' ) ) {
 			wp_die( esc_html__( 'Accès non autorisé.', 'cpfa-core' ) );
 		}
 
-		include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-checkout.php';
-	}
-
-	/**
-	 * Render return page.
-	 */
-	public function render_return_page() {
-		if ( ! current_user_can( 'manage_cpfa_biblio' ) ) {
-			wp_die( esc_html__( 'Accès non autorisé.', 'cpfa-core' ) );
-		}
-
-		// Get active loans.
+		// Get active loans for returns
 		$active_loans = $this->get_active_loans();
 
-		include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-return.php';
-	}
-
-	/**
-	 * Render penalties page.
-	 */
-	public function render_penalties_page() {
-		if ( ! current_user_can( 'manage_cpfa_biblio' ) ) {
-			wp_die( esc_html__( 'Accès non autorisé.', 'cpfa-core' ) );
-		}
-
-		// Get loans with penalties.
+		// Get loans with penalties
 		$loans_with_penalties = $this->get_loans_with_penalties();
 
-		include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-penalties.php';
+		?>
+		<div class="wrap cpfa-operations-page">
+			<h1><?php esc_html_e( 'Gestion Bibliothèque', 'cpfa-core' ); ?></h1>
+
+			<div class="cpfa-operations-tabs">
+				<nav class="nav-tab-wrapper">
+					<a href="#checkout" class="nav-tab nav-tab-active"><?php esc_html_e( '➕ Emprunter', 'cpfa-core' ); ?></a>
+					<a href="#return" class="nav-tab"><?php esc_html_e( '↩️ Retours', 'cpfa-core' ); ?></a>
+					<a href="#penalties" class="nav-tab"><?php esc_html_e( '💰 Pénalités', 'cpfa-core' ); ?></a>
+				</nav>
+
+				<div id="checkout" class="cpfa-tab-content cpfa-tab-active">
+					<?php include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-checkout.php'; ?>
+				</div>
+
+				<div id="return" class="cpfa-tab-content" style="display: none;">
+					<?php include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-return.php'; ?>
+				</div>
+
+				<div id="penalties" class="cpfa-tab-content" style="display: none;">
+					<?php include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-penalties.php'; ?>
+				</div>
+			</div>
+
+			<script>
+			jQuery(document).ready(function($) {
+				$('.nav-tab').on('click', function(e) {
+					e.preventDefault();
+					var target = $(this).attr('href');
+
+					$('.nav-tab').removeClass('nav-tab-active');
+					$(this).addClass('nav-tab-active');
+
+					$('.cpfa-tab-content').hide().removeClass('cpfa-tab-active');
+					$(target).show().addClass('cpfa-tab-active');
+				});
+			});
+			</script>
+		</div>
+		<?php
 	}
 
 	/**
@@ -190,16 +210,21 @@ class Library_Manager {
 	 * @return array Statistics.
 	 */
 	private function get_library_stats() {
-		$stats = array(
-			'total_resources'     => wp_count_posts( 'cpfa_ressource' )->publish ?? 0,
-			'active_subscribers'  => $this->count_active_subscribers(),
-			'active_loans'        => $this->count_active_loans(),
-			'overdue_loans'       => $this->count_overdue_loans(),
-			'total_penalties'     => $this->calculate_total_penalties(),
-			'available_resources' => $this->count_available_resources(),
+		// Use cache with 5 minutes duration.
+		return Cache_Service::remember(
+			'library_stats',
+			function () {
+				return array(
+					'total_resources'     => wp_count_posts( 'cpfa_ressource' )->publish ?? 0,
+					'active_subscribers'  => $this->count_active_subscribers(),
+					'active_loans'        => $this->count_active_loans(),
+					'overdue_loans'       => $this->count_overdue_loans(),
+					'total_penalties'     => $this->calculate_total_penalties(),
+					'available_resources' => $this->count_available_resources(),
+				);
+			},
+			5 * MINUTE_IN_SECONDS
 		);
-
-		return $stats;
 	}
 
 	/**
@@ -576,7 +601,7 @@ class Library_Manager {
 			'posts_per_page' => 1,
 			'meta_query'     => array(
 				array(
-					'key'     => '_cpfa_emprunt_abonne',
+					'key'     => '_cpfa_emprunt_abonne_id',
 					'value'   => $subscriber_id,
 					'compare' => '=',
 				),
@@ -607,38 +632,59 @@ class Library_Manager {
 	 * @return int|false Loan ID or false.
 	 */
 	private function create_loan( $subscriber_id, $resource_id ) {
-		$date_emprunt       = gmdate( 'Y-m-d' );
-		$date_retour_prevue = gmdate( 'Y-m-d', strtotime( '+30 days' ) );
+		// Use transaction for data integrity.
+		$result = DB_Transaction::safe_execute(
+			function () use ( $subscriber_id, $resource_id ) {
+				$date_emprunt       = gmdate( 'Y-m-d' );
+				$date_retour_prevue = gmdate( 'Y-m-d', strtotime( '+30 days' ) );
 
-		$subscriber_name = get_post_meta( $subscriber_id, '_cpfa_abonnement_nom', true );
-		$resource_title  = get_the_title( $resource_id );
+				$subscriber_name = get_post_meta( $subscriber_id, '_cpfa_abonnement_nom', true );
+				$resource_title  = get_the_title( $resource_id );
 
-		$loan_id = wp_insert_post(
-			array(
-				'post_type'   => 'cpfa_emprunt',
-				'post_title'  => sprintf( '%s - %s', $subscriber_name, $resource_title ),
-				'post_status' => 'publish',
-			)
+				$loan_id = wp_insert_post(
+					array(
+						'post_type'   => 'cpfa_emprunt',
+						'post_title'  => sprintf( '%s - %s', $subscriber_name, $resource_title ),
+						'post_status' => 'publish',
+					)
+				);
+
+				if ( ! $loan_id || is_wp_error( $loan_id ) ) {
+					throw new \Exception( 'Failed to create loan post' );
+				}
+
+				// Update loan metadata.
+				update_post_meta( $loan_id, '_cpfa_emprunt_abonne_id', $subscriber_id );
+				update_post_meta( $loan_id, '_cpfa_emprunt_ressource_id', $resource_id );
+				update_post_meta( $loan_id, '_cpfa_emprunt_date_emprunt', $date_emprunt );
+				update_post_meta( $loan_id, '_cpfa_emprunt_date_retour_prevue', $date_retour_prevue );
+				update_post_meta( $loan_id, '_cpfa_emprunt_statut', 'en_cours' );
+				update_post_meta( $loan_id, '_cpfa_emprunt_penalite', 0 );
+
+				// Update resource status.
+				$updated = update_post_meta( $resource_id, '_cpfa_ressource_statut_emprunt', 'emprunte' );
+
+				if ( false === $updated ) {
+					throw new \Exception( 'Failed to update resource status' );
+				}
+
+				// Invalidate cache.
+				Cache_Service::delete( 'library_stats' );
+				Cache_Service::flush_pattern( 'active_loans*' );
+
+				return $loan_id;
+			}
 		);
 
-		if ( $loan_id ) {
-			update_post_meta( $loan_id, '_cpfa_emprunt_abonne', $subscriber_id );
-			update_post_meta( $loan_id, '_cpfa_emprunt_ressource', $resource_id );
-			update_post_meta( $loan_id, '_cpfa_emprunt_date_emprunt', $date_emprunt );
-			update_post_meta( $loan_id, '_cpfa_emprunt_date_retour_prevue', $date_retour_prevue );
-			update_post_meta( $loan_id, '_cpfa_emprunt_statut', 'en_cours' );
-			update_post_meta( $loan_id, '_cpfa_emprunt_penalite', 0 );
-
-			// Update resource status.
-			update_post_meta( $resource_id, '_cpfa_ressource_statut_emprunt', 'emprunte' );
-
-			// Send notification.
-			\Cpfa\Core\Services\Notification_Service::send_loan_confirmation( $loan_id );
-
-			return $loan_id;
+		if ( is_wp_error( $result ) ) {
+			error_log( 'CPFA Loan Creation Error: ' . $result->get_error_message() );
+			return false;
 		}
 
-		return false;
+		// Send notification outside of transaction (non-critical).
+		\Cpfa\Core\Services\Notification_Service::send_loan_confirmation( $result );
+
+		return $result;
 	}
 
 	/**
@@ -648,23 +694,48 @@ class Library_Manager {
 	 * @return array|false Result or false.
 	 */
 	private function process_return( $loan_id ) {
-		$date_retour_effective = gmdate( 'Y-m-d' );
-		$resource_id           = get_post_meta( $loan_id, '_cpfa_emprunt_ressource', true );
+		// Use transaction for data integrity.
+		$result = DB_Transaction::safe_execute(
+			function () use ( $loan_id ) {
+				$date_retour_effective = gmdate( 'Y-m-d' );
+				$resource_id           = get_post_meta( $loan_id, '_cpfa_emprunt_ressource_id', true );
 
-		// Calculate penalty.
-		$penalty = $this->calculate_loan_penalty( $loan_id );
+				if ( ! $resource_id ) {
+					throw new \Exception( 'Invalid resource ID for loan' );
+				}
 
-		// Update loan.
-		update_post_meta( $loan_id, '_cpfa_emprunt_date_retour_effective', $date_retour_effective );
-		update_post_meta( $loan_id, '_cpfa_emprunt_statut', 'termine' );
-		update_post_meta( $loan_id, '_cpfa_emprunt_penalite', $penalty );
+				// Calculate penalty.
+				$penalty = $this->calculate_loan_penalty( $loan_id );
 
-		// Update resource status.
-		update_post_meta( $resource_id, '_cpfa_ressource_statut_emprunt', 'disponible' );
+				// Update loan.
+				update_post_meta( $loan_id, '_cpfa_emprunt_date_retour_effective', $date_retour_effective );
+				update_post_meta( $loan_id, '_cpfa_emprunt_statut', 'termine' );
+				update_post_meta( $loan_id, '_cpfa_emprunt_penalite', $penalty );
 
-		return array(
-			'penalty' => $penalty,
+				// Update resource status.
+				$updated = update_post_meta( $resource_id, '_cpfa_ressource_statut_emprunt', 'disponible' );
+
+				if ( false === $updated ) {
+					throw new \Exception( 'Failed to update resource status' );
+				}
+
+				// Invalidate cache.
+				Cache_Service::delete( 'library_stats' );
+				Cache_Service::flush_pattern( 'active_loans*' );
+				Cache_Service::flush_pattern( 'loans_with_penalties*' );
+
+				return array(
+					'penalty' => $penalty,
+				);
+			}
 		);
+
+		if ( is_wp_error( $result ) ) {
+			error_log( 'CPFA Return Processing Error: ' . $result->get_error_message() );
+			return false;
+		}
+
+		return $result;
 	}
 
 	/**
@@ -720,5 +791,21 @@ class Library_Manager {
 				'message' => __( 'Pénalité marquée comme payée.', 'cpfa-core' ),
 			)
 		);
+	}
+
+	/**
+	 * Ajax handler for refreshing stats.
+	 */
+	public function ajax_refresh_stats() {
+		check_ajax_referer( 'cpfa-refresh-stats', 'nonce' );
+
+		if ( ! current_user_can( 'manage_cpfa_biblio' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Accès non autorisé.', 'cpfa-core' ) ) );
+		}
+
+		// Get fresh statistics
+		$stats = $this->get_library_stats();
+
+		wp_send_json_success( $stats );
 	}
 }

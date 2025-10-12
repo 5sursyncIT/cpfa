@@ -155,15 +155,18 @@ class Ajax_Handlers {
 		}
 
 		// Update status and metadata.
-		update_post_meta( $abonnement_id, '_cpfa_abonnement_statut', 'active' );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_statut', 'actif' );
+
+		// Invalidate stats cache.
+		delete_transient( 'cpfa_stats' );
 		update_post_meta( $abonnement_id, '_cpfa_abonnement_transaction_ref', $transaction_ref );
 		update_post_meta( $abonnement_id, '_cpfa_abonnement_gateway', $gateway );
 		update_post_meta( $abonnement_id, '_cpfa_abonnement_valide_par', get_current_user_id() );
 		update_post_meta( $abonnement_id, '_cpfa_abonnement_valide_le', current_time( 'mysql' ) );
 
-		// Set dates (1 year subscription).
+		// Set dates (1 month subscription).
 		$date_debut = current_time( 'Y-m-d' );
-		$date_fin   = gmdate( 'Y-m-d', strtotime( '+1 year', strtotime( $date_debut ) ) );
+		$date_fin   = gmdate( 'Y-m-d', strtotime( '+1 month', strtotime( $date_debut ) ) );
 		update_post_meta( $abonnement_id, '_cpfa_abonnement_date_debut', $date_debut );
 		update_post_meta( $abonnement_id, '_cpfa_abonnement_date_fin', $date_fin );
 

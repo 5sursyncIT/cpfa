@@ -116,7 +116,7 @@ class REST_API {
 		);
 
 		// Add extra info if active.
-		if ( 'active' === $statut ) {
+		if ( 'actif' === $statut ) {
 			$numero_carte = get_post_meta( $abonnement_id, '_cpfa_abonnement_numero_carte', true );
 			$date_debut   = get_post_meta( $abonnement_id, '_cpfa_abonnement_date_debut', true );
 			$date_fin     = get_post_meta( $abonnement_id, '_cpfa_abonnement_date_fin', true );
@@ -173,7 +173,7 @@ class REST_API {
 		$date_fin = get_post_meta( $abonnement->ID, '_cpfa_abonnement_date_fin', true );
 
 		// Check if active and not expired.
-		$is_active = ( 'active' === $statut );
+		$is_active = ( 'actif' === $statut );
 		$is_valid  = $is_active && strtotime( $date_fin ) >= time();
 
 		$type_labels = array(

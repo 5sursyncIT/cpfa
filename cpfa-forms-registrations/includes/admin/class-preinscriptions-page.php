@@ -114,7 +114,7 @@ class Preinscriptions_Page {
 							<option value="awaiting_validation" <?php selected( $status_filter, 'awaiting_validation' ); ?>>
 								<?php esc_html_e( 'En attente', 'cpfa-forms' ); ?>
 							</option>
-							<option value="active" <?php selected( $status_filter, 'active' ); ?>>
+							<option value="actif" <?php selected( $status_filter, 'actif' ); ?>>
 								<?php esc_html_e( 'Actif', 'cpfa-forms' ); ?>
 							</option>
 							<option value="rejected" <?php selected( $status_filter, 'rejected' ); ?>>
@@ -211,14 +211,14 @@ class Preinscriptions_Page {
 
 		$status_labels = array(
 			'awaiting_validation' => __( 'En attente', 'cpfa-forms' ),
-			'active'              => __( 'Actif', 'cpfa-forms' ),
+			'actif'               => __( 'Actif', 'cpfa-forms' ),
 			'rejected'            => __( 'Rejeté', 'cpfa-forms' ),
 			'expired'             => __( 'Expiré', 'cpfa-forms' ),
 		);
 
 		$status_classes = array(
 			'awaiting_validation' => 'awaiting',
-			'active'              => 'active',
+			'actif'               => 'active',
 			'rejected'            => 'rejected',
 			'expired'             => 'expired',
 		);
@@ -255,7 +255,7 @@ class Preinscriptions_Page {
 						</button>
 					<?php endif; ?>
 
-					<?php if ( 'active' === $statut ) : ?>
+					<?php if ( 'actif' === $statut ) : ?>
 						<?php
 						$carte_pdf_url = get_post_meta( $abonnement->ID, '_cpfa_carte_pdf_url', true );
 						if ( $carte_pdf_url ) :
@@ -278,7 +278,7 @@ class Preinscriptions_Page {
 	 */
 	private function get_statistics() {
 		$awaiting = $this->count_by_status( 'awaiting_validation' );
-		$active   = $this->count_by_status( 'active' );
+		$active   = $this->count_by_status( 'actif' );
 		$rejected = $this->count_by_status( 'rejected' );
 
 		return array(

@@ -8,6 +8,7 @@
 namespace Cpfa\Core\RestAPI;
 
 use Cpfa\Core\Services\QR_Service;
+use Cpfa\Core\Services\Rate_Limiter;
 
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,6 +25,56 @@ class Rest_API {
 	 */
 	public function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+		add_filter( 'rest_pre_dispatch', array( $this, 'apply_rate_limiting' ), 10, 3 );
+	}
+
+	/**
+	 * Apply rate limiting to CPFA endpoints.
+	 *
+	 * @param mixed           $result  Response to replace the requested version with.
+	 * @param WP_REST_Server  $server  Server instance.
+	 * @param WP_REST_Request $request Request used to generate the response.
+	 * @return mixed Original result or error response.
+	 */
+	public function apply_rate_limiting( $result, $server, $request ) {
+		$route = $request->get_route();
+
+		// Only apply to CPFA endpoints.
+		if ( strpos( $route, '/cpfa/v1/' ) !== 0 ) {
+			return $result;
+		}
+
+		// Get identifier and endpoint.
+		$identifier = Rate_Limiter::get_identifier();
+		$endpoint   = str_replace( '/cpfa/v1/', '', $route );
+
+		// Check rate limit (60 requests per minute).
+		if ( Rate_Limiter::is_rate_limited( $identifier, $endpoint, 60 ) ) {
+			$retry_after = Rate_Limiter::get_status( $identifier, $endpoint )['reset'] - time();
+
+			return new \WP_Error(
+				'rest_rate_limit_exceeded',
+				__( 'Rate limit exceeded. Please try again later.', 'cpfa-core' ),
+				array(
+					'status'       => 429,
+					'retry_after'  => max( 1, $retry_after ),
+				)
+			);
+		}
+
+		// Add rate limit headers.
+		add_filter(
+			'rest_post_dispatch',
+			function ( $response ) use ( $identifier, $endpoint ) {
+				$status = Rate_Limiter::get_status( $identifier, $endpoint, 60 );
+				$response->header( 'X-RateLimit-Limit', $status['limit'] );
+				$response->header( 'X-RateLimit-Remaining', $status['remaining'] );
+				$response->header( 'X-RateLimit-Reset', $status['reset'] );
+				return $response;
+			}
+		);
+
+		return $result;
 	}
 
 	/**

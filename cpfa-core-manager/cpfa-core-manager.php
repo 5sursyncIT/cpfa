@@ -83,6 +83,9 @@ final class CPFA_Core_Manager {
 		require_once CPFA_CORE_PLUGIN_DIR . 'includes/settings/class-settings.php';
 
 		// Services.
+		require_once CPFA_CORE_PLUGIN_DIR . 'includes/services/class-cache-service.php';
+		require_once CPFA_CORE_PLUGIN_DIR . 'includes/services/class-db-transaction.php';
+		require_once CPFA_CORE_PLUGIN_DIR . 'includes/services/class-rate-limiter.php';
 		require_once CPFA_CORE_PLUGIN_DIR . 'includes/services/class-qr-service.php';
 		require_once CPFA_CORE_PLUGIN_DIR . 'includes/services/class-notification-service.php';
 		require_once CPFA_CORE_PLUGIN_DIR . 'includes/services/class-payment-gateway-registry.php';
@@ -123,6 +126,9 @@ final class CPFA_Core_Manager {
 
 		// Elementor integration (after all plugins loaded).
 		add_action( 'plugins_loaded', array( $this, 'init_elementor' ), 20 );
+
+		// Cache invalidation on post save.
+		add_action( 'save_post', array( 'Cpfa\Core\Services\Cache_Service', 'invalidate_on_save' ), 10, 1 );
 	}
 
 	/**

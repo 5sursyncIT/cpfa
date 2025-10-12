@@ -55,85 +55,74 @@ class Form_Handler {
 	/**
 	 * Handle form submission.
 	 */
-	public function handle_submission() {
+		public function handle_submission() {
 		// Verify nonce.
 		if ( ! isset( $_POST['cpfa_abonnement_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['cpfa_abonnement_nonce'] ) ), 'cpfa_submit_abonnement' ) ) {
-			wp_send_json_error(
-				array(
-					'message' => __( 'Erreur de sécurité. Veuillez actualiser la page et réessayer.', 'cpfa-forms' ),
-				),
-				403
-			);
+			wp_send_json_error( array( 'message' => __( 'Erreur de sécurité. Veuillez actualiser la page et réessayer.', 'cpfa-forms' ) ), 403 );
 		}
 
 		// Validate required fields.
 		$validation = $this->validate_fields();
 		if ( is_wp_error( $validation ) ) {
-			wp_send_json_error(
-				array(
-					'message' => $validation->get_error_message(),
-				),
-				400
-			);
+			wp_send_json_error( array( 'message' => $validation->get_error_message() ), 400 );
 		}
 
-		// Check for duplicate email.
-		$duplicate_check = $this->check_duplicate_email( sanitize_email( wp_unslash( $_POST['cpfa_email'] ) ) );
-		if ( is_wp_error( $duplicate_check ) ) {
-			wp_send_json_error(
-				array(
-					'message' => $duplicate_check->get_error_message(),
-				),
-				409
-			);
+		$email = sanitize_email( wp_unslash( $_POST['cpfa_email'] ) );
+		$existing_abonnement = $this->find_existing_abonnement( $email );
+
+		// Handle existing subscriptions.
+		if ( $existing_abonnement ) {
+			$status = get_post_meta( $existing_abonnement->ID, '_cpfa_abonnement_statut', true );
+
+			// Block if active or pending validation.
+			if ( 'actif' === $status ) {
+				// Check if subscription is expired.
+				$date_fin = get_post_meta( $existing_abonnement->ID, '_cpfa_abonnement_date_fin', true );
+				if ( $date_fin && strtotime( $date_fin ) > time() ) {
+					wp_send_json_error(
+						array(
+							'message' => sprintf(
+								__( 'Vous avez déjà un abonnement actif valide jusqu\'au %s.', 'cpfa-forms' ),
+								date_i18n( 'd/m/Y', strtotime( $date_fin ) )
+							),
+						),
+						409
+					);
+				}
+				// If expired, allow renewal (fall through to update logic).
+			} elseif ( 'awaiting_validation' === $status ) {
+				wp_send_json_error(
+					array(
+						'message' => __( 'Vous avez déjà une demande d\'abonnement en cours de validation. Merci de patienter.', 'cpfa-forms' ),
+					),
+					409
+				);
+			}
 		}
 
 		// Handle file uploads.
 		$photo_id = $this->handle_file_upload( 'cpfa_photo', 2 * MB_IN_BYTES );
 		if ( is_wp_error( $photo_id ) ) {
-			wp_send_json_error(
-				array(
-					'message' => sprintf(
-						/* translators: %s: error message */
-						__( 'Erreur lors de l\'upload de la photo : %s', 'cpfa-forms' ),
-						$photo_id->get_error_message()
-					),
-				),
-				400
-			);
+			wp_send_json_error( array( 'message' => sprintf( __( 'Erreur lors de l\'upload de la photo : %s', 'cpfa-forms' ), $photo_id->get_error_message() ) ), 400 );
 		}
 
 		$cni_id = $this->handle_file_upload( 'cpfa_cni', 5 * MB_IN_BYTES );
 		if ( is_wp_error( $cni_id ) ) {
-			// Delete the photo if CNI upload fails.
 			wp_delete_attachment( $photo_id, true );
-
-			wp_send_json_error(
-				array(
-					'message' => sprintf(
-						/* translators: %s: error message */
-						__( 'Erreur lors de l\'upload de la CNI : %s', 'cpfa-forms' ),
-						$cni_id->get_error_message()
-					),
-				),
-				400
-			);
+			wp_send_json_error( array( 'message' => sprintf( __( 'Erreur lors de l\'upload de la CNI : %s', 'cpfa-forms' ), $cni_id->get_error_message() ) ), 400 );
 		}
 
-		// Create abonnement post.
-		$abonnement_id = $this->create_abonnement( $photo_id, $cni_id );
+		// If renewable subscription found, update it. Otherwise, create a new one.
+		if ( $existing_abonnement ) {
+			$abonnement_id = $this->update_abonnement( $existing_abonnement->ID, $photo_id, $cni_id );
+		} else {
+			$abonnement_id = $this->create_abonnement( $photo_id, $cni_id );
+		}
 
 		if ( is_wp_error( $abonnement_id ) ) {
-			// Delete uploaded files if post creation fails.
 			wp_delete_attachment( $photo_id, true );
 			wp_delete_attachment( $cni_id, true );
-
-			wp_send_json_error(
-				array(
-					'message' => $abonnement_id->get_error_message(),
-				),
-				500
-			);
+			wp_send_json_error( array( 'message' => $abonnement_id->get_error_message() ), 500 );
 		}
 
 		// Send notification emails.
@@ -141,10 +130,7 @@ class Form_Handler {
 		$notification_service->send_preinscription_received( $abonnement_id );
 		$notification_service->send_new_preinscription_admin( $abonnement_id );
 
-		// Get the numero_preinscription for the success message.
 		$numero_preinscription = get_post_meta( $abonnement_id, '_cpfa_abonnement_numero_preinscription', true );
-		$email                 = get_post_meta( $abonnement_id, '_cpfa_abonnement_email', true );
-
 		wp_send_json_success(
 			array(
 				'message'               => __( 'Votre demande a bien été enregistrée !', 'cpfa-forms' ),
@@ -176,18 +162,15 @@ class Form_Handler {
 			}
 		}
 
-		// Validate email format.
 		if ( ! is_email( sanitize_email( wp_unslash( $_POST['cpfa_email'] ) ) ) ) {
 			return new \WP_Error( 'invalid_email', __( 'L\'adresse email est invalide.', 'cpfa-forms' ) );
 		}
 
-		// Validate type.
 		$valid_types = array( 'etudiant', 'professionnel', 'emprunt_domicile' );
 		if ( ! in_array( sanitize_key( wp_unslash( $_POST['cpfa_type'] ) ), $valid_types, true ) ) {
 			return new \WP_Error( 'invalid_type', __( 'Type d\'abonnement invalide.', 'cpfa-forms' ) );
 		}
 
-		// Validate file uploads.
 		if ( empty( $_FILES['cpfa_photo']['name'] ) ) {
 			return new \WP_Error( 'missing_photo', __( 'La photo d\'identité est requise.', 'cpfa-forms' ) );
 		}
@@ -200,12 +183,12 @@ class Form_Handler {
 	}
 
 	/**
-	 * Check for duplicate email.
+	 * Find an existing abonnement by email.
 	 *
 	 * @param string $email Email to check.
-	 * @return true|\WP_Error
+	 * @return \WP_Post|null
 	 */
-	private function check_duplicate_email( $email ) {
+	private function find_existing_abonnement( $email ) {
 		$existing = get_posts(
 			array(
 				'post_type'      => 'cpfa_abonnement',
@@ -216,28 +199,11 @@ class Form_Handler {
 						'value'   => $email,
 						'compare' => '=',
 					),
-					array(
-						'key'     => '_cpfa_abonnement_statut',
-						'value'   => array( 'awaiting_validation', 'active' ),
-						'compare' => 'IN',
-					),
 				),
 			)
 		);
 
-		if ( ! empty( $existing ) ) {
-			$numero = get_post_meta( $existing[0]->ID, '_cpfa_abonnement_numero_preinscription', true );
-			return new \WP_Error(
-				'duplicate_email',
-				sprintf(
-					/* translators: %s: preincription number */
-					__( 'Vous avez déjà une demande en cours avec cet email. Numéro : %s', 'cpfa-forms' ),
-					$numero
-				)
-			);
-		}
-
-		return true;
+		return ! empty( $existing ) ? $existing[0] : null;
 	}
 
 	/**
@@ -338,7 +304,17 @@ class Form_Handler {
 		// Generate numero_preinscription.
 		$numero_preinscription = 'PRE-' . gmdate( 'Ymd' ) . '-' . str_pad( $post_id, 5, '0', STR_PAD_LEFT );
 
-		// Save all meta data.
+		// Associate with WordPress user if applicable.
+		$user_id = 0;
+		if ( is_user_logged_in() ) {
+			$user_id = get_current_user_id();
+		} elseif ( email_exists( $email ) ) {
+			$user = get_user_by( 'email', $email );
+			$user_id = $user->ID;
+		}
+
+		// Update all meta data.
+		update_post_meta( $post_id, '_cpfa_abonnement_user_id', $user_id );
 		update_post_meta( $post_id, '_cpfa_abonnement_nom', $nom );
 		update_post_meta( $post_id, '_cpfa_abonnement_prenom', $prenom );
 		update_post_meta( $post_id, '_cpfa_abonnement_email', $email );
@@ -368,6 +344,79 @@ class Form_Handler {
 		update_post_meta( $post_id, '_cpfa_abonnement_historique', $history );
 
 		return $post_id;
+	}
+
+	/**
+	 * Update existing abonnement for renewal.
+	 *
+	 * @param int $abonnement_id Existing abonnement ID.
+	 * @param int $photo_id      Photo attachment ID.
+	 * @param int $cni_id        CNI attachment ID.
+	 * @return int|\WP_Error Post ID or error.
+	 */
+	private function update_abonnement( $abonnement_id, $photo_id, $cni_id ) {
+		$nom       = isset( $_POST['cpfa_nom'] ) ? sanitize_text_field( wp_unslash( $_POST['cpfa_nom'] ) ) : '';
+		$prenom    = isset( $_POST['cpfa_prenom'] ) ? sanitize_text_field( wp_unslash( $_POST['cpfa_prenom'] ) ) : '';
+		$email     = isset( $_POST['cpfa_email'] ) ? sanitize_email( wp_unslash( $_POST['cpfa_email'] ) ) : '';
+		$telephone = isset( $_POST['cpfa_telephone'] ) ? sanitize_text_field( wp_unslash( $_POST['cpfa_telephone'] ) ) : '';
+		$type      = isset( $_POST['cpfa_type'] ) ? sanitize_key( wp_unslash( $_POST['cpfa_type'] ) ) : '';
+		$trans_ref = isset( $_POST['cpfa_transaction_ref'] ) ? sanitize_text_field( wp_unslash( $_POST['cpfa_transaction_ref'] ) ) : '';
+
+		// Update post title.
+		wp_update_post(
+			array(
+				'ID'         => $abonnement_id,
+				'post_title' => sprintf( '%s %s', $prenom, $nom ),
+			)
+		);
+
+		// Get montant from payment config.
+		$payment_service = Payment_Config_Service::get_instance();
+		$montant         = $payment_service->get_price_for_type( $type );
+
+		// Generate new numero_preinscription.
+		$numero_preinscription = 'PRE-' . gmdate( 'Ymd' ) . '-' . str_pad( $abonnement_id, 5, '0', STR_PAD_LEFT );
+
+		// Associate with WordPress user if applicable.
+		$user_id = 0;
+		if ( is_user_logged_in() ) {
+			$user_id = get_current_user_id();
+		} elseif ( email_exists( $email ) ) {
+			$user = get_user_by( 'email', $email );
+			$user_id = $user->ID;
+		}
+
+		// Update all meta data (keeping old attachments if new ones provided).
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_user_id', $user_id );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_nom', $nom );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_prenom', $prenom );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_email', $email );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_telephone', $telephone );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_type', $type );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_montant', $montant );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_statut', 'awaiting_validation' );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_photo', $photo_id );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_cni', $cni_id );
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_numero_preinscription', $numero_preinscription );
+
+		if ( ! empty( $trans_ref ) ) {
+			update_post_meta( $abonnement_id, '_cpfa_abonnement_transaction_ref', $trans_ref );
+		}
+
+		// Update historique.
+		$history   = get_post_meta( $abonnement_id, '_cpfa_abonnement_historique', true );
+		$history   = $history ? $history : array();
+		$history[] = array(
+			'date'   => current_time( 'mysql' ),
+			'action' => 'renewal_request',
+			'user'   => $user_id,
+			'data'   => array(
+				'ip' => $this->get_client_ip(),
+			),
+		);
+		update_post_meta( $abonnement_id, '_cpfa_abonnement_historique', $history );
+
+		return $abonnement_id;
 	}
 
 	/**
