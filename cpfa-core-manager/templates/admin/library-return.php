@@ -31,8 +31,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<tbody>
 					<?php foreach ( $active_loans as $loan ) : ?>
 						<?php
-						$subscriber_id      = get_post_meta( $loan->ID, '_cpfa_emprunt_abonne', true );
-						$resource_id        = get_post_meta( $loan->ID, '_cpfa_emprunt_ressource', true );
+						$subscriber_id      = get_post_meta( $loan->ID, '_cpfa_emprunt_abonne_id', true );
+						$resource_id        = get_post_meta( $loan->ID, '_cpfa_emprunt_ressource_id', true );
 						$date_emprunt       = get_post_meta( $loan->ID, '_cpfa_emprunt_date_emprunt', true );
 						$date_retour_prevue = get_post_meta( $loan->ID, '_cpfa_emprunt_date_retour_prevue', true );
 

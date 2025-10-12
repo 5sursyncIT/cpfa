@@ -217,6 +217,46 @@ class Library_Widget extends Widget_Base {
 	protected function render() {
 		$settings = $this->get_settings_for_display();
 
+		// User Profile Section
+		if ( is_user_logged_in() ) {
+			$user_id = get_current_user_id();
+			$abonnement_query = new \WP_Query( array(
+				'post_type' => 'cpfa_abonnement',
+				'posts_per_page' => 1,
+				'meta_query' => array(
+					array(
+						'key' => '_cpfa_abonnement_user_id',
+						'value' => $user_id,
+						'compare' => '=',
+					),
+					array(
+						'key' => '_cpfa_abonnement_statut',
+						'value' => 'active',
+						'compare' => '=',
+					),
+				),
+			) );
+
+			if ( $abonnement_query->have_posts() ) {
+				$abonnement_query->the_post();
+				$abonnement_id = get_the_ID();
+				$numero_carte = get_post_meta( $abonnement_id, '_cpfa_abonnement_numero_carte', true );
+				$statut = get_post_meta( $abonnement_id, '_cpfa_abonnement_statut', true );
+				$date_fin = get_post_meta( $abonnement_id, '_cpfa_abonnement_date_fin', true );
+				?>
+				<div class="cpfa-user-profile-widget">
+					<h3 class="profile-title"><?php esc_html_e( 'Mon Abonnement', 'cpfa-core' ); ?></h3>
+					<div class="profile-details">
+						<p><strong><?php esc_html_e( 'Numéro de carte :', 'cpfa-core' ); ?></strong> <?php echo esc_html( $numero_carte ); ?></p>
+						<p><strong><?php esc_html_e( 'Statut :', 'cpfa-core' ); ?></strong> <span class="status-badge status-<?php echo esc_attr( $statut ); ?>"><?php echo esc_html( $statut ); ?></span></p>
+						<p><strong><?php esc_html_e( 'Date d\'expiration :', 'cpfa-core' ); ?></strong> <?php echo esc_html( date_i18n( 'd F Y', strtotime( $date_fin ) ) ); ?></p>
+					</div>
+				</div>
+				<?php
+				wp_reset_postdata();
+			}
+		}
+
 		$args = array(
 			'post_type'      => 'cpfa_ressource',
 			'post_status'    => 'publish',
@@ -352,6 +392,33 @@ class Library_Widget extends Widget_Base {
 										<?php the_excerpt(); ?>
 									</div>
 								<?php endif; ?>
+
+								<div class="item-actions">
+									<?php if ( '1' === $exclu_pret ) : ?>
+										<span class="cpfa-reserve-button cpfa-reserve-excluded" title="<?php esc_attr_e( 'Cette ressource est disponible uniquement en consultation sur place', 'cpfa-core' ); ?>">
+											<span class="cpfa-reserve-icon">📍</span>
+											<span class="cpfa-reserve-text"><?php esc_html_e( 'Consultation sur place', 'cpfa-core' ); ?></span>
+										</span>
+									<?php elseif ( 'disponible' === $statut_emprunt ) : ?>
+										<button 
+											class="cpfa-reserve-button cpfa-reserve-available" 
+											data-resource-id="<?php echo esc_attr( $resource_id ); ?>"
+											data-resource-title="<?php echo esc_attr( get_the_title() ); ?>">
+											<span class="cpfa-reserve-icon">📖</span>
+											<span class="cpfa-reserve-text"><?php esc_html_e( 'Réserver', 'cpfa-core' ); ?></span>
+										</button>
+									<?php else : ?>
+										<span class="cpfa-reserve-button cpfa-reserve-unavailable" title="<?php esc_attr_e( 'Cette ressource est actuellement empruntée', 'cpfa-core' ); ?>">
+											<span class="cpfa-reserve-icon">🔒</span>
+											<span class="cpfa-reserve-text"><?php esc_html_e( 'Non disponible', 'cpfa-core' ); ?></span>
+										</span>
+									<?php endif; ?>
+
+									<a href="<?php the_permalink(); ?>" class="cpfa-view-details">
+										<span class="dashicons dashicons-visibility"></span>
+										<?php esc_html_e( 'Voir détails', 'cpfa-core' ); ?>
+									</a>
+								</div>
 							</div>
 						</div>
 					<?php endwhile; ?>

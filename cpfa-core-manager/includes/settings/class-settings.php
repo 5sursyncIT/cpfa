@@ -31,47 +31,69 @@ class Settings {
 	 */
 	public function add_admin_menu() {
 		// Note: The main menu is created by Library_Manager with priority 6.
-		// We just add the settings submenus here.
+		// We group all settings in one page with tabs.
 
-		// General settings.
+		// Unified settings page.
 		add_submenu_page(
 			'cpfa-library',
-			__( 'Réglages généraux', 'cpfa-core' ),
-			__( '⚙️ Réglages généraux', 'cpfa-core' ),
+			__( 'Réglages', 'cpfa-core' ),
+			__( '⚙️ Réglages', 'cpfa-core' ),
 			'manage_options',
-			'cpfa-general-settings',
-			array( $this, 'render_general_settings_page' )
+			'cpfa-settings',
+			array( $this, 'render_unified_settings_page' )
 		);
+	}
 
-		// Library settings.
-		add_submenu_page(
-			'cpfa-library',
-			__( 'Réglages Bibliothèque', 'cpfa-core' ),
-			__( '📚 Réglages Bibliothèque', 'cpfa-core' ),
-			'manage_options',
-			'cpfa-library-settings',
-			array( $this, 'render_library_settings_page' )
-		);
+	/**
+	 * Render unified settings page with tabs.
+	 */
+	public function render_unified_settings_page() {
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'general';
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Réglages CPFA', 'cpfa-core' ); ?></h1>
 
-		// Payment settings.
-		add_submenu_page(
-			'cpfa-library',
-			__( 'Réglages Paiements', 'cpfa-core' ),
-			__( '💳 Réglages Paiements', 'cpfa-core' ),
-			'manage_options',
-			'cpfa-payment-settings',
-			array( $this, 'render_payment_settings_page' )
-		);
+			<nav class="nav-tab-wrapper wp-clearfix">
+				<a href="?page=cpfa-settings&tab=general" class="nav-tab <?php echo 'general' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Général', 'cpfa-core' ); ?>
+				</a>
+				<a href="?page=cpfa-settings&tab=library" class="nav-tab <?php echo 'library' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Bibliothèque', 'cpfa-core' ); ?>
+				</a>
+				<a href="?page=cpfa-settings&tab=payment" class="nav-tab <?php echo 'payment' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'Paiements', 'cpfa-core' ); ?>
+				</a>
+				<a href="?page=cpfa-settings&tab=pdf" class="nav-tab <?php echo 'pdf' === $active_tab ? 'nav-tab-active' : ''; ?>">
+					<?php esc_html_e( 'PDF & QR', 'cpfa-core' ); ?>
+				</a>
+			</nav>
 
-		// PDF & QR settings.
-		add_submenu_page(
-			'cpfa-library',
-			__( 'PDF & QR', 'cpfa-core' ),
-			__( '📄 PDF & QR', 'cpfa-core' ),
-			'manage_options',
-			'cpfa-pdf-settings',
-			array( $this, 'render_pdf_settings_page' )
-		);
+			<form action="options.php" method="post" style="margin-top: 20px;">
+				<?php
+				switch ( $active_tab ) {
+					case 'library':
+						settings_fields( 'cpfa_library_settings' );
+						do_settings_sections( 'cpfa-library-settings' );
+						break;
+					case 'payment':
+						settings_fields( 'cpfa_payment_settings' );
+						do_settings_sections( 'cpfa-payment-settings' );
+						break;
+					case 'pdf':
+						settings_fields( 'cpfa_pdf_settings' );
+						do_settings_sections( 'cpfa-pdf-settings' );
+						break;
+					case 'general':
+					default:
+						settings_fields( 'cpfa_general_settings' );
+						do_settings_sections( 'cpfa-general-settings' );
+						break;
+				}
+				submit_button();
+				?>
+			</form>
+		</div>
+		<?php
 	}
 
 	/**

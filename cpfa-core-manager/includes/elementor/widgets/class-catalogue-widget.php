@@ -868,8 +868,12 @@ class Catalogue_Widget extends Widget_Base {
 					<?php
 					// Bouton de réservation pour les ressources de la bibliothèque
 					if ( 'cpfa_ressource' === $post_type && 'yes' === $settings['show_reserve_button'] ) :
+					// Sauvegarder l'ID et le titre AVANT toute requête secondaire
+					$resource_id = get_the_ID();
+					$resource_title = get_the_title();
+
 					// Vérifier la disponibilité de la ressource
-					$is_excluded = get_post_meta( get_the_ID(), '_cpfa_ressource_exclu_pret', true );
+					$is_excluded = get_post_meta( $resource_id, '_cpfa_ressource_exclu_pret', true );
 					$is_available = true; // Par défaut disponible
 
 					// Vérifier s'il y a un emprunt en cours pour cette ressource
@@ -879,7 +883,7 @@ class Catalogue_Widget extends Widget_Base {
 						'meta_query'     => array(
 							array(
 								'key'     => '_cpfa_emprunt_ressource_id',
-								'value'   => get_the_ID(),
+								'value'   => $resource_id,
 								'compare' => '=',
 							),
 							array(
@@ -902,8 +906,8 @@ class Catalogue_Widget extends Widget_Base {
 						if ( $is_available ) :
 							?>
 							<button class="cpfa-reserve-button cpfa-reserve-available"
-									data-resource-id="<?php echo esc_attr( get_the_ID() ); ?>"
-									data-resource-title="<?php echo esc_attr( get_the_title() ); ?>">
+									data-resource-id="<?php echo esc_attr( $resource_id ); ?>"
+									data-resource-title="<?php echo esc_attr( $resource_title ); ?>">
 								<span class="cpfa-reserve-icon">📖</span>
 								<?php echo esc_html( $reserve_text ); ?>
 							</button>

@@ -15,7 +15,14 @@
       "Bash(touch:*)",
       "Bash(composer install:*)",
       "Bash(do sed -i \"s/''show_in_menu''.*=>.*''cpfa-dashboard''/''show_in_menu''        => ''cpfa-library''/g\" \"$file\")",
-      "Bash(php:*)"
+      "Bash(php:*)",
+      "Bash(docker cp:*)",
+      "Bash(docker exec:*)",
+      "Bash(./verify-optimizations.sh:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

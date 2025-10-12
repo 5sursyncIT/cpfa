@@ -277,9 +277,16 @@ class Meta_Boxes {
 		$date_fin    = get_post_meta( $post->ID, '_cpfa_abonnement_date_fin', true );
 		$statut      = get_post_meta( $post->ID, '_cpfa_abonnement_statut', true );
 		$caution     = get_post_meta( $post->ID, '_cpfa_abonnement_caution', true );
+		$numero_carte = get_post_meta( $post->ID, '_cpfa_abonnement_numero_carte', true );
 
 		?>
 		<table class="form-table">
+			<?php if ( $numero_carte ) : ?>
+			<tr>
+				<th><label for="cpfa_abonnement_numero_carte"><?php esc_html_e( 'Numéro de Carte', 'cpfa-core' ); ?></label></th>
+				<td><input type="text" id="cpfa_abonnement_numero_carte" value="<?php echo esc_attr( $numero_carte ); ?>" class="regular-text" readonly /></td>
+			</tr>
+			<?php endif; ?>
 			<tr>
 				<th><label for="cpfa_abonnement_membre"><?php esc_html_e( 'Membre (ID ou nom)', 'cpfa-core' ); ?></label></th>
 				<td><input type="text" name="cpfa_abonnement_membre" id="cpfa_abonnement_membre" value="<?php echo esc_attr( $membre ); ?>" class="regular-text" /></td>
@@ -328,22 +335,89 @@ class Meta_Boxes {
 	public function render_emprunt_meta_box( $post ) {
 		wp_nonce_field( 'cpfa_emprunt_meta_box', 'cpfa_emprunt_meta_box_nonce' );
 
-		$abonne               = get_post_meta( $post->ID, '_cpfa_emprunt_abonne', true );
-		$ressource            = get_post_meta( $post->ID, '_cpfa_emprunt_ressource', true );
+		$abonne               = get_post_meta( $post->ID, '_cpfa_emprunt_abonne_id', true );
+		$ressource            = get_post_meta( $post->ID, '_cpfa_emprunt_ressource_id', true );
 		$date_sortie          = get_post_meta( $post->ID, '_cpfa_emprunt_date_sortie', true );
 		$date_retour_prevue   = get_post_meta( $post->ID, '_cpfa_emprunt_date_retour_prevue', true );
 		$date_retour_effective = get_post_meta( $post->ID, '_cpfa_emprunt_date_retour_effective', true );
 		$penalite             = get_post_meta( $post->ID, '_cpfa_emprunt_penalite', true );
 
+		// Récupérer tous les abonnés actifs
+		$abonnes = get_posts(
+			array(
+				'post_type'      => 'cpfa_abonnement',
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+				'meta_query'     => array(
+					array(
+						'key'     => '_cpfa_abonnement_statut',
+						'value'   => 'active',
+						'compare' => '=',
+					),
+				),
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+			)
+		);
+
+		// Récupérer toutes les ressources disponibles
+		$ressources = get_posts(
+			array(
+				'post_type'      => 'cpfa_ressource',
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+			)
+		);
+
 		?>
 		<table class="form-table">
 			<tr>
 				<th><label for="cpfa_emprunt_abonne"><?php esc_html_e( 'Abonné (ID)', 'cpfa-core' ); ?></label></th>
-				<td><input type="text" name="cpfa_emprunt_abonne" id="cpfa_emprunt_abonne" value="<?php echo esc_attr( $abonne ); ?>" class="regular-text" /></td>
+				<td>
+					<select name="cpfa_emprunt_abonne" id="cpfa_emprunt_abonne" class="regular-text">
+						<option value=""><?php esc_html_e( '-- Sélectionner un abonné --', 'cpfa-core' ); ?></option>
+						<?php foreach ( $abonnes as $abonne_post ) : ?>
+							<?php
+							$nom = get_post_meta( $abonne_post->ID, '_cpfa_abonnement_nom', true );
+							$prenom = get_post_meta( $abonne_post->ID, '_cpfa_abonnement_prenom', true );
+							$numero_carte = get_post_meta( $abonne_post->ID, '_cpfa_abonnement_numero_carte', true );
+							$display_name = trim( $prenom . ' ' . $nom );
+							if ( $numero_carte ) {
+								$display_name .= ' (' . $numero_carte . ')';
+							}
+							?>
+							<option value="<?php echo esc_attr( $abonne_post->ID ); ?>" <?php selected( $abonne, $abonne_post->ID ); ?>>
+								<?php echo esc_html( $display_name ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</td>
 			</tr>
 			<tr>
 				<th><label for="cpfa_emprunt_ressource"><?php esc_html_e( 'Ressource (ID)', 'cpfa-core' ); ?></label></th>
-				<td><input type="text" name="cpfa_emprunt_ressource" id="cpfa_emprunt_ressource" value="<?php echo esc_attr( $ressource ); ?>" class="regular-text" /></td>
+				<td>
+					<select name="cpfa_emprunt_ressource" id="cpfa_emprunt_ressource" class="regular-text">
+						<option value=""><?php esc_html_e( '-- Sélectionner une ressource --', 'cpfa-core' ); ?></option>
+						<?php foreach ( $ressources as $ressource_post ) : ?>
+							<?php
+							$cote = get_post_meta( $ressource_post->ID, '_cpfa_ressource_cote', true );
+							$auteurs = get_post_meta( $ressource_post->ID, '_cpfa_ressource_auteurs', true );
+							$display_name = $ressource_post->post_title;
+							if ( $cote ) {
+								$display_name .= ' [' . $cote . ']';
+							}
+							if ( $auteurs ) {
+								$display_name .= ' - ' . $auteurs;
+							}
+							?>
+							<option value="<?php echo esc_attr( $ressource_post->ID ); ?>" <?php selected( $ressource, $ressource_post->ID ); ?>>
+								<?php echo esc_html( $display_name ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</td>
 			</tr>
 			<tr>
 				<th><label for="cpfa_emprunt_date_sortie"><?php esc_html_e( 'Date de sortie', 'cpfa-core' ); ?></label></th>

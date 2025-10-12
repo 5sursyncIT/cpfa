@@ -13,9 +13,89 @@
 		 * Initialize
 		 */
 		init: function() {
+			this.initSelect2();
 			this.initCheckoutForm();
 			this.initReturnButtons();
 			this.initPenaltyButtons();
+		},
+
+		/**
+		 * Initialize Select2 for autocomplete
+		 */
+		initSelect2: function() {
+			// Subscriber autocomplete
+			if ($('#subscriber-id').length) {
+				$('#subscriber-id').select2({
+					placeholder: 'Rechercher un abonné par nom ou numéro...',
+					minimumInputLength: 2,
+					allowClear: true,
+					width: '100%',
+					ajax: {
+						url: cpfaLibrary.ajaxUrl,
+						dataType: 'json',
+						delay: 250,
+						data: function(params) {
+							return {
+								action: 'cpfa_search_subscriber',
+								nonce: cpfaLibrary.nonce,
+								search: params.term,
+								page: params.page || 1
+							};
+						},
+						processResults: function(data) {
+							if (!data.success || !data.data.results) {
+								return { results: [] };
+							}
+							return {
+								results: data.data.results.map(function(item) {
+									return {
+										id: item.id,
+										text: item.label
+									};
+								})
+							};
+						},
+						cache: true
+					}
+				});
+			}
+
+			// Resource autocomplete
+			if ($('#resource-id').length) {
+				$('#resource-id').select2({
+					placeholder: 'Rechercher une ressource par titre ou cote...',
+					minimumInputLength: 2,
+					allowClear: true,
+					width: '100%',
+					ajax: {
+						url: cpfaLibrary.ajaxUrl,
+						dataType: 'json',
+						delay: 250,
+						data: function(params) {
+							return {
+								action: 'cpfa_search_resource',
+								nonce: cpfaLibrary.nonce,
+								search: params.term,
+								page: params.page || 1
+							};
+						},
+						processResults: function(data) {
+							if (!data.success || !data.data.results) {
+								return { results: [] };
+							}
+							return {
+								results: data.data.results.map(function(item) {
+									return {
+										id: item.id,
+										text: item.label
+									};
+								})
+							};
+						},
+						cache: true
+					}
+				});
+			}
 		},
 
 		/**
@@ -24,93 +104,11 @@
 		initCheckoutForm: function() {
 			const self = this;
 
-			// Subscriber autocomplete
-			$('#subscriber-search').autocomplete({
-				source: function(request, response) {
-					$.ajax({
-						url: cpfaLibrary.ajaxUrl,
-						type: 'POST',
-						dataType: 'json',
-						data: {
-							action: 'cpfa_search_subscriber',
-							nonce: cpfaLibrary.nonce,
-							search: request.term
-						},
-						success: function(data) {
-							if (data.success) {
-								response(data.data.results);
-							} else {
-								response([]);
-							}
-						},
-						error: function() {
-							response([]);
-						}
-					});
-				},
-				minLength: 2,
-				select: function(event, ui) {
-					$('#subscriber-id').val(ui.item.id);
-					self.loadSubscriberInfo(ui.item.id);
-					return true;
-				}
-			});
-
-			// Resource autocomplete
-			$('#resource-search').autocomplete({
-				source: function(request, response) {
-					$.ajax({
-						url: cpfaLibrary.ajaxUrl,
-						type: 'POST',
-						dataType: 'json',
-						data: {
-							action: 'cpfa_search_resource',
-							nonce: cpfaLibrary.nonce,
-							search: request.term
-						},
-						success: function(data) {
-							if (data.success) {
-								response(data.data.results);
-							} else {
-								response([]);
-							}
-						},
-						error: function() {
-							response([]);
-						}
-					});
-				},
-				minLength: 2,
-				select: function(event, ui) {
-					$('#resource-id').val(ui.item.id);
-					self.loadResourceInfo(ui.item.id);
-					return true;
-				}
-			});
-
 			// Form submission
 			$('#cpfa-checkout-form').on('submit', function(e) {
 				e.preventDefault();
 				self.submitCheckout();
 			});
-		},
-
-		/**
-		 * Load subscriber information
-		 */
-		loadSubscriberInfo: function(subscriberId) {
-			// In a real implementation, this would fetch data via AJAX
-			// For now, just show the card
-			$('#subscriber-info').slideDown();
-		},
-
-		/**
-		 * Load resource information
-		 */
-		loadResourceInfo: function(resourceId) {
-			// In a real implementation, this would fetch data via AJAX
-			// For now, just show the card
-			$('#resource-info').slideDown();
 		},
 
 		/**
@@ -155,8 +153,7 @@
 						// Reset form after 2 seconds
 						setTimeout(function() {
 							$form[0].reset();
-							$('#subscriber-id, #resource-id').val('');
-							$('#subscriber-info, #resource-info').slideUp();
+							$('#subscriber-id, #resource-id').val(null).trigger('change'); // Clear Select2
 							$message.slideUp();
 						}, 2000);
 					} else {

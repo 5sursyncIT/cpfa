@@ -22,6 +22,50 @@ class Abonnement {
 	 */
 	public function __construct() {
 		$this->register_post_type();
+
+		// Add custom columns to the abonnement list table.
+		add_filter( 'manage_cpfa_abonnement_posts_columns', array( $this, 'add_custom_columns' ) );
+		add_action( 'manage_cpfa_abonnement_posts_custom_column', array( $this, 'display_custom_columns' ), 10, 2 );
+	}
+
+	/**
+	 * Add custom columns to the post type list table.
+	 *
+	 * @param array $columns The existing columns.
+	 * @return array The modified columns.
+	 */
+	public function add_custom_columns( $columns ) {
+		$new_columns = array();
+		foreach ( $columns as $key => $title ) {
+			$new_columns[ $key ] = $title;
+			if ( 'title' === $key ) {
+				$new_columns['numero_carte'] = __( 'Numéro de Carte', 'cpfa-core' );
+				$new_columns['statut'] = __( 'Statut', 'cpfa-core' );
+			}
+		}
+		return $new_columns;
+	}
+
+	/**
+	 * Display the content for custom columns.
+	 *
+	 * @param string $column The name of the custom column.
+	 * @param int    $post_id The ID of the current post.
+	 */
+	public function display_custom_columns( $column, $post_id ) {
+		if ( 'numero_carte' === $column ) {
+			$numero_carte = get_post_meta( $post_id, '_cpfa_abonnement_numero_carte', true );
+			echo esc_html( $numero_carte ? $numero_carte : '-' );
+		}
+
+		if ( 'statut' === $column ) {
+			$statut = get_post_meta( $post_id, '_cpfa_abonnement_statut', true );
+			if ( $statut ) {
+				echo '<span class="status-badge status-' . esc_attr( $statut ) . '">' . esc_html( $statut ) . '</span>';
+			} else {
+				echo '-';
+			}
+		}
 	}
 
 	/**

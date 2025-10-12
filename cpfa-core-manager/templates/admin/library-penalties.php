@@ -51,8 +51,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<tbody>
 				<?php foreach ( $loans_with_penalties as $loan ) : ?>
 					<?php
-					$subscriber_id        = get_post_meta( $loan->ID, '_cpfa_emprunt_abonne', true );
-					$resource_id          = get_post_meta( $loan->ID, '_cpfa_emprunt_ressource', true );
+					$subscriber_id        = get_post_meta( $loan->ID, '_cpfa_emprunt_abonne_id', true );
+					$resource_id          = get_post_meta( $loan->ID, '_cpfa_emprunt_ressource_id', true );
 					$date_retour_prevue   = get_post_meta( $loan->ID, '_cpfa_emprunt_date_retour_prevue', true );
 					$date_retour_effective = get_post_meta( $loan->ID, '_cpfa_emprunt_date_retour_effective', true );
 					$penalty              = get_post_meta( $loan->ID, '_cpfa_emprunt_penalite', true );

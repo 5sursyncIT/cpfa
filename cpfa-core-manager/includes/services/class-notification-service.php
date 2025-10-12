@@ -144,7 +144,7 @@ class Notification_Service {
 	 * @return bool True on success.
 	 */
 	public static function send_loan_reminder( $loan_id, $type = 'upcoming' ) {
-		$abonne_id  = get_post_meta( $loan_id, '_cpfa_emprunt_abonne', true );
+		$abonne_id  = get_post_meta( $loan_id, '_cpfa_emprunt_abonne_id', true );
 		$abonnement = get_post( $abonne_id );
 
 		if ( ! $abonnement ) {
@@ -156,7 +156,7 @@ class Notification_Service {
 			return false;
 		}
 
-		$ressource_id = get_post_meta( $loan_id, '_cpfa_emprunt_ressource', true );
+		$ressource_id = get_post_meta( $loan_id, '_cpfa_emprunt_ressource_id', true );
 		$ressource    = get_post( $ressource_id );
 		$date_retour  = get_post_meta( $loan_id, '_cpfa_emprunt_date_retour_prevue', true );
 

@@ -12,13 +12,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 
 <div class="wrap cpfa-library-dashboard">
-	<h1><?php esc_html_e( 'Gestion de la Bibliothèque', 'cpfa-core' ); ?></h1>
+	<h1>
+		<?php esc_html_e( 'Gestion de la Bibliothèque', 'cpfa-core' ); ?>
+		<button type="button" id="cpfa-refresh-stats" class="button" style="margin-left: 10px;">
+			<span class="dashicons dashicons-update"></span>
+			<?php esc_html_e( 'Actualiser', 'cpfa-core' ); ?>
+		</button>
+	</h1>
 
-	<div class="cpfa-library-stats">
+	<div class="cpfa-library-stats" id="cpfa-stats-container">
 		<div class="stat-card">
 			<div class="stat-icon">📚</div>
 			<div class="stat-content">
-				<div class="stat-number"><?php echo esc_html( number_format_i18n( $stats['total_resources'] ) ); ?></div>
+				<div class="stat-number" data-stat="total_resources"><?php echo esc_html( number_format_i18n( $stats['total_resources'] ) ); ?></div>
 				<div class="stat-label"><?php esc_html_e( 'Ressources totales', 'cpfa-core' ); ?></div>
 			</div>
 		</div>
@@ -26,7 +32,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="stat-card">
 			<div class="stat-icon">✅</div>
 			<div class="stat-content">
-				<div class="stat-number"><?php echo esc_html( number_format_i18n( $stats['available_resources'] ) ); ?></div>
+				<div class="stat-number" data-stat="available_resources"><?php echo esc_html( number_format_i18n( $stats['available_resources'] ) ); ?></div>
 				<div class="stat-label"><?php esc_html_e( 'Disponibles', 'cpfa-core' ); ?></div>
 			</div>
 		</div>
@@ -34,7 +40,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="stat-card">
 			<div class="stat-icon">👥</div>
 			<div class="stat-content">
-				<div class="stat-number"><?php echo esc_html( number_format_i18n( $stats['active_subscribers'] ) ); ?></div>
+				<div class="stat-number" data-stat="active_subscribers"><?php echo esc_html( number_format_i18n( $stats['active_subscribers'] ) ); ?></div>
 				<div class="stat-label"><?php esc_html_e( 'Abonnés actifs', 'cpfa-core' ); ?></div>
 			</div>
 		</div>
@@ -42,7 +48,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="stat-card">
 			<div class="stat-icon">📖</div>
 			<div class="stat-content">
-				<div class="stat-number"><?php echo esc_html( number_format_i18n( $stats['active_loans'] ) ); ?></div>
+				<div class="stat-number" data-stat="active_loans"><?php echo esc_html( number_format_i18n( $stats['active_loans'] ) ); ?></div>
 				<div class="stat-label"><?php esc_html_e( 'Emprunts en cours', 'cpfa-core' ); ?></div>
 			</div>
 		</div>
@@ -50,7 +56,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="stat-card warning">
 			<div class="stat-icon">⚠️</div>
 			<div class="stat-content">
-				<div class="stat-number"><?php echo esc_html( number_format_i18n( $stats['overdue_loans'] ) ); ?></div>
+				<div class="stat-number" data-stat="overdue_loans"><?php echo esc_html( number_format_i18n( $stats['overdue_loans'] ) ); ?></div>
 				<div class="stat-label"><?php esc_html_e( 'Retards', 'cpfa-core' ); ?></div>
 			</div>
 		</div>
@@ -58,11 +64,63 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="stat-card danger">
 			<div class="stat-icon">💰</div>
 			<div class="stat-content">
-				<div class="stat-number"><?php echo esc_html( number_format_i18n( $stats['total_penalties'] ) ); ?> FCFA</div>
+				<div class="stat-number" data-stat="total_penalties"><?php echo esc_html( number_format_i18n( $stats['total_penalties'] ) ); ?> FCFA</div>
 				<div class="stat-label"><?php esc_html_e( 'Pénalités', 'cpfa-core' ); ?></div>
 			</div>
 		</div>
 	</div>
+
+	<script>
+	jQuery(document).ready(function($) {
+		// Auto-refresh stats every 30 seconds
+		let refreshInterval = setInterval(refreshStats, 30000);
+
+		// Manual refresh button
+		$('#cpfa-refresh-stats').on('click', function() {
+			refreshStats();
+		});
+
+		function refreshStats() {
+			const $button = $('#cpfa-refresh-stats');
+			$button.prop('disabled', true).find('.dashicons').addClass('spin');
+
+			$.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'cpfa_refresh_stats',
+					nonce: '<?php echo wp_create_nonce( 'cpfa-refresh-stats' ); ?>'
+				},
+				success: function(response) {
+					if (response.success && response.data) {
+						updateStats(response.data);
+					}
+				},
+				complete: function() {
+					$button.prop('disabled', false).find('.dashicons').removeClass('spin');
+				}
+			});
+		}
+
+		function updateStats(stats) {
+			$('[data-stat="total_resources"]').text(stats.total_resources.toLocaleString());
+			$('[data-stat="available_resources"]').text(stats.available_resources.toLocaleString());
+			$('[data-stat="active_subscribers"]').text(stats.active_subscribers.toLocaleString());
+			$('[data-stat="active_loans"]').text(stats.active_loans.toLocaleString());
+			$('[data-stat="overdue_loans"]').text(stats.overdue_loans.toLocaleString());
+			$('[data-stat="total_penalties"]').text(stats.total_penalties.toLocaleString() + ' FCFA');
+		}
+	});
+	</script>
+	<style>
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+	.dashicons.spin {
+		animation: spin 1s linear infinite;
+	}
+	</style>
 
 	<div class="cpfa-quick-actions">
 		<h2><?php esc_html_e( 'Actions rapides', 'cpfa-core' ); ?></h2>
@@ -113,8 +171,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<tbody>
 					<?php foreach ( $recent_loans as $loan ) : ?>
 						<?php
-						$subscriber_id      = get_post_meta( $loan->ID, '_cpfa_emprunt_abonne', true );
-						$resource_id        = get_post_meta( $loan->ID, '_cpfa_emprunt_ressource', true );
+						$subscriber_id      = get_post_meta( $loan->ID, '_cpfa_emprunt_abonne_id', true );
+						$resource_id        = get_post_meta( $loan->ID, '_cpfa_emprunt_ressource_id', true );
 						$date_retour_prevue = get_post_meta( $loan->ID, '_cpfa_emprunt_date_retour_prevue', true );
 						$statut             = get_post_meta( $loan->ID, '_cpfa_emprunt_statut', true );
 

@@ -353,61 +353,179 @@
 
                 // Vérifier si l'utilisateur est connecté
                 if (typeof cpfaElementor === 'undefined' || !cpfaElementor.isUserLoggedIn) {
-                    alert('Vous devez être connecté pour réserver une ressource.');
-                    // Rediriger vers la page de connexion
-                    window.location.href = cpfaElementor.loginUrl || '/wp-login.php';
+                    CpfaElementorWidgets.showModal(
+                        'Connexion requise',
+                        'Vous devez être connecté pour réserver une ressource.',
+                        [{
+                            text: 'Se connecter',
+                            primary: true,
+                            action: function() {
+                                window.location.href = cpfaElementor.loginUrl || '/wp-login.php';
+                            }
+                        }, {
+                            text: 'Annuler',
+                            action: function() {}
+                        }]
+                    );
                     return;
                 }
 
-                // Demander confirmation
-                if (!confirm('Voulez-vous réserver "' + resourceTitle + '" ?')) {
-                    return;
-                }
-
-                // Envoyer la demande de réservation via Ajax
-                $.ajax({
-                    url: cpfaElementor.ajaxUrl,
-                    type: 'POST',
-                    data: {
-                        action: 'cpfa_reserve_resource',
-                        resource_id: resourceId,
-                        nonce: cpfaElementor.nonce
-                    },
-                    beforeSend: function() {
-                        $btn.addClass('processing').prop('disabled', true);
-                        $btn.find('.cpfa-reserve-icon').text('⏳');
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            // Succès
-                            $btn.removeClass('processing cpfa-reserve-available')
-                                .addClass('success cpfa-reserve-unavailable')
-                                .prop('disabled', true);
-                            $btn.find('.cpfa-reserve-icon').text('✅');
-                            $btn.html($btn.html().replace(/Réserver/, 'Réservé'));
-
-                            // Afficher un message de succès
-                            alert(response.data.message || 'Réservation effectuée avec succès !');
-
-                            // Optionnel: recharger la page après 2 secondes
-                            setTimeout(function() {
-                                location.reload();
-                            }, 2000);
-                        } else {
-                            // Erreur
-                            $btn.removeClass('processing');
-                            $btn.find('.cpfa-reserve-icon').text('📖');
-                            alert(response.data.message || 'Une erreur est survenue lors de la réservation.');
+                // Demander confirmation avec modal moderne
+                CpfaElementorWidgets.showModal(
+                    'Confirmer la réservation',
+                    'Voulez-vous réserver <strong>' + resourceTitle + '</strong> ?',
+                    [{
+                        text: 'Réserver',
+                        primary: true,
+                        action: function() {
+                            CpfaElementorWidgets.processReservation($btn, resourceId, resourceTitle);
                         }
-                    },
-                    error: function(xhr, status, error) {
+                    }, {
+                        text: 'Annuler',
+                        action: function() {}
+                    }]
+                );
+            });
+        },
+
+        /**
+         * Process reservation request
+         */
+        processReservation: function($btn, resourceId, resourceTitle) {
+            // Envoyer la demande de réservation via Ajax
+            $.ajax({
+                url: cpfaElementor.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'cpfa_reserve_resource',
+                    resource_id: resourceId,
+                    nonce: cpfaElementor.nonce
+                },
+                beforeSend: function() {
+                    $btn.addClass('processing').prop('disabled', true);
+                    $btn.find('.cpfa-reserve-icon').text('⏳');
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Succès - Afficher modal de succès
+                        CpfaElementorWidgets.showModal(
+                            'Réservation confirmée',
+                            response.data.message || 'Réservation effectuée avec succès !',
+                            [{
+                                text: 'OK',
+                                primary: true,
+                                action: function() {
+                                    location.reload();
+                                }
+                            }],
+                            'success'
+                        );
+
+                        // Mettre à jour le bouton
+                        $btn.removeClass('processing cpfa-reserve-available')
+                            .addClass('success cpfa-reserve-unavailable')
+                            .prop('disabled', true);
+                        $btn.find('.cpfa-reserve-icon').text('✅');
+                        $btn.html($btn.html().replace(/Réserver/, 'Réservé'));
+                    } else {
+                        // Erreur
                         $btn.removeClass('processing');
                         $btn.find('.cpfa-reserve-icon').text('📖');
-                        alert('Erreur de connexion. Veuillez réessayer.');
-                        console.error('CPFA Reserve Error:', error);
+                        CpfaElementorWidgets.showModal(
+                            'Erreur',
+                            response.data.message || 'Une erreur est survenue lors de la réservation.',
+                            [{
+                                text: 'OK',
+                                primary: true,
+                                action: function() {}
+                            }],
+                            'error'
+                        );
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $btn.removeClass('processing');
+                    $btn.find('.cpfa-reserve-icon').text('📖');
+                    CpfaElementorWidgets.showModal(
+                        'Erreur de connexion',
+                        'Impossible de communiquer avec le serveur. Veuillez réessayer.',
+                        [{
+                            text: 'OK',
+                            primary: true,
+                            action: function() {}
+                        }],
+                        'error'
+                    );
+                    console.error('CPFA Reserve Error:', error);
+                }
+            });
+        },
+
+        /**
+         * Show modal dialog
+         */
+        showModal: function(title, message, buttons, type) {
+            type = type || 'info';
+
+            // Supprimer les modals existantes
+            $('.cpfa-modal-overlay').remove();
+
+            // Icônes selon le type
+            var icons = {
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'info': 'ℹ️'
+            };
+
+            // Créer la modal
+            var modalHtml = '<div class="cpfa-modal-overlay">' +
+                '<div class="cpfa-modal cpfa-modal-' + type + '">' +
+                    '<div class="cpfa-modal-header">' +
+                        '<span class="cpfa-modal-icon">' + (icons[type] || '') + '</span>' +
+                        '<h3 class="cpfa-modal-title">' + title + '</h3>' +
+                        '<button class="cpfa-modal-close">&times;</button>' +
+                    '</div>' +
+                    '<div class="cpfa-modal-body">' +
+                        '<p>' + message + '</p>' +
+                    '</div>' +
+                    '<div class="cpfa-modal-footer"></div>' +
+                '</div>' +
+            '</div>';
+
+            $('body').append(modalHtml);
+
+            var $modal = $('.cpfa-modal-overlay');
+            var $footer = $modal.find('.cpfa-modal-footer');
+
+            // Ajouter les boutons
+            buttons.forEach(function(btn) {
+                var btnClass = btn.primary ? 'cpfa-modal-btn-primary' : 'cpfa-modal-btn-secondary';
+                var $button = $('<button class="cpfa-modal-btn ' + btnClass + '">' + btn.text + '</button>');
+                $button.on('click', function() {
+                    $modal.remove();
+                    if (btn.action) {
+                        btn.action();
                     }
                 });
+                $footer.append($button);
             });
+
+            // Fermer au clic sur X ou overlay
+            $modal.find('.cpfa-modal-close').on('click', function() {
+                $modal.remove();
+            });
+
+            $modal.on('click', function(e) {
+                if ($(e.target).hasClass('cpfa-modal-overlay')) {
+                    $modal.remove();
+                }
+            });
+
+            // Animation d'entrée
+            setTimeout(function() {
+                $modal.addClass('cpfa-modal-show');
+            }, 10);
         },
 
         /**
