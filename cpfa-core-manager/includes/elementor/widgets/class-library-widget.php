@@ -60,6 +60,20 @@ class Library_Widget extends Widget_Base {
 	}
 
 	/**
+	 * Enqueue widget styles.
+	 */
+	public function get_style_depends() {
+		return array( 'cpfa-library-widget' );
+	}
+
+	/**
+	 * Enqueue widget scripts.
+	 */
+	public function get_script_depends() {
+		return array( 'cpfa-library-widget-js' );
+	}
+
+	/**
 	 * Register widget controls.
 	 */
 	protected function register_controls() {

@@ -17,6 +17,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Use Config and Meta_Keys classes.
+use Cpfa\Core\Config;
+use Cpfa\Core\Meta_Keys;
+
 /**
  * Library Manager class.
  */
@@ -84,10 +88,10 @@ class Library_Manager {
 			return;
 		}
 
-		// Enqueue Select2 for better autocomplete.
+		// Enqueue Select2 (local copy - no CDN dependency).
 		wp_enqueue_style(
 			'select2',
-			'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css',
+			CPFA_CORE_PLUGIN_URL . 'assets/vendor/select2/select2.min.css',
 			array(),
 			'4.1.0'
 		);
@@ -101,29 +105,39 @@ class Library_Manager {
 
 		wp_enqueue_script(
 			'select2',
-			'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js',
+			CPFA_CORE_PLUGIN_URL . 'assets/vendor/select2/select2.min.js',
 			array( 'jquery' ),
 			'4.1.0',
+			true
+		);
+
+		// Enqueue tab handler (extracted from inline).
+		wp_enqueue_script(
+			'cpfa-library-tabs',
+			CPFA_CORE_PLUGIN_URL . 'assets/js/library-tabs.js',
+			array( 'jquery' ),
+			CPFA_CORE_VERSION,
 			true
 		);
 
 		wp_enqueue_script(
 			'cpfa-library-manager',
 			CPFA_CORE_PLUGIN_URL . 'assets/js/library-manager.js',
-			array( 'jquery', 'select2' ),
+			array( 'jquery', 'select2', 'cpfa-library-tabs' ),
 			CPFA_CORE_VERSION,
 			true
 		);
 
+		// Use Config constants instead of magic numbers.
 		wp_localize_script(
 			'cpfa-library-manager',
 			'cpfaLibrary',
 			array(
 				'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
 				'nonce'         => wp_create_nonce( 'cpfa-library-nonce' ),
-				'penaltyRate'   => 500,
-				'gracePeriod'   => 3,
-				'loanDuration'  => 30,
+				'penaltyRate'   => Config::PENALTY_RATE_PER_DAY,
+				'gracePeriod'   => Config::GRACE_PERIOD_DAYS,
+				'loanDuration'  => Config::LOAN_DURATION_DAYS,
 				'i18n'          => array(
 					'confirmCheckout' => __( 'Confirmer l\'emprunt ?', 'cpfa-core' ),
 					'confirmReturn'   => __( 'Confirmer le retour ?', 'cpfa-core' ),
@@ -185,23 +199,9 @@ class Library_Manager {
 					<?php include CPFA_CORE_PLUGIN_DIR . 'templates/admin/library-penalties.php'; ?>
 				</div>
 			</div>
-
-			<script>
-			jQuery(document).ready(function($) {
-				$('.nav-tab').on('click', function(e) {
-					e.preventDefault();
-					var target = $(this).attr('href');
-
-					$('.nav-tab').removeClass('nav-tab-active');
-					$(this).addClass('nav-tab-active');
-
-					$('.cpfa-tab-content').hide().removeClass('cpfa-tab-active');
-					$(target).show().addClass('cpfa-tab-active');
-				});
-			});
-			</script>
 		</div>
 		<?php
+		// Tabs JS is now handled by library-tabs.js (enqueued separately).
 	}
 
 	/**
@@ -239,8 +239,8 @@ class Library_Manager {
 			'posts_per_page' => -1,
 			'meta_query'     => array(
 				array(
-					'key'     => '_cpfa_abonnement_statut',
-					'value'   => 'actif',
+					'key'     => Meta_Keys::ABONNEMENT_STATUT,
+					'value'   => Config::STATUS_ACTIVE,
 					'compare' => '=',
 				),
 			),

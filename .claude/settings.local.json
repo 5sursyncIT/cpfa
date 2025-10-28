@@ -22,7 +22,19 @@
       "Bash(cat:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(./export-production.sh:*)",
+      "Bash(tar:*)",
+      "Read(//tmp/**)",
+      "Bash(sudo apt-get:*)",
+      "Bash(sudo apt-get install:*)",
+      "Bash(zip --version)",
+      "Bash(./create-wordpress-zips.sh:*)",
+      "Bash(zip:*)",
+      "Bash(unzip:*)",
+      "Read(//home/youssoupha/project/**)",
+      "Bash(./install-select2.sh:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []
