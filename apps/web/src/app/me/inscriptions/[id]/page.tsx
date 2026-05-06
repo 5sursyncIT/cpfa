@@ -1,8 +1,11 @@
 import { notFound } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
+import { UploadField } from '@/components/upload/upload-field';
 
 export const dynamic = 'force-dynamic';
+
+const REQUIRED_EXAM_DOCS = ['CV', 'Pièce d’identité', 'Diplôme(s) le plus récent'] as const;
 
 const fmtDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
 const fmtDateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
@@ -22,6 +25,7 @@ export default async function RegistrationDetailPage({
       exam: { select: { title: true, feeXof: true } },
       session: { select: { startsAt: true, location: true } },
       payment: true,
+      attachments: { select: { id: true, label: true, storageKey: true } },
     },
   });
   if (!reg) notFound();
@@ -82,6 +86,30 @@ export default async function RegistrationDetailPage({
               )}
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {reg.examId && reg.status !== 'REJECTED' && reg.status !== 'CANCELLED' ? (
+        <section className="rounded-lg border bg-card p-6">
+          <h2 className="text-lg font-semibold">Pièces du dossier</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Téléversez chaque document. PDF ou image — 25 Mo maximum par fichier.
+          </p>
+          <div className="mt-4 space-y-3">
+            {REQUIRED_EXAM_DOCS.map((label) => {
+              const existing = reg.attachments.find((a) => a.label === label);
+              return (
+                <div key={label}>
+                  <UploadField registrationId={reg.id} label={label} required />
+                  {existing ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Déjà téléversé : {existing.storageKey.split('/').pop()}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 

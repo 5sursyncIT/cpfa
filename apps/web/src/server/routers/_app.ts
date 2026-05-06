@@ -1,7 +1,10 @@
 import { router } from '../trpc';
 import { articlesRouter } from './articles';
+import { attachmentsRouter } from './attachments';
 import { contactRouter } from './contact';
 import { coursesRouter } from './courses';
+import { examsRouter } from './exams';
+import { examPapersRouter } from './exam-papers';
 import { healthRouter } from './health';
 import { libraryRouter } from './library';
 import { loansRouter } from './loans';
@@ -17,7 +20,10 @@ export const appRouter = router({
   subscriptions: subscriptionsRouter,
   courses: coursesRouter,
   seminars: seminarsRouter,
+  exams: examsRouter,
+  examPapers: examPapersRouter,
   registrations: registrationsRouter,
+  attachments: attachmentsRouter,
   pages: pagesRouter,
   articles: articlesRouter,
   contact: contactRouter,

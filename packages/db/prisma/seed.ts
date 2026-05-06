@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 import {
   CourseKind,
   CourseLevel,
+  ExamKind,
+  ExamPaperAccess,
   PrismaClient,
   ResourceKind,
   Role,
@@ -236,6 +238,54 @@ async function main() {
     },
   });
 
+  // ── Sample exam (concours) + 2 sample papers ───────────────────────────
+  const concoursDta = await prisma.exam.upsert({
+    where: { slug: 'concours-dta-2026' },
+    update: {},
+    create: {
+      slug: 'concours-dta-2026',
+      title: 'Concours d’entrée en DTA — promotion 2026',
+      kind: ExamKind.CONCOURS,
+      openAt: new Date('2026-04-01T00:00:00.000Z'),
+      closeAt: new Date('2026-08-31T23:59:59.000Z'),
+      examAt: new Date('2026-09-20T08:00:00.000Z'),
+      feeXof: 25_000,
+      published: true,
+      description:
+        'Concours d’entrée en première année du Diplôme de Technicien d’Assurance. Baccalauréat ou équivalent requis. Épreuves : culture générale, mathématiques financières, français, entretien.',
+    },
+  });
+
+  await prisma.examPaper.upsert({
+    where: { id: 'paper-seed-dta-2024' },
+    update: {},
+    create: {
+      id: 'paper-seed-dta-2024',
+      examId: concoursDta.id,
+      title: 'Épreuve de culture générale — session 2024',
+      year: 2024,
+      fileKey: 'paper/seed/dta-2024-culture-generale.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 0,
+      accessLevel: ExamPaperAccess.PAID,
+    },
+  });
+
+  await prisma.examPaper.upsert({
+    where: { id: 'paper-seed-dta-sample' },
+    update: {},
+    create: {
+      id: 'paper-seed-dta-sample',
+      examId: concoursDta.id,
+      title: 'Sujet d’exemple — accès libre',
+      year: 2023,
+      fileKey: 'paper/seed/dta-sample-public.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 0,
+      accessLevel: ExamPaperAccess.PUBLIC,
+    },
+  });
+
   // ── A published article so /blog isn't empty ────────────────────────────
   await prisma.article.upsert({
     where: { slug: 'rentree-2026-formations' },
@@ -267,6 +317,8 @@ async function main() {
   console.log(`  • ${sampleResources.length} ressources, 1 article publié.`);
   // eslint-disable-next-line no-console
   console.log('  • 2 formations + 1 session DTA + 1 séminaire publiés.');
+  // eslint-disable-next-line no-console
+  console.log('  • 1 concours d’entrée DTA 2026 + 2 sujets banque (1 PUBLIC, 1 PAID).');
 }
 
 main()

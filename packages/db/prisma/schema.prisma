@@ -327,8 +327,34 @@ model Exam {
   noticeKey   String?
   published   Boolean        @default(false)
   registrations Registration[]
+  papers      ExamPaper[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+}
+
+enum ExamPaperAccess {
+  PUBLIC          // anyone (sample papers)
+  REGISTERED      // SUBMITTED+ on the same exam
+  PAID            // PAID/VALIDATED on the same exam (default — protected bank)
+}
+
+// Past exam papers / sample papers / official notices.
+// Access is gated by `accessLevel` on the application side via tRPC.
+model ExamPaper {
+  id          String          @id @default(cuid())
+  examId      String
+  title       String
+  year        Int?
+  fileKey     String          // S3 object key
+  mimeType    String          @default("application/pdf")
+  sizeBytes   Int?
+  accessLevel ExamPaperAccess @default(PAID)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  exam        Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId, year])
 }
 
 enum RegistrationStatus {
