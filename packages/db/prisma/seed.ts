@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
+  CourseKind,
+  CourseLevel,
   PrismaClient,
   ResourceKind,
   Role,
@@ -122,6 +124,118 @@ async function main() {
     },
   });
 
+  // ── Sample courses + sessions ───────────────────────────────────────────
+  const dta = await prisma.course.upsert({
+    where: { slug: 'dta-diplome-technicien-assurance' },
+    update: {},
+    create: {
+      slug: 'dta-diplome-technicien-assurance',
+      title: 'Diplôme de Technicien d’Assurance (DTA)',
+      kind: CourseKind.DIPLOMANT,
+      level: CourseLevel.INITIATION,
+      durationHours: 1200,
+      priceXof: 600_000,
+      published: true,
+      description:
+        'Formation diplômante en deux ans. Couvre les fondamentaux juridiques, techniques et commerciaux de l’assurance en zone CIMA.',
+      modules: {
+        create: [
+          {
+            position: 1,
+            title: 'Cadre juridique et environnement de l’assurance',
+            lessons: {
+              create: [
+                { position: 1, title: 'Introduction au droit des assurances' },
+                { position: 2, title: 'Le code CIMA' },
+                { position: 3, title: 'Acteurs du marché' },
+              ],
+            },
+          },
+          {
+            position: 2,
+            title: 'Techniques d’assurance IARD',
+            lessons: {
+              create: [
+                { position: 1, title: 'Assurance automobile' },
+                { position: 2, title: 'Assurance habitation' },
+                { position: 3, title: 'Assurance entreprise' },
+              ],
+            },
+          },
+          {
+            position: 3,
+            title: 'Assurance vie et capitalisation',
+            lessons: {
+              create: [
+                { position: 1, title: 'Produits d’épargne' },
+                { position: 2, title: 'Prévoyance' },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.courseSession.upsert({
+    where: { id: `${dta.id}-2026-10` },
+    update: {},
+    create: {
+      id: `${dta.id}-2026-10`,
+      courseId: dta.id,
+      startsAt: new Date('2026-10-05T08:00:00.000Z'),
+      endsAt: new Date('2027-06-30T17:00:00.000Z'),
+      location: 'CPFA Dakar — Campus principal',
+      capacity: 30,
+    },
+  });
+
+  await prisma.course.upsert({
+    where: { slug: 'cert-souscription-iard' },
+    update: {},
+    create: {
+      slug: 'cert-souscription-iard',
+      title: 'Certification — Souscription IARD',
+      kind: CourseKind.CERTIFIANT,
+      level: CourseLevel.INTERMEDIAIRE,
+      durationHours: 60,
+      priceXof: 150_000,
+      published: true,
+      description:
+        'Trois semaines intensives pour les souscripteurs IARD : analyse de risque, tarification, gestion des sinistres complexes.',
+    },
+  });
+
+  // ── Sample seminar with speaker ─────────────────────────────────────────
+  const speaker = await prisma.speaker.upsert({
+    where: { id: 'speaker-seed-1' },
+    update: {},
+    create: {
+      id: 'speaker-seed-1',
+      fullName: 'Dr Awa Cissé',
+      title: 'Actuaire conseil — FANAF',
+      bio: 'Vingt ans d’expérience en pricing et solvabilité dans la zone CIMA.',
+    },
+  });
+
+  await prisma.seminar.upsert({
+    where: { slug: 'sem-tarification-vie-2026' },
+    update: {},
+    create: {
+      slug: 'sem-tarification-vie-2026',
+      title: 'Tarification de l’assurance vie en zone CIMA',
+      startsAt: new Date('2026-09-15T09:00:00.000Z'),
+      endsAt: new Date('2026-09-16T17:00:00.000Z'),
+      location: 'CPFA Dakar — Salle Sénégal',
+      priceXof: 75_000,
+      capacity: 40,
+      published: true,
+      description:
+        'Deux journées d’atelier sur les tables de mortalité, l’adéquation produits et les contraintes Solvency-CIMA.',
+      speakers: { connect: [{ id: speaker.id }] },
+    },
+  });
+
   // ── A published article so /blog isn't empty ────────────────────────────
   await prisma.article.upsert({
     where: { slug: 'rentree-2026-formations' },
@@ -151,6 +265,8 @@ async function main() {
   console.log('  • abonné:   abonne@cpfa.local (carte CPFA-SEED-0001)');
   // eslint-disable-next-line no-console
   console.log(`  • ${sampleResources.length} ressources, 1 article publié.`);
+  // eslint-disable-next-line no-console
+  console.log('  • 2 formations + 1 session DTA + 1 séminaire publiés.');
 }
 
 main()

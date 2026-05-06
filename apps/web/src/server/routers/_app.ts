@@ -1,10 +1,13 @@
 import { router } from '../trpc';
 import { articlesRouter } from './articles';
 import { contactRouter } from './contact';
+import { coursesRouter } from './courses';
 import { healthRouter } from './health';
 import { libraryRouter } from './library';
 import { loansRouter } from './loans';
 import { pagesRouter } from './pages';
+import { registrationsRouter } from './registrations';
+import { seminarsRouter } from './seminars';
 import { subscriptionsRouter } from './subscriptions';
 
 export const appRouter = router({
@@ -12,6 +15,9 @@ export const appRouter = router({
   library: libraryRouter,
   loans: loansRouter,
   subscriptions: subscriptionsRouter,
+  courses: coursesRouter,
+  seminars: seminarsRouter,
+  registrations: registrationsRouter,
   pages: pagesRouter,
   articles: articlesRouter,
   contact: contactRouter,
