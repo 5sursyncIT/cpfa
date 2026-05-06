@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cpfa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cpfa
+      POSTGRES_PASSWORD: cpfa
+      POSTGRES_DB: cpfa
+    ports:
+      - "5432:5432"
+    volumes:
+      - cpfa-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cpfa -d cpfa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: cpfa-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - cpfa-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: cpfa-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: cpfa
+      MINIO_ROOT_PASSWORD: cpfa-dev-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - cpfa-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  cpfa-postgres-data:
+  cpfa-redis-data:
+  cpfa-minio-data:

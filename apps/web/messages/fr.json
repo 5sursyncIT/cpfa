@@ -1,0 +1,21 @@
+{
+  "common": {
+    "appName": "CPFA",
+    "tagline": "Centre Professionnel de Formation à l'Assurance"
+  },
+  "home": {
+    "heroTitle": "Formez-vous aux métiers de l'assurance",
+    "heroSubtitle": "Diplômes, certifications, séminaires et bibliothèque spécialisée.",
+    "ctaCatalog": "Voir les formations",
+    "ctaLibrary": "Accéder à la bibliothèque"
+  },
+  "nav": {
+    "home": "Accueil",
+    "courses": "Formations",
+    "seminars": "Séminaires",
+    "library": "Bibliothèque",
+    "exams": "Concours",
+    "contact": "Contact",
+    "signIn": "Se connecter"
+  }
+}
