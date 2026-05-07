@@ -17,6 +17,7 @@ import {
   type PaymentWebhookJob,
 } from '@cpfa/lib/queues';
 import { computeOverdueDays, computePenaltyXof } from '../lib/library-rules';
+import { sendEmail, subjectFor, type EmailTemplate } from '../lib/mailer';
 
 const connection = makeConnection();
 
@@ -25,9 +26,18 @@ const REMINDER_WINDOW_DAYS = 3;
 const emailWorker = new Worker<EmailJob>(
   'email',
   async (job) => {
+    const { to, template, data, replyTo } = job.data;
+    const tmpl = { kind: template, data } as unknown as EmailTemplate;
+    const result = await sendEmail({
+      to,
+      subject: subjectFor(tmpl),
+      template: tmpl,
+      replyTo,
+    });
     // eslint-disable-next-line no-console
-    console.log('[worker:email]', job.name, job.data.to, job.data.template);
-    // TODO: render with @cpfa/emails + Resend SDK.
+    console.log(
+      `[worker:email] ${template} → ${to} ${result.mocked ? '(mocked, no RESEND_API_KEY)' : `id=${result.id}`}`,
+    );
   },
   { connection },
 );

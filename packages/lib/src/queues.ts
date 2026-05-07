@@ -29,8 +29,10 @@ export function getQueue<T = unknown>(name: QueueName): Queue<T> {
 
 export type EmailJob = {
   to: string;
-  template: 'magic-link' | 'loan-reminder' | 'receipt' | 'convocation';
+  // Magic-link is sent inline by Auth.js (Resend provider) — never enqueued here.
+  template: 'loan-reminder' | 'contact' | 'convocation';
   data: Record<string, unknown>;
+  replyTo?: string;
 };
 
 export type PdfJob =

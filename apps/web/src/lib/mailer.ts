@@ -1,0 +1,91 @@
+// Single mailer module — every outbound email goes through this. The worker
+// calls `sendEmail` with a job payload; routes that need to send synchronously
+// can call directly. When RESEND_API_KEY isn't set we log to stdout so dev
+// without Resend credentials still reaches green-path code.
+
+import { Resend } from 'resend';
+import {
+  ContactFormEmail,
+  ConvocationEmail,
+  LoanReminderEmail,
+  MagicLinkEmail,
+  render,
+} from '@cpfa/emails';
+
+let _client: Resend | null | undefined;
+
+function getResend(): Resend | null {
+  if (_client !== undefined) return _client;
+  const key = process.env.RESEND_API_KEY;
+  _client = key ? new Resend(key) : null;
+  return _client;
+}
+
+export type EmailTemplate =
+  | { kind: 'magic-link'; data: { url: string; expiresInMinutes?: number } }
+  | { kind: 'loan-reminder'; data: import('@cpfa/emails').LoanReminderEmailProps }
+  | { kind: 'contact'; data: import('@cpfa/emails').ContactFormEmailProps }
+  | { kind: 'convocation'; data: import('@cpfa/emails').ConvocationEmailProps };
+
+export async function sendEmail({
+  to,
+  subject,
+  template,
+  replyTo,
+}: {
+  to: string;
+  subject: string;
+  template: EmailTemplate;
+  replyTo?: string;
+}): Promise<{ id: string | null; mocked: boolean }> {
+  const html = await render(componentFor(template));
+  const from = process.env.EMAIL_FROM ?? 'CPFA <noreply@cpfa.local>';
+  const client = getResend();
+
+  if (!client) {
+    // eslint-disable-next-line no-console
+    console.log(`[mailer:mock] to=${to} subject=${JSON.stringify(subject)} kind=${template.kind}`);
+    return { id: null, mocked: true };
+  }
+
+  const result = await client.emails.send({
+    from,
+    to,
+    subject,
+    html,
+    replyTo,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+  return { id: result.data?.id ?? null, mocked: false };
+}
+
+function componentFor(template: EmailTemplate) {
+  switch (template.kind) {
+    case 'magic-link':
+      return MagicLinkEmail(template.data);
+    case 'loan-reminder':
+      return LoanReminderEmail(template.data);
+    case 'contact':
+      return ContactFormEmail(template.data);
+    case 'convocation':
+      return ConvocationEmail(template.data);
+  }
+}
+
+export function subjectFor(template: EmailTemplate): string {
+  switch (template.kind) {
+    case 'magic-link':
+      return 'Votre lien de connexion CPFA';
+    case 'loan-reminder':
+      return template.data.daysOverdue && template.data.daysOverdue > 0
+        ? 'Retour en retard — Bibliothèque CPFA'
+        : "Rappel d'échéance — Bibliothèque CPFA";
+    case 'contact':
+      return `[Contact CPFA] ${template.data.subject}`;
+    case 'convocation':
+      return `Convocation — ${template.data.target}`;
+  }
+}

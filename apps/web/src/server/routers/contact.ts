@@ -22,8 +22,9 @@ export const contactRouter = router({
     // the worker handles delivery (and retries on transient failure).
     await getQueue('email').add('contact-form', {
       to: process.env.CONTACT_EMAIL ?? 'contact@cpfa.local',
-      template: 'magic-link', // TODO(S2): swap for a dedicated 'contact' template once @cpfa/emails has it
-      data: { ...input, kind: 'contact' },
+      template: 'contact',
+      replyTo: input.email,
+      data: input,
     });
 
     return { ok: true };

@@ -91,7 +91,13 @@ export const registrationsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const reg = await ctx.prisma.registration.findUnique({
         where: { id: input.id },
-        include: { user: true, course: true, seminar: true, exam: true },
+        include: {
+          user: true,
+          course: { select: { title: true } },
+          seminar: { select: { title: true, startsAt: true, location: true } },
+          exam: { select: { title: true, examAt: true } },
+          session: { select: { startsAt: true, location: true } },
+        },
       });
       if (!reg) throw new TRPCError({ code: 'NOT_FOUND' });
 
@@ -109,11 +115,27 @@ export const registrationsRouter = router({
         },
       });
 
-      // Fire-and-forget: email job renders convocation and sends to candidate.
+      const target = reg.course?.title ?? reg.seminar?.title ?? reg.exam?.title ?? 'CPFA';
+      const date = reg.session?.startsAt ?? reg.seminar?.startsAt ?? reg.exam?.examAt ?? null;
+      const startsAt = date
+        ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).format(date)
+        : undefined;
+      const location = reg.session?.location ?? reg.seminar?.location ?? undefined;
+      const fullName =
+        [reg.user.firstName, reg.user.lastName].filter(Boolean).join(' ') || reg.user.email;
+      const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
+
+      // Fire-and-forget: worker renders convocation HTML and sends via Resend.
       await getQueue('email').add('convocation', {
         to: reg.user.email,
         template: 'convocation',
-        data: { registrationId: reg.id, kind: reg.courseId ? 'course' : reg.seminarId ? 'seminar' : 'exam' },
+        data: {
+          candidateName: fullName,
+          target,
+          startsAt,
+          location,
+          pdfUrl: `${baseUrl}/api/registrations/${reg.id}/convocation`,
+        },
       });
 
       return updated;

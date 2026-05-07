@@ -44,7 +44,8 @@ export default async function MyRegistrationsPage() {
                 >
                   <div>
                     <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                      {fmtDate.format(r.createdAt)} · {target.includes('Séminaire') ? 'séminaire' : r.course ? 'formation' : r.seminar ? 'séminaire' : 'concours'}
+                      {fmtDate.format(r.createdAt)} ·{' '}
+                      {r.course ? 'formation' : r.seminar ? 'séminaire' : r.exam ? 'concours' : ''}
                     </p>
                     <h2 className="mt-1 text-base font-medium">{target}</h2>
                   </div>

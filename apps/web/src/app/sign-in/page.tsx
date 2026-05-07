@@ -44,13 +44,41 @@ export default async function SignInPage({
         <form
           action={async (formData: FormData) => {
             'use server';
+            await signIn('resend', {
+              email: formData.get('email'),
+              redirectTo: callbackUrl,
+            });
+          }}
+          className="mt-3 flex gap-2"
+        >
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="vous@exemple.com"
+            className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <Button type="submit" size="lg" variant="outline">
+            Lien magique
+          </Button>
+        </form>
+
+        <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-widest text-muted-foreground">
+          <hr className="flex-1" />
+          <span>ou</span>
+          <hr className="flex-1" />
+        </div>
+
+        <form
+          action={async (formData: FormData) => {
+            'use server';
             await signIn('credentials', {
               email: formData.get('email'),
               password: formData.get('password'),
               redirectTo: callbackUrl,
             });
           }}
-          className="mt-6 space-y-3"
+          className="space-y-3"
         >
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Email</span>
