@@ -7,12 +7,14 @@ import { Button } from '@cpfa/ui';
 
 const navItems = [
   { href: '/admin', label: 'Tableau de bord' },
-  { href: '/admin/loans', label: 'Prêts en cours' },
-  { href: '/admin/library', label: 'Catalogue' },
+  { href: '/admin/loans', label: 'Prêts' },
   { href: '/admin/registrations', label: 'Inscriptions' },
   { href: '/admin/payments', label: 'Paiements' },
+  { href: '/admin/exams', label: 'Concours' },
   { href: '/admin/articles', label: 'Actualités' },
+  { href: '/admin/cms', label: 'Pages CMS' },
   { href: '/admin/users', label: 'Utilisateurs' },
+  { href: '/admin/audit', label: 'Audit' },
 ];
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {

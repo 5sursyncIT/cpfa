@@ -1,0 +1,103 @@
+import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+import { Role } from '@cpfa/db';
+import { router, permissionProcedure } from '../trpc';
+
+const ROLE_VALUES = Object.values(Role) as [Role, ...Role[]];
+
+export const usersRouter = router({
+  list: permissionProcedure('admin:any')
+    .input(
+      z
+        .object({
+          q: z.string().trim().min(1).max(120).optional(),
+          take: z.number().int().min(1).max(100).default(50),
+          cursor: z.string().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const take = input?.take ?? 50;
+      const items = await ctx.prisma.user.findMany({
+        where: input?.q
+          ? {
+              OR: [
+                { email: { contains: input.q, mode: 'insensitive' } },
+                { firstName: { contains: input.q, mode: 'insensitive' } },
+                { lastName: { contains: input.q, mode: 'insensitive' } },
+              ],
+            }
+          : {},
+        take: take + 1,
+        ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          roles: true,
+          createdAt: true,
+          twoFactorEnabled: true,
+        },
+      });
+      let nextCursor: string | undefined;
+      if (items.length > take) nextCursor = items.pop()?.id;
+      return { items, nextCursor };
+    }),
+
+  // Only Super-admin can grant or revoke ADMIN/SUPER_ADMIN. Non-super-admins can
+  // touch other roles. This protects against privilege escalation by a regular admin.
+  updateRoles: permissionProcedure('admin:any')
+    .input(z.object({ id: z.string().cuid(), roles: z.array(z.enum(ROLE_VALUES)).max(9) }))
+    .mutation(async ({ ctx, input }) => {
+      const callerIsSuperAdmin = ctx.session.user.roles.includes('SUPER_ADMIN');
+      const target = await ctx.prisma.user.findUnique({
+        where: { id: input.id },
+        select: { id: true, roles: true },
+      });
+      if (!target) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      const wouldGrantPrivileged = input.roles.some(
+        (r) => (r === 'ADMIN' || r === 'SUPER_ADMIN') && !target.roles.includes(r),
+      );
+      const wouldRevokePrivileged = target.roles.some(
+        (r) => (r === 'ADMIN' || r === 'SUPER_ADMIN') && !input.roles.includes(r),
+      );
+      if (!callerIsSuperAdmin && (wouldGrantPrivileged || wouldRevokePrivileged)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Seul un Super-admin peut accorder ou retirer ADMIN / SUPER_ADMIN.',
+        });
+      }
+
+      // Don't let the last super-admin demote themselves.
+      if (target.id === ctx.session.user.id && target.roles.includes('SUPER_ADMIN') && !input.roles.includes('SUPER_ADMIN')) {
+        const otherSuperAdmins = await ctx.prisma.user.count({
+          where: { id: { not: target.id }, roles: { has: 'SUPER_ADMIN' } },
+        });
+        if (otherSuperAdmins === 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Impossible de retirer le dernier Super-admin.',
+          });
+        }
+      }
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          actorId: ctx.session.user.id,
+          action: 'user.updateRoles',
+          entity: 'User',
+          entityId: target.id,
+          diff: { from: target.roles, to: input.roles },
+        },
+      });
+
+      return ctx.prisma.user.update({
+        where: { id: target.id },
+        data: { roles: input.roles },
+        select: { id: true, roles: true },
+      });
+    }),
+});
