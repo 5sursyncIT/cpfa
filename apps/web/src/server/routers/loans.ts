@@ -1,8 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { computeOverdueDays, computePenaltyXof } from '@/lib/library-rules';
 import { router, protectedProcedure, permissionProcedure } from '../trpc';
-
-const LIBRARY_DAILY_PENALTY_XOF = 500;
 
 export const loansRouter = router({
   // Subscriber's own loans, current and past.
@@ -58,9 +57,8 @@ export const loansRouter = router({
       }
 
       const now = new Date();
-      const overdueMs = now.getTime() - loan.dueAt.getTime();
-      const overdueDays = overdueMs > 0 ? Math.ceil(overdueMs / (24 * 60 * 60 * 1000)) : 0;
-      const penaltyAmount = overdueDays * LIBRARY_DAILY_PENALTY_XOF;
+      const overdueDays = computeOverdueDays(loan.dueAt, now);
+      const penaltyAmount = computePenaltyXof(loan.dueAt, now);
 
       const [updated] = await ctx.prisma.$transaction([
         ctx.prisma.loan.update({

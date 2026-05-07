@@ -16,10 +16,10 @@ import {
   type LoanReminderJob,
   type PaymentWebhookJob,
 } from '@cpfa/lib/queues';
+import { computeOverdueDays, computePenaltyXof } from '../lib/library-rules';
 
 const connection = makeConnection();
 
-const LIBRARY_DAILY_PENALTY_XOF = 500;
 const REMINDER_WINDOW_DAYS = 3;
 
 const emailWorker = new Worker<EmailJob>(
@@ -80,9 +80,8 @@ const loanReminderWorker = new Worker<LoanReminderJob | { kind: 'sweep' }>(
     if (!loan || loan.status !== 'ACTIVE') return;
 
     const now = new Date();
-    const overdueMs = now.getTime() - loan.dueAt.getTime();
-    const daysOverdue = overdueMs > 0 ? Math.ceil(overdueMs / (24 * 60 * 60 * 1000)) : 0;
-    const penaltyXof = daysOverdue * LIBRARY_DAILY_PENALTY_XOF;
+    const daysOverdue = computeOverdueDays(loan.dueAt, now);
+    const penaltyXof = computePenaltyXof(loan.dueAt, now);
 
     await getQueue<EmailJob>('email').add('loan-reminder', {
       to: loan.user.email,

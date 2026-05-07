@@ -1,10 +1,12 @@
 import { Prisma } from '@cpfa/db';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import {
+  LIBRARY_LOAN_DAYS,
+  dueDateFromNow,
+  evaluateBorrowEligibility,
+} from '@/lib/library-rules';
 import { router, publicProcedure, permissionProcedure } from '../trpc';
-
-const LIBRARY_LOAN_DAYS = 14;
-const LIBRARY_MAX_CONCURRENT = 3;
 
 export const libraryRouter = router({
   search: publicProcedure
@@ -86,41 +88,42 @@ export const libraryRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const subscription = await ctx.prisma.subscription.findUnique({
-        where: { id: input.subscriptionId },
-        select: { userId: true, status: true, expiresAt: true },
-      });
-      if (!subscription || subscription.status !== 'ACTIVE') {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: "L'abonnement n'est pas actif." });
-      }
-      if (subscription.expiresAt && subscription.expiresAt < new Date()) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: "L'abonnement a expiré." });
-      }
-
-      const activeLoans = await ctx.prisma.loan.count({
-        where: { subscriptionId: input.subscriptionId, status: 'ACTIVE' },
-      });
-      if (activeLoans >= LIBRARY_MAX_CONCURRENT) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Quota de ${LIBRARY_MAX_CONCURRENT} prêts simultanés atteint.`,
-        });
-      }
-
-      const resource = await ctx.prisma.resource.findUnique({
-        where: { id: input.resourceId },
-        select: { totalCopies: true },
-      });
+      const [subscription, resource, activeLoans, copiesOnLoan] = await Promise.all([
+        ctx.prisma.subscription.findUnique({
+          where: { id: input.subscriptionId },
+          select: { userId: true, status: true, expiresAt: true },
+        }),
+        ctx.prisma.resource.findUnique({
+          where: { id: input.resourceId },
+          select: { totalCopies: true },
+        }),
+        ctx.prisma.loan.count({
+          where: { subscriptionId: input.subscriptionId, status: 'ACTIVE' },
+        }),
+        ctx.prisma.loan.count({
+          where: { resourceId: input.resourceId, status: 'ACTIVE' },
+        }),
+      ]);
+      if (!subscription) throw new TRPCError({ code: 'NOT_FOUND', message: 'Abonnement introuvable.' });
       if (!resource) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ressource introuvable.' });
 
-      const onLoan = await ctx.prisma.loan.count({
-        where: { resourceId: input.resourceId, status: 'ACTIVE' },
+      const eligibility = evaluateBorrowEligibility({
+        subscription,
+        activeLoansForSubscription: activeLoans,
+        totalCopies: resource.totalCopies,
+        copiesOnLoan,
       });
-      if (onLoan >= resource.totalCopies) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Aucun exemplaire disponible.' });
+      if (!eligibility.ok) {
+        const message =
+          eligibility.reason === 'subscription-not-usable'
+            ? "L'abonnement n'est pas actif ou a expiré."
+            : eligibility.reason === 'quota-reached'
+              ? 'Quota de 3 prêts simultanés atteint.'
+              : 'Aucun exemplaire disponible.';
+        throw new TRPCError({ code: 'BAD_REQUEST', message });
       }
 
-      const dueAt = new Date(Date.now() + input.durationDays * 24 * 60 * 60 * 1000);
+      const dueAt = dueDateFromNow(new Date(), input.durationDays);
       const loan = await ctx.prisma.loan.create({
         data: {
           resourceId: input.resourceId,
@@ -180,7 +183,7 @@ async function libraryBorrow({
   resourceId: string;
   subscriptionId: string;
 }) {
-  const dueAt = new Date(Date.now() + LIBRARY_LOAN_DAYS * 24 * 60 * 60 * 1000);
+  const dueAt = dueDateFromNow(new Date(), LIBRARY_LOAN_DAYS);
   const subscription = await ctx.prisma.subscription.findUnique({
     where: { id: subscriptionId },
     select: { userId: true },
