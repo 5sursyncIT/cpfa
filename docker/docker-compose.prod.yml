@@ -1,0 +1,85 @@
+# Production-style compose for VPS deployment (option B in docs/projet.md §8).
+# Build context is the monorepo root.
+# Run from the repo root:
+#   docker compose -f docker/docker-compose.prod.yml up -d --build
+# Migrations:
+#   docker compose -f docker/docker-compose.prod.yml run --rm migrate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cpfa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_DB: ${POSTGRES_DB:-cpfa}
+    volumes:
+      - cpfa-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cpfa} -d ${POSTGRES_DB:-cpfa}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No public port — only internal service traffic.
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - cpfa-redis-data:/data
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: web
+    image: cpfa/web:latest
+    restart: always
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    env_file: ../.env.production
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: worker
+    image: cpfa/worker:latest
+    restart: always
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    env_file: ../.env.production
+
+  migrate:
+    image: cpfa/web:latest
+    profiles: ["tools"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    env_file: ../.env.production
+    entrypoint: ["sh", "-c"]
+    # Standalone image doesn't ship `prisma migrate`; for prod use a
+    # one-shot container that runs migrations from a node_modules layer.
+    # If you prefer, wire CI to run `pnpm --filter @cpfa/db migrate:deploy`
+    # from the runner just before the rolling restart.
+    command:
+      - |
+        cd /repo && pnpm --filter @cpfa/db migrate:deploy
+
+volumes:
+  cpfa-postgres-data:
+  cpfa-redis-data:

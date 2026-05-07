@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
-    "worker": "tsx src/worker/index.ts"
+    "worker": "tsx src/worker/index.ts",
+    "worker:bundle": "esbuild src/worker/index.ts --bundle --platform=node --target=node20 --format=cjs --external:@prisma/client --external:.prisma/* --outfile=dist-worker/index.cjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@playwright/test": "^1.48.2",
+    "esbuild": "^0.24.0",
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",

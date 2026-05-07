@@ -1,0 +1,73 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage build for the CPFA web app + BullMQ worker.
+# Build context = monorepo root (see docker/docker-compose.prod.yml).
+# Final image runs Next.js standalone server by default; the worker service
+# overrides CMD to "node apps/web/dist-worker/index.js".
+
+ARG NODE_VERSION=20-alpine
+
+# ── Base ─────────────────────────────────────────────────────────────────────
+FROM node:${NODE_VERSION} AS base
+RUN corepack enable && apk add --no-cache libc6-compat openssl
+WORKDIR /repo
+
+# ── Deps (cached on package files only) ──────────────────────────────────────
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/db/package.json ./packages/db/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/lib/package.json ./packages/lib/
+COPY packages/emails/package.json ./packages/emails/
+COPY packages/pdf/package.json ./packages/pdf/
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# ── Build ────────────────────────────────────────────────────────────────────
+FROM deps AS builder
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+# Generate Prisma client + build Next.js + bundle worker into a single CJS file
+RUN pnpm --filter @cpfa/db generate \
+ && pnpm --filter @cpfa/web build \
+ && pnpm --filter @cpfa/web exec esbuild src/worker/index.ts \
+      --bundle --platform=node --target=node20 --format=cjs \
+      --external:@prisma/client --external:.prisma/* \
+      --outfile=dist-worker/index.cjs
+
+# ── Web runtime (Next.js standalone) ─────────────────────────────────────────
+FROM node:${NODE_VERSION} AS web
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000
+RUN apk add --no-cache libc6-compat openssl tini && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S -u 1001 -G nodejs nextjs
+WORKDIR /app
+
+# Standalone bundle from the builder. The trailing slash is mandatory:
+# .next/standalone is the project root for the runtime, not a sub-folder.
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/standalone/ ./
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/public ./apps/web/public
+# Prisma engine + generated client live outside the standalone bundle in pnpm
+# layouts; copy them into the place server.js expects.
+COPY --from=builder --chown=nextjs:nodejs /repo/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /repo/node_modules/@prisma/client ./node_modules/@prisma/client
+
+USER nextjs
+EXPOSE 3000
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "apps/web/server.js"]
+
+# ── Worker runtime (single bundled CJS file) ─────────────────────────────────
+FROM node:${NODE_VERSION} AS worker
+ENV NODE_ENV=production
+RUN apk add --no-cache libc6-compat openssl tini && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S -u 1001 -G nodejs nodejs
+WORKDIR /app
+COPY --from=builder --chown=nodejs:nodejs /repo/apps/web/dist-worker/index.cjs ./worker.cjs
+COPY --from=builder --chown=nodejs:nodejs /repo/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nodejs:nodejs /repo/node_modules/@prisma/client ./node_modules/@prisma/client
+USER nodejs
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "worker.cjs"]

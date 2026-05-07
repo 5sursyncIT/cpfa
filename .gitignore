@@ -6,6 +6,7 @@ node_modules/
 .next/
 out/
 dist/
+dist-worker/
 build/
 .turbo/
 *.tsbuildinfo

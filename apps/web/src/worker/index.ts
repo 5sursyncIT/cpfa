@@ -116,12 +116,14 @@ for (const w of [emailWorker, pdfWorker, loanReminderWorker, paymentWebhookWorke
 }
 
 // Schedule the daily sweep at 09:00 Africa/Dakar (UTC+0). Idempotent — repeating
-// jobs in BullMQ are keyed by name + repeat options.
-await getQueue('loan-reminders').add(
-  'sweep',
-  {},
-  { repeat: { pattern: '0 9 * * *', tz: 'Africa/Dakar' }, removeOnComplete: 100 },
-);
-
-// eslint-disable-next-line no-console
-console.log('CPFA worker started — listening to queues: email, pdf, loan-reminders, payment-webhook');
+// jobs in BullMQ are keyed by name + repeat options. Wrapped in an IIFE because
+// the worker is bundled to CJS (no top-level await).
+void (async () => {
+  await getQueue('loan-reminders').add(
+    'sweep',
+    {},
+    { repeat: { pattern: '0 9 * * *', tz: 'Africa/Dakar' }, removeOnComplete: 100 },
+  );
+  // eslint-disable-next-line no-console
+  console.log('CPFA worker started — listening to queues: email, pdf, loan-reminders, payment-webhook');
+})();

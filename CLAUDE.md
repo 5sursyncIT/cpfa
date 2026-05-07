@@ -4,10 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository status
 
-S1 (socle technique) scaffolded. Treat `docs/projet.md` as the source of truth for product scope and stack choices — §10 still has open product decisions (multilingue, paiement, hébergement, mobile, équipe, souveraineté, budget) that V1 implementation must lock down.
+All eight sprints from `docs/projet.md` §7 scaffolded (S1 → S8). The product surface, RBAC, business rules, payments, storage, admin tooling, tests, and deployment artefacts are in code; §10 still has open product decisions (multilingue runtime activation, Wave/OM API contracts, hébergement final, mobile, équipe, souveraineté, budget) that the operator must lock before go-live.
 
-Sprints completed: **S1 — Socle technique** (monorepo, Next.js 15 + TS + Tailwind, tRPC, Auth.js v5, Prisma schema, BullMQ worker, Vitest + Playwright skeletons, GitHub Actions CI).
-Sprints pending: S2 site institutionnel → S3 bibliothèque → S4 formations/séminaires → S5 concours → S6 admin/analytics → S7 tests/recette → S8 deploy.
+| Sprint | What landed |
+|---|---|
+| S1 | Monorepo (pnpm + Turborepo), Next.js 15 + TS + Tailwind, tRPC, Auth.js v5 (edge/node split), Prisma schema, BullMQ worker, Vitest + Playwright skeletons, GitHub Actions CI |
+| S2 | Public site (`/`, /a-propos, /mot-du-directeur, /partenaires, /contact, /blog, /p/[slug]), CMS reads, contact form |
+| S3 | Bibliothèque (catalog, /me/abonnement, carte PDF, prêts admin, cron rappels) |
+| S4 | Formations & séminaires (catalog, inscriptions, convocation PDF) |
+| S5 | Concours (avis, candidatures, banque d'épreuves, uploads S3 presigned) |
+| S6 | Admin & analytics (dashboard, audit, users, payments, CMS editor, exports CSV) |
+| S7 | Pure-rule extraction (`lib/library-rules.ts`), 32 unit tests, Playwright e2e, [`SECURITY.md`](SECURITY.md) |
+| S8 | Multi-stage Dockerfile, `docker-compose.prod.yml`, [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md), [`docs/RUNBOOK.md`](docs/RUNBOOK.md) |
 
 ## Workspace commands
 
@@ -29,6 +37,7 @@ Package manager: **pnpm 10**. Orchestrator: **Turborepo 2**.
 | `pnpm db:seed` | Run `packages/db/prisma/seed.ts` |
 | `pnpm worker` | BullMQ worker (`apps/web/src/worker/index.ts`) |
 | `pnpm docker:up` / `docker:down` | Postgres + Redis + MinIO via `docker/docker-compose.yml` |
+| `docker compose -f docker/docker-compose.prod.yml up -d --build` | Production stack (Dockerfile multi-stage build) |
 
 To run a single Vitest test: `pnpm --filter @cpfa/web exec vitest run tests/rbac.test.ts`.
 To run a single Playwright spec: `pnpm --filter @cpfa/web exec playwright test e2e/home.spec.ts`.
@@ -47,6 +56,18 @@ Don't import `@/lib/auth` from any code that may run on the edge runtime.
 Pure logic in `apps/web/src/lib/auth/rbac.ts` (`hasPermission`). Server-only wrapper in `rbac-server.ts` (`requirePermission`). Grants table mirrors the nine roles in §3.3. Tests: `apps/web/tests/rbac.test.ts`.
 
 In tRPC, prefer `permissionProcedure('library:manage')` over manual checks — see `apps/web/src/server/trpc.ts`.
+
+## Library business rules (single source of truth)
+
+[`apps/web/src/lib/library-rules.ts`](apps/web/src/lib/library-rules.ts) exports the §4.3 invariants — `LIBRARY_LOAN_DAYS=14`, `LIBRARY_MAX_CONCURRENT=3`, `LIBRARY_DAILY_PENALTY_XOF=500`, plus pure functions (`computeOverdueDays`, `computePenaltyXof`, `dueDateFromNow`, `evaluateSubscription`, `evaluateBorrowEligibility`). The tRPC routers and the BullMQ worker import from here. Don't hard-code these constants anywhere else — the duplicated copies are exactly what the S7 refactor removed.
+
+## Production builds
+
+`apps/web/Dockerfile` is a multi-stage build with two final targets:
+- `web` — Next.js standalone output (small, runs `node apps/web/server.js`)
+- `worker` — single esbuild-bundled CJS file (runs `node worker.cjs`)
+
+Both copy `node_modules/.prisma` and `node_modules/@prisma/client` from the builder; without them the runtime can't connect to Postgres. The `outputFileTracingRoot` in `apps/web/next.config.ts` is required for pnpm workspaces — Next traces an incomplete dep set otherwise.
 
 ## Decisions still open
 

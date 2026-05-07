@@ -1,0 +1,43 @@
+# node + build output
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+dist
+**/dist
+out
+**/out
+
+# dev/test artefacts
+coverage
+**/coverage
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+
+# git/editor
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.DS_Store
+
+# secrets / env (rebuild from runtime injection)
+.env
+.env.*
+!.env.example
+
+# misc
+*.log
+README.md
+SECURITY.md
+docs/
+
+# docker build context
+docker/docker-compose*.yml
+Dockerfile*
+.dockerignore
