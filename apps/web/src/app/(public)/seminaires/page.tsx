@@ -1,11 +1,24 @@
 import Link from 'next/link';
 import { prisma } from '@cpfa/db';
+import { fmtXof } from '@/lib/cpfa-mappers';
 
 export const metadata = { title: 'Séminaires — CPFA' };
 export const dynamic = 'force-dynamic';
 
-const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
-const fmtXof = (n: number) => (n === 0 ? 'Gratuit' : `${n.toLocaleString('fr-FR')} FCFA`);
+const MONTH_LABEL = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+
+function dayParts(d: Date): { day: string; month: string } {
+  return {
+    day: String(d.getDate()).padStart(2, '0'),
+    month: `${MONTH_LABEL[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
+  };
+}
+
+function durationLabel(start: Date, end: Date): string {
+  const ms = end.getTime() - start.getTime();
+  const days = Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+  return days === 1 ? '1 journée' : `${days} jours`;
+}
 
 export default async function SeminarsIndexPage() {
   const seminars = await prisma.seminar.findMany({
@@ -20,43 +33,80 @@ export default async function SeminarsIndexPage() {
       endsAt: true,
       location: true,
       priceXof: true,
+      capacity: true,
+      description: true,
+      _count: { select: { registrations: true } },
     },
   });
 
   return (
-    <section className="container py-16">
-      <header className="mb-10 max-w-2xl">
-        <h1 className="text-4xl font-bold tracking-tight">Séminaires</h1>
-        <p className="mt-2 text-muted-foreground">
-          Sessions courtes animées par des praticiens, ouvertes aux professionnels en activité.
-        </p>
-      </header>
+    <div>
+      <div className="container page-head">
+        <div className="breadcrumb">
+          CPFA · <span>Séminaires</span>
+        </div>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'end', gap: 32 }}>
+          <h1>
+            Séminaires &amp;
+            <br />
+            <em className="italic-emph">masterclass</em>.
+          </h1>
+          <p className="fs-17 text-mid" style={{ maxWidth: 380, paddingBottom: 12 }}>
+            Formats courts et intensifs pour cadres en exercice. Animés par des praticiens et
+            universitaires de premier plan.
+          </p>
+        </div>
+      </div>
 
-      {seminars.length === 0 ? (
-        <p className="text-muted-foreground">Aucun séminaire programmé prochainement.</p>
-      ) : (
-        <ul className="space-y-4">
-          {seminars.map((s) => (
-            <li key={s.id}>
-              <Link
-                href={`/seminaires/${s.slug}`}
-                className="flex items-center justify-between gap-4 rounded-lg border bg-card p-6 transition-shadow hover:shadow-sm"
-              >
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    {fmt.format(s.startsAt)}
-                  </p>
-                  <h2 className="mt-1 text-lg font-semibold leading-snug">{s.title}</h2>
-                  {s.location ? (
-                    <p className="mt-1 text-sm text-muted-foreground">{s.location}</p>
-                  ) : null}
-                </div>
-                <p className="text-sm font-semibold">{fmtXof(s.priceXof)}</p>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+      <div className="container" style={{ paddingBottom: 96 }}>
+        {seminars.length === 0 ? (
+          <p className="text-soft">Aucun séminaire programmé prochainement.</p>
+        ) : (
+          <div className="event-list">
+            {seminars.map((s) => {
+              const dp = dayParts(s.startsAt);
+              const seatsLeft = Math.max(0, s.capacity - s._count.registrations);
+              const seatsLabel =
+                seatsLeft === 0
+                  ? `${s.capacity} places · COMPLET`
+                  : `${s.capacity} places · ${seatsLeft} restantes`;
+              return (
+                <Link key={s.id} href={`/seminaires/${s.slug}`} className="event">
+                  <div className="event-date">
+                    <div className="day">{dp.day}</div>
+                    <div className="month">{dp.month}</div>
+                  </div>
+                  <div>
+                    <h4>{s.title}</h4>
+                    {s.description ? (
+                      <p className="event-desc fs-14 text-mid" style={{ marginTop: 6 }}>
+                        {s.description}
+                      </p>
+                    ) : null}
+                    <div className="row gap-2" style={{ marginTop: 12 }}>
+                      <span className="pill">{durationLabel(s.startsAt, s.endsAt)}</span>
+                      <span
+                        className={
+                          'pill ' +
+                          (seatsLeft === 0 ? 'pill-warning' : 'pill-orange')
+                        }
+                      >
+                        {seatsLabel}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="event-meta">
+                    <span>{fmtXof(s.priceXof)}</span>
+                  </div>
+                  <span className="btn btn-ghost btn-sm">
+                    Détails <span className="arrow">→</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

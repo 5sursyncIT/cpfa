@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
-import { Header } from '@/components/layout/header';
-import { Footer } from '@/components/layout/footer';
+import { TopNav } from '@/components/cpfa/top-nav';
+import { CpfaFooter } from '@/components/cpfa/footer';
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header />
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </div>
+    <>
+      <TopNav />
+      <main>{children}</main>
+      <CpfaFooter />
+    </>
   );
 }

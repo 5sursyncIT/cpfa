@@ -1,23 +1,37 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
+import { MemberCard } from '@/components/cpfa/member-card';
 import { SubscribeButton } from './subscribe-button';
 
 export const dynamic = 'force-dynamic';
 
+const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
+const fmtShort = new Intl.DateTimeFormat('fr-FR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+});
+
+const ADVANTAGES = [
+  "Emprunt jusqu'à 5 ouvrages simultanément",
+  'Accès au fonds numérique CIMA + études BCEAO',
+  'Tarif réduit -30% sur tous les séminaires',
+  'Invitations aux journées alumni',
+];
+
 export default async function MySubscriptionPage() {
   const session = (await auth())!;
-
   const subscription = await prisma.subscription.findFirst({
     where: { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
     include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } },
   });
 
-  const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
+  const fullName = session.user.name ?? session.user.email ?? 'Abonné·e CPFA';
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Mon abonnement bibliothèque</h1>
+    <div className="col gap-5">
+      <h3>Ma carte d&apos;abonné·e</h3>
 
       {!subscription ? (
         <NewSubscription />
@@ -28,11 +42,53 @@ export default async function MySubscriptionPage() {
           cardNumber={subscription.cardNumber}
         />
       ) : subscription.status === 'ACTIVE' ? (
-        <ActiveSubscription
-          cardNumber={subscription.cardNumber}
-          expiresAt={subscription.expiresAt}
-          fmt={fmt}
-        />
+        <>
+          <p className="fs-15 text-mid" style={{ maxWidth: 560 }}>
+            Présentez-la à l&apos;accueil de la bibliothèque ou scannez le QR code à l&apos;entrée
+            des séminaires. Carte virtuelle uniquement — Wallet Apple/Google compatible.
+          </p>
+          <div style={{ maxWidth: 480 }}>
+            <MemberCard
+              fullName={fullName}
+              cardNumber={subscription.cardNumber}
+              promotion={
+                subscription.startedAt
+                  ? `Promotion ${subscription.startedAt.getFullYear()}`
+                  : '—'
+              }
+              status="Abonné·e"
+              validUntil={subscription.expiresAt ? fmtShort.format(subscription.expiresAt) : '—'}
+            />
+          </div>
+          <div className="row gap-3">
+            <button type="button" className="btn btn-primary">
+              Ajouter à Apple Wallet
+            </button>
+            <a
+              href="/api/me/card"
+              target="_blank"
+              rel="noopener"
+              className="btn btn-ghost"
+            >
+              Télécharger PDF
+            </a>
+          </div>
+          <div className="card" style={{ maxWidth: 560 }}>
+            <div className="label">Avantages abonnement</div>
+            <div className="col gap-3" style={{ marginTop: 16 }}>
+              {ADVANTAGES.map((t) => (
+                <div key={t} className="row gap-3" style={{ alignItems: 'start' }}>
+                  <span style={{ color: 'var(--orange)', fontFamily: 'var(--mono)' }}>✓</span>
+                  <span className="fs-14">{t}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="fs-13 text-soft" style={{ maxWidth: 560 }}>
+            Carte n° <span className="mono">{subscription.cardNumber}</span> · valable jusqu&apos;au{' '}
+            {subscription.expiresAt ? fmt.format(subscription.expiresAt) : '—'}.
+          </p>
+        </>
       ) : (
         <ExpiredSubscription />
       )}
@@ -42,14 +98,22 @@ export default async function MySubscriptionPage() {
 
 function NewSubscription() {
   return (
-    <section className="rounded-lg border bg-card p-6">
-      <h2 className="text-lg font-semibold">Souscrire</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        L’abonnement bibliothèque CPFA donne accès au catalogue, à 3 prêts simultanés (durée
-        14 jours) et à votre carte d’abonné numérique avec QR.
+    <section className="card" style={{ padding: 32 }}>
+      <h4>Souscrire à l&apos;abonnement bibliothèque</h4>
+      <p className="fs-15 text-mid" style={{ marginTop: 12, lineHeight: 1.5 }}>
+        L&apos;abonnement CPFA donne accès au catalogue, à 3 prêts simultanés (durée 14 jours) et
+        à votre carte d&apos;abonné·e numérique avec QR.
       </p>
-      <p className="mt-4 text-2xl font-bold">10 000 FCFA <span className="text-base font-normal text-muted-foreground">/ an</span></p>
-      <div className="mt-6">
+      <p
+        className="serif"
+        style={{ fontSize: 48, lineHeight: 1, marginTop: 16, letterSpacing: '-0.02em' }}
+      >
+        10 000{' '}
+        <small className="mono fs-13 text-soft" style={{ letterSpacing: '0.04em' }}>
+          FCFA / an
+        </small>
+      </p>
+      <div style={{ marginTop: 24 }}>
         <SubscribeButton />
       </div>
     </section>
@@ -67,68 +131,48 @@ function PendingSubscription({
 }) {
   const meta = (paymentMetadata ?? {}) as { qrPayload?: string; redirectUrl?: string };
   return (
-    <section className="rounded-lg border bg-card p-6">
-      <h2 className="text-lg font-semibold">Paiement en attente</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Carte n° <span className="font-mono">{cardNumber}</span>. Montant à régler :
-        <strong> {amountXof.toLocaleString('fr-FR')} FCFA</strong>.
+    <section className="card" style={{ padding: 32 }}>
+      <h4>Paiement en attente</h4>
+      <p className="fs-15 text-mid" style={{ marginTop: 12 }}>
+        Carte n° <span className="mono">{cardNumber}</span>. Montant à régler :{' '}
+        <strong>{amountXof.toLocaleString('fr-FR')} FCFA</strong>.
       </p>
       {meta.qrPayload ? (
-        <p className="mt-4 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-          Scannez le QR statique CPFA à l’accueil et indiquez votre numéro de carte. Votre
+        <p
+          className="fs-13"
+          style={{
+            marginTop: 16,
+            padding: 16,
+            background: 'var(--bg-soft)',
+            borderRadius: 'var(--r-2)',
+            color: 'var(--ink-mid)',
+          }}
+        >
+          Scannez le QR statique CPFA à l&apos;accueil et indiquez votre numéro de carte. Votre
           abonnement sera activé sous 24 h après confirmation par le service comptable.
         </p>
       ) : null}
       {meta.redirectUrl ? (
         <a
           href={meta.redirectUrl}
-          className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
+          className="btn btn-orange"
+          style={{ marginTop: 16, alignSelf: 'flex-start' }}
         >
-          Continuer le paiement
+          Continuer le paiement <span className="arrow">→</span>
         </a>
       ) : null}
     </section>
   );
 }
 
-function ActiveSubscription({
-  cardNumber,
-  expiresAt,
-  fmt,
-}: {
-  cardNumber: string;
-  expiresAt: Date | null;
-  fmt: Intl.DateTimeFormat;
-}) {
-  return (
-    <section className="rounded-lg border bg-card p-6">
-      <h2 className="text-lg font-semibold">Abonnement actif</h2>
-      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <dt className="text-muted-foreground">N° de carte</dt>
-        <dd className="font-mono">{cardNumber}</dd>
-        <dt className="text-muted-foreground">Valide jusqu’au</dt>
-        <dd>{expiresAt ? fmt.format(expiresAt) : '—'}</dd>
-      </dl>
-      <a
-        href="/api/me/card"
-        target="_blank"
-        rel="noopener"
-        className="mt-6 inline-block rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
-      >
-        Télécharger ma carte (PDF)
-      </a>
-    </section>
-  );
-}
-
 function ExpiredSubscription() {
   return (
-    <section className="rounded-lg border bg-card p-6">
-      <h2 className="text-lg font-semibold">Abonnement expiré</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+    <section className="card" style={{ padding: 32 }}>
+      <h4>Abonnement expiré</h4>
+      <p className="fs-15 text-mid" style={{ marginTop: 12 }}>
         Renouvelez pour continuer à emprunter à la bibliothèque.
       </p>
-      <div className="mt-6">
+      <div style={{ marginTop: 24 }}>
         <SubscribeButton />
       </div>
     </section>

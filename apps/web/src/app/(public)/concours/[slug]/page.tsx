@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@cpfa/db';
 import { ExamRegistrationCard } from '@/components/exam/exam-registration-card';
+import { Countdown } from '@/components/cpfa/countdown';
+import { fmtXof } from '@/lib/cpfa-mappers';
 
 export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
-const fmtXof = (n: number) => (n === 0 ? 'Gratuit' : `${n.toLocaleString('fr-FR')} FCFA`);
 
 const KIND_LABEL: Record<string, string> = {
   CONCOURS: 'Concours',
@@ -28,49 +29,105 @@ export default async function ExamPage({ params }: { params: Promise<{ slug: str
   const isOpen = exam.openAt <= now && exam.closeAt >= now;
 
   return (
-    <article className="container grid gap-12 py-16 md:grid-cols-[2fr_1fr]">
-      <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          {KIND_LABEL[exam.kind] ?? exam.kind}
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">{exam.title}</h1>
-
-        {exam.description ? (
-          <div className="prose prose-slate mt-6 max-w-none">
-            <p>{exam.description}</p>
+    <div>
+      <div className="container">
+        <div className="page-head" style={{ paddingBottom: 0 }}>
+          <div className="breadcrumb">
+            CPFA · Concours · <span>{exam.title}</span>
           </div>
-        ) : null}
+          <div className="detail-hero">
+            <div>
+              <span
+                className="pill"
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  color: 'white',
+                  borderColor: 'transparent',
+                  marginBottom: 16,
+                }}
+              >
+                {KIND_LABEL[exam.kind] ?? exam.kind}
+              </span>
+              <h1>{exam.title}</h1>
+            </div>
+          </div>
+        </div>
 
-        <section className="mt-10 rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold">Calendrier</h2>
-          <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">Ouverture des candidatures</dt>
-            <dd>{fmt.format(exam.openAt)}</dd>
-            <dt className="text-muted-foreground">Clôture</dt>
-            <dd>{fmt.format(exam.closeAt)}</dd>
-            {exam.examAt ? (
+        <div className="detail-grid">
+          <div>
+            {exam.description ? (
+              <p
+                className="fs-17 text-mid"
+                style={{ lineHeight: 1.55, marginBottom: 32, maxWidth: 720 }}
+              >
+                {exam.description}
+              </p>
+            ) : null}
+
+            {isOpen ? (
               <>
-                <dt className="text-muted-foreground">Épreuves</dt>
-                <dd>{fmt.format(exam.examAt)}</dd>
+                <span className="eyebrow" style={{ marginBottom: 16 }}>
+                  Clôture des candidatures dans
+                </span>
+                <Countdown deadline={exam.closeAt} />
               </>
             ) : null}
-          </dl>
-        </section>
-      </div>
 
-      <aside>
-        <div className="sticky top-24 space-y-4 rounded-lg border bg-card p-6">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Frais</p>
-            <p className="text-2xl font-bold">{fmtXof(exam.feeXof)}</p>
+            <h3 style={{ marginTop: 48, marginBottom: 24 }}>
+              Calendrier <em className="italic-emph">officiel</em>
+            </h3>
+            <div className="col gap-3" style={{ maxWidth: 640 }}>
+              <div className="enroll-stat-row" style={{ borderTop: '1px solid var(--line)' }}>
+                <span className="label">Ouverture des candidatures</span>
+                <span className="value">{fmt.format(exam.openAt)}</span>
+              </div>
+              <div className="enroll-stat-row">
+                <span className="label">Clôture</span>
+                <span className="value">{fmt.format(exam.closeAt)}</span>
+              </div>
+              {exam.examAt ? (
+                <div
+                  className="enroll-stat-row"
+                  style={{ borderBottom: '1px solid var(--line-soft)' }}
+                >
+                  <span className="label">Épreuves</span>
+                  <span className="value">{fmt.format(exam.examAt)}</span>
+                </div>
+              ) : null}
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Statut</p>
-            <p className="text-sm">{isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées'}</p>
-          </div>
-          <ExamRegistrationCard examId={exam.id} disabled={!isOpen} />
+
+          <aside className="enroll-card">
+            <div>
+              <div className="label">Frais de candidature</div>
+              <div className="enroll-price">
+                {exam.feeXof === 0 ? 'Gratuit' : exam.feeXof.toLocaleString('fr-FR')}{' '}
+                {exam.feeXof === 0 ? null : <small>FCFA</small>}
+              </div>
+            </div>
+            <div className="enroll-stat-row">
+              <span className="label">Statut</span>
+              <span className="value">
+                {isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées'}
+              </span>
+            </div>
+            {exam.examAt ? (
+              <div
+                className="enroll-stat-row"
+                style={{ borderBottom: '1px solid var(--line-soft)' }}
+              >
+                <span className="label">Date des épreuves</span>
+                <span className="value">{fmt.format(exam.examAt)}</span>
+              </div>
+            ) : null}
+            <ExamRegistrationCard examId={exam.id} disabled={!isOpen} />
+            <p className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
+              Frais payables : <strong>{fmtXof(exam.feeXof)}</strong>. Wave, Orange Money ou
+              virement.
+            </p>
+          </aside>
         </div>
-      </aside>
-    </article>
+      </div>
+    </div>
   );
 }

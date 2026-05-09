@@ -3,61 +3,120 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { auth, signOut } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
-import { Button } from '@cpfa/ui';
-
-const navItems = [
-  { href: '/admin', label: 'Tableau de bord' },
-  { href: '/admin/loans', label: 'Prêts' },
-  { href: '/admin/registrations', label: 'Inscriptions' },
-  { href: '/admin/payments', label: 'Paiements' },
-  { href: '/admin/exams', label: 'Concours' },
-  { href: '/admin/articles', label: 'Actualités' },
-  { href: '/admin/cms', label: 'Pages CMS' },
-  { href: '/admin/users', label: 'Utilisateurs' },
-  { href: '/admin/audit', label: 'Audit' },
-];
+import { prisma } from '@cpfa/db';
+import { AdminSideNav } from '@/components/cpfa/admin-side-nav';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect('/sign-in?callbackUrl=/admin');
-  if (!hasPermission(session.user.roles, 'admin:any') && !hasPermission(session.user.roles, 'library:manage')) {
+  if (
+    !hasPermission(session.user.roles, 'admin:any') &&
+    !hasPermission(session.user.roles, 'library:manage')
+  ) {
     redirect('/');
   }
 
+  const [
+    submittedRegs,
+    pendingApplicants,
+    activeLoansCount,
+    overdueLoansCount,
+    catalogCount,
+  ] = await Promise.all([
+    prisma.registration.count({
+      where: {
+        status: { in: ['SUBMITTED', 'PAID'] },
+        OR: [{ courseId: { not: null } }, { seminarId: { not: null } }],
+      },
+    }),
+    prisma.registration.count({
+      where: { status: { in: ['SUBMITTED', 'PAID'] }, examId: { not: null } },
+    }),
+    prisma.loan.count({ where: { status: 'ACTIVE' } }),
+    prisma.loan.count({ where: { status: 'ACTIVE', dueAt: { lt: new Date() } } }),
+    prisma.resource.count(),
+  ]);
+
+  const sections = [
+    {
+      title: 'Pilotage',
+      items: [
+        { href: '/admin', label: "Vue d'ensemble" },
+        { href: '/admin/audit', label: 'Audit' },
+      ],
+    },
+    {
+      title: 'Gestion',
+      items: [
+        { href: '/admin/registrations', label: 'Inscriptions', count: submittedRegs },
+        { href: '/admin/exams', label: 'Candidatures', count: pendingApplicants },
+        { href: '/admin/articles', label: 'Actualités' },
+        { href: '/admin/cms', label: 'Pages CMS' },
+      ],
+    },
+    {
+      title: 'Bibliothèque',
+      items: [
+        { href: '/admin/loans', label: 'Prêts en cours', count: activeLoansCount },
+        { href: '/admin/loans?overdue=1', label: 'Retards', count: overdueLoansCount },
+        { href: '/bibliotheque', label: 'Catalogue', count: catalogCount },
+      ],
+    },
+    {
+      title: 'Système',
+      items: [
+        { href: '/admin/users', label: 'Utilisateurs' },
+        { href: '/admin/payments', label: 'Paiements' },
+      ],
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-muted/20">
-      <header className="border-b bg-background">
-        <div className="container flex h-14 items-center justify-between gap-6">
-          <Link href="/admin" className="text-sm font-bold uppercase tracking-widest">
-            CPFA · Admin
-          </Link>
-          <form
-            action={async () => {
-              'use server';
-              await signOut({ redirectTo: '/' });
+    <div>
+      <div style={{ background: 'var(--ink)', color: 'var(--bg)', padding: '12px 0' }}>
+        <div
+          className="container row"
+          style={{ justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <span
+            className="mono"
+            style={{
+              fontSize: 11,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              opacity: 0.7,
             }}
           >
-            <Button type="submit" variant="ghost" size="sm">
-              Se déconnecter
-            </Button>
-          </form>
-        </div>
-      </header>
-      <div className="container grid gap-8 py-8 md:grid-cols-[220px_1fr]">
-        <aside>
-          <nav className="flex flex-col gap-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+            ⚙ Espace administrateur
+          </span>
+          <div className="row gap-2">
+            <Link
+              href="/"
+              className="btn btn-ghost btn-sm"
+              style={{ color: 'var(--bg)', borderColor: 'rgba(255,255,255,0.2)' }}
+            >
+              ← Retour au site public
+            </Link>
+            <form
+              action={async () => {
+                'use server';
+                await signOut({ redirectTo: '/' });
+              }}
+            >
+              <button
+                type="submit"
+                className="btn btn-ghost btn-sm"
+                style={{ color: 'var(--bg)', borderColor: 'rgba(255,255,255,0.2)' }}
               >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-        <main className="rounded-lg border bg-background p-6">{children}</main>
+                Déconnexion
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div className="admin-shell">
+        <AdminSideNav sections={sections} />
+        <main className="admin-main">{children}</main>
       </div>
     </div>
   );

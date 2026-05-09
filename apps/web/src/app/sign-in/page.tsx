@@ -1,6 +1,7 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signIn, auth } from '@/lib/auth';
-import { Button } from '@cpfa/ui';
+import { LogoMark } from '@/components/cpfa/logo-mark';
 
 export const metadata = { title: 'Connexion — CPFA' };
 
@@ -16,15 +17,50 @@ export default async function SignInPage({
   const callbackUrl = params.callbackUrl ?? '/me';
 
   return (
-    <main className="container flex min-h-screen items-center justify-center py-16">
-      <div className="w-full max-w-md rounded-lg border bg-card p-8 shadow-sm">
-        <h1 className="text-2xl font-bold tracking-tight">Connexion</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <main
+      className="container"
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '64px 24px',
+      }}
+    >
+      <div className="card" style={{ width: '100%', maxWidth: 460, padding: 40 }}>
+        <Link
+          href="/"
+          className="brand"
+          style={{ marginBottom: 32, display: 'inline-flex' }}
+        >
+          <div className="brand-mark">
+            <LogoMark size={38} />
+          </div>
+          <div className="brand-text">
+            <span className="brand-name">CPFA</span>
+            <span className="brand-tag">Centre de Formation · Assurance</span>
+          </div>
+        </Link>
+
+        <h3 style={{ marginTop: 16 }}>
+          Espace <em className="italic-emph">abonné</em>.
+        </h3>
+        <p className="fs-15 text-mid" style={{ marginTop: 8 }}>
           Accédez à votre espace personnel CPFA.
         </p>
 
         {params.error ? (
-          <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <p
+            className="fs-13"
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 'var(--r-2)',
+              border: '1px solid var(--danger)',
+              color: 'var(--danger)',
+              background: 'oklch(95% 0.04 25)',
+            }}
+          >
             Identifiants invalides. Réessayez ou utilisez un autre fournisseur.
           </p>
         ) : null}
@@ -34,11 +70,11 @@ export default async function SignInPage({
             'use server';
             await signIn('google', { redirectTo: callbackUrl });
           }}
-          className="mt-8"
+          style={{ marginTop: 32 }}
         >
-          <Button type="submit" size="lg" variant="outline" className="w-full">
+          <button type="submit" className="btn btn-ghost btn-lg" style={{ width: '100%' }}>
             Continuer avec Google
-          </Button>
+          </button>
         </form>
 
         <form
@@ -49,24 +85,37 @@ export default async function SignInPage({
               redirectTo: callbackUrl,
             });
           }}
-          className="mt-3 flex gap-2"
+          className="row gap-2"
+          style={{ marginTop: 12 }}
         >
           <input
             name="email"
             type="email"
             required
             placeholder="vous@exemple.com"
-            className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="input"
+            style={{ flex: 1 }}
           />
-          <Button type="submit" size="lg" variant="outline">
+          <button type="submit" className="btn btn-ghost btn-lg">
             Lien magique
-          </Button>
+          </button>
         </form>
 
-        <div className="my-6 flex items-center gap-4 text-xs uppercase tracking-widest text-muted-foreground">
-          <hr className="flex-1" />
+        <div
+          className="row gap-4"
+          style={{
+            margin: '24px 0',
+            alignItems: 'center',
+            color: 'var(--ink-soft)',
+            fontSize: 11,
+            fontFamily: 'var(--mono)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+        >
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--line)' }} />
           <span>ou</span>
-          <hr className="flex-1" />
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--line)' }} />
         </div>
 
         <form
@@ -78,34 +127,30 @@ export default async function SignInPage({
               redirectTo: callbackUrl,
             });
           }}
-          className="space-y-3"
+          className="col gap-3"
         >
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Email</span>
-            <input
-              name="email"
-              type="email"
-              required
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Mot de passe</span>
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <Button type="submit" size="lg" className="w-full">
-            Se connecter
-          </Button>
+          <div>
+            <label className="label">Email</label>
+            <input name="email" type="email" required className="input" />
+          </div>
+          <div>
+            <label className="label">Mot de passe</label>
+            <input name="password" type="password" required minLength={8} className="input" />
+          </div>
+          <button type="submit" className="btn btn-primary btn-lg">
+            Se connecter <span className="arrow">→</span>
+          </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Pas encore de compte ? Contactez l’administration ou créez votre dossier de candidature.
+        <p
+          className="fs-13 text-soft"
+          style={{ marginTop: 24, textAlign: 'center' }}
+        >
+          Pas encore de compte ? Contactez l&apos;administration ou{' '}
+          <Link href="/formations" style={{ color: 'var(--ink)' }}>
+            créez votre dossier de candidature
+          </Link>
+          .
         </p>
       </div>
     </main>

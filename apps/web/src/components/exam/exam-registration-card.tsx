@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
 export function ExamRegistrationCard({ examId, disabled }: { examId: string; disabled: boolean }) {
@@ -11,19 +10,22 @@ export function ExamRegistrationCard({ examId, disabled }: { examId: string; dis
   });
 
   return (
-    <div className="space-y-2">
-      <Button
-        size="lg"
-        className="w-full"
+    <div className="col gap-2">
+      <button
+        type="button"
+        className="btn btn-orange btn-lg"
         disabled={disabled || register.isPending}
         onClick={() => register.mutate({ examId })}
       >
-        {disabled ? 'Inscriptions fermées' : register.isPending ? 'Inscription…' : 'Candidater'}
-      </Button>
+        {disabled ? 'Inscriptions fermées' : register.isPending ? 'Inscription…' : 'Candidater'}{' '}
+        {!disabled && !register.isPending ? <span className="arrow">→</span> : null}
+      </button>
       {register.isError ? (
-        <p className="text-xs text-destructive">{register.error.message}</p>
+        <p className="fs-13" style={{ color: 'var(--danger)' }}>
+          {register.error.message}
+        </p>
       ) : (
-        <p className="text-xs text-muted-foreground">
+        <p className="fs-13 text-soft">
           Vous serez redirigé pour téléverser vos pièces et régler les frais.
         </p>
       )}

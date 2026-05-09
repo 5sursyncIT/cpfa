@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
 export function SubscribeButton() {
@@ -11,12 +10,14 @@ export function SubscribeButton() {
   });
 
   return (
-    <Button
+    <button
+      type="button"
+      className="btn btn-orange btn-lg"
       onClick={() => initiate.mutate(undefined)}
       disabled={initiate.isPending}
-      size="lg"
     >
-      {initiate.isPending ? 'Initialisation…' : 'Souscrire (10 000 FCFA)'}
-    </Button>
+      {initiate.isPending ? 'Initialisation…' : 'Souscrire (10 000 FCFA)'}{' '}
+      {!initiate.isPending ? <span className="arrow">→</span> : null}
+    </button>
   );
 }

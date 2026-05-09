@@ -5,10 +5,19 @@ import { UploadField } from '@/components/upload/upload-field';
 
 export const dynamic = 'force-dynamic';
 
-const REQUIRED_EXAM_DOCS = ['CV', 'Pièce d’identité', 'Diplôme(s) le plus récent'] as const;
+const REQUIRED_EXAM_DOCS = ['CV', "Pièce d'identité", 'Diplôme(s) le plus récent'] as const;
 
 const fmtDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
 const fmtDateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+
+const STATUS_PILL: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: 'Brouillon', className: '' },
+  SUBMITTED: { label: 'En attente', className: '' },
+  PAID: { label: 'Payée', className: 'pill-orange' },
+  VALIDATED: { label: 'Confirmée', className: 'pill-success' },
+  REJECTED: { label: 'Refusée', className: 'pill-warning' },
+  CANCELLED: { label: 'Annulée', className: '' },
+};
 
 export default async function RegistrationDetailPage({
   params,
@@ -32,56 +41,100 @@ export default async function RegistrationDetailPage({
 
   const target = reg.course?.title ?? reg.seminar?.title ?? reg.exam?.title ?? '—';
   const meta = (reg.payment?.metadata ?? {}) as { qrPayload?: string; redirectUrl?: string };
+  const status = STATUS_PILL[reg.status] ?? { label: reg.status, className: '' };
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Inscription</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{target}</h1>
-      </header>
+    <div className="col gap-5">
+      <div>
+        <span className="eyebrow">Inscription</span>
+        <h3 style={{ marginTop: 8 }}>{target}</h3>
+      </div>
 
-      <section className="rounded-lg border bg-card p-6">
-        <h2 className="text-lg font-semibold">État</h2>
-        <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Statut</dt>
-          <dd className="font-medium">{reg.status}</dd>
-          <dt className="text-muted-foreground">Soumise le</dt>
-          <dd>{reg.submittedAt ? fmtDate.format(reg.submittedAt) : '—'}</dd>
+      <section className="card" style={{ padding: 24 }}>
+        <div
+          className="row"
+          style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+        >
+          <h4>État du dossier</h4>
+          <span className={'pill ' + status.className}>
+            <span className="dot"></span>
+            {status.label}
+          </span>
+        </div>
+        <div className="col gap-3">
+          <div className="enroll-stat-row" style={{ borderTop: '1px solid var(--line)' }}>
+            <span className="label">Soumise le</span>
+            <span className="value">
+              {reg.submittedAt ? fmtDate.format(reg.submittedAt) : '—'}
+            </span>
+          </div>
           {reg.session ? (
-            <>
-              <dt className="text-muted-foreground">Session</dt>
-              <dd>{fmtDateTime.format(reg.session.startsAt)}</dd>
-            </>
+            <div className="enroll-stat-row">
+              <span className="label">Session</span>
+              <span className="value">{fmtDateTime.format(reg.session.startsAt)}</span>
+            </div>
           ) : null}
           {reg.seminar?.startsAt ? (
-            <>
-              <dt className="text-muted-foreground">Date du séminaire</dt>
-              <dd>{fmtDateTime.format(reg.seminar.startsAt)}</dd>
-            </>
+            <div className="enroll-stat-row">
+              <span className="label">Date du séminaire</span>
+              <span className="value">{fmtDateTime.format(reg.seminar.startsAt)}</span>
+            </div>
           ) : null}
-        </dl>
+          <div className="enroll-stat-row" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+            <span className="label">Référence</span>
+            <span className="value mono">{reg.id.slice(0, 16).toUpperCase()}</span>
+          </div>
+        </div>
       </section>
 
       {reg.payment ? (
-        <section className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold">Paiement</h2>
-          <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">Montant</dt>
-            <dd className="font-medium">{reg.payment.amountXof.toLocaleString('fr-FR')} FCFA</dd>
-            <dt className="text-muted-foreground">État</dt>
-            <dd>{reg.payment.status}</dd>
-          </dl>
+        <section className="card" style={{ padding: 24 }}>
+          <h4>Paiement</h4>
+          <div className="col gap-3" style={{ marginTop: 12 }}>
+            <div className="enroll-stat-row" style={{ borderTop: '1px solid var(--line)' }}>
+              <span className="label">Montant</span>
+              <span className="value">
+                {reg.payment.amountXof.toLocaleString('fr-FR')} FCFA
+              </span>
+            </div>
+            <div className="enroll-stat-row" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+              <span className="label">État</span>
+              <span
+                className={
+                  'pill ' +
+                  (reg.payment.status === 'CONFIRMED'
+                    ? 'pill-success'
+                    : reg.payment.status === 'PENDING'
+                      ? 'pill-orange'
+                      : '')
+                }
+              >
+                {reg.payment.status}
+              </span>
+            </div>
+          </div>
           {reg.payment.status === 'PENDING' ? (
-            <div className="mt-4 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <div
+              style={{
+                marginTop: 16,
+                padding: 16,
+                background: 'var(--bg-soft)',
+                borderRadius: 'var(--r-2)',
+                fontSize: 13,
+                color: 'var(--ink-mid)',
+              }}
+            >
               {meta.redirectUrl ? (
-                <a href={meta.redirectUrl} className="font-medium text-foreground hover:underline">
-                  Continuer le paiement →
+                <a href={meta.redirectUrl} className="btn btn-orange">
+                  Continuer le paiement <span className="arrow">→</span>
                 </a>
               ) : (
                 <>
-                  Référence à indiquer lors du paiement à l’accueil :{' '}
-                  <span className="font-mono text-foreground">{reg.id}</span>. La validation est
-                  effectuée par le service comptable sous 24 h.
+                  Référence à indiquer lors du paiement à l&apos;accueil :{' '}
+                  <span className="mono" style={{ color: 'var(--ink)' }}>
+                    {reg.id}
+                  </span>
+                  . La validation est effectuée par le service comptable sous 24 h.
                 </>
               )}
             </div>
@@ -90,19 +143,19 @@ export default async function RegistrationDetailPage({
       ) : null}
 
       {reg.examId && reg.status !== 'REJECTED' && reg.status !== 'CANCELLED' ? (
-        <section className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold">Pièces du dossier</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <section className="card" style={{ padding: 24 }}>
+          <h4>Pièces du dossier</h4>
+          <p className="fs-13 text-soft" style={{ marginTop: 8 }}>
             Téléversez chaque document. PDF ou image — 25 Mo maximum par fichier.
           </p>
-          <div className="mt-4 space-y-3">
+          <div className="col gap-3" style={{ marginTop: 16 }}>
             {REQUIRED_EXAM_DOCS.map((label) => {
               const existing = reg.attachments.find((a) => a.label === label);
               return (
                 <div key={label}>
                   <UploadField registrationId={reg.id} label={label} required />
                   {existing ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="fs-13 text-soft" style={{ marginTop: 4 }}>
                       Déjà téléversé : {existing.storageKey.split('/').pop()}
                     </p>
                   ) : null}
@@ -114,18 +167,19 @@ export default async function RegistrationDetailPage({
       ) : null}
 
       {reg.status === 'VALIDATED' ? (
-        <section className="rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold">Convocation</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <section className="card" style={{ padding: 24 }}>
+          <h4>Convocation</h4>
+          <p className="fs-13 text-soft" style={{ marginTop: 8 }}>
             Votre inscription est validée. Téléchargez votre convocation officielle CPFA.
           </p>
           <a
             href={`/api/registrations/${reg.id}/convocation`}
             target="_blank"
             rel="noopener"
-            className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground"
+            className="btn btn-orange"
+            style={{ marginTop: 16, alignSelf: 'flex-start' }}
           >
-            Télécharger la convocation (PDF)
+            Télécharger la convocation (PDF) <span className="arrow">→</span>
           </a>
         </section>
       ) : null}

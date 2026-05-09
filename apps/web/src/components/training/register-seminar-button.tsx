@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
 export function RegisterSeminarButton({ seminarId, disabled }: { seminarId: string; disabled?: boolean }) {
@@ -11,17 +10,20 @@ export function RegisterSeminarButton({ seminarId, disabled }: { seminarId: stri
   });
 
   return (
-    <div className="space-y-2">
-      <Button
-        size="lg"
-        className="w-full"
+    <div className="col gap-2">
+      <button
+        type="button"
+        className="btn btn-orange btn-lg"
         disabled={disabled || register.isPending}
         onClick={() => register.mutate({ seminarId })}
       >
-        {disabled ? 'Complet' : register.isPending ? 'Inscription…' : "S’inscrire"}
-      </Button>
+        {disabled ? 'Complet' : register.isPending ? 'Inscription…' : "S'inscrire"}{' '}
+        {!disabled && !register.isPending ? <span className="arrow">→</span> : null}
+      </button>
       {register.isError ? (
-        <p className="text-xs text-destructive">{register.error.message}</p>
+        <p className="fs-13" style={{ color: 'var(--danger)' }}>
+          {register.error.message}
+        </p>
       ) : null}
     </div>
   );

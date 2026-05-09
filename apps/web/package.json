@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
-    "worker": "tsx src/worker/index.ts",
+    "worker": "tsx --env-file=.env src/worker/index.ts",
     "worker:bundle": "esbuild src/worker/index.ts --bundle --platform=node --target=node20 --format=cjs --external:@prisma/client --external:.prisma/* --outfile=dist-worker/index.cjs"
   },
   "dependencies": {

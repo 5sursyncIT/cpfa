@@ -1,110 +1,145 @@
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
-import { Button } from '@cpfa/ui';
+import { LoanList } from '@/components/cpfa/loan-list';
+import { Book } from '@/components/cpfa/book';
+import { pickCover, resourceToBook } from '@/lib/cpfa-mappers';
 
 export const dynamic = 'force-dynamic';
 
+const fmtMonth = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' });
+
 export default async function MyLibraryPage() {
   const session = (await auth())!;
+  const userId = session.user.id;
 
-  const [loans, subscription] = await Promise.all([
+  const [activeLoans, recommended, subscription, weekDueCount, lateCount] = await Promise.all([
     prisma.loan.findMany({
-      where: { userId: session.user.id },
-      orderBy: { borrowedAt: 'desc' },
-      take: 30,
+      where: { userId, status: 'ACTIVE' },
+      orderBy: { dueAt: 'asc' },
       include: { resource: { select: { id: true, title: true, authors: true } } },
     }),
+    prisma.resource.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 4,
+      select: { id: true, title: true, authors: true, totalCopies: true },
+    }),
     prisma.subscription.findFirst({
-      where: { userId: session.user.id, status: 'ACTIVE' },
-      select: { id: true, cardNumber: true, expiresAt: true, qrPayload: true },
+      where: { userId, status: 'ACTIVE' },
+      select: { id: true },
+    }),
+    prisma.loan.count({
+      where: {
+        userId,
+        status: 'ACTIVE',
+        dueAt: { lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+      },
+    }),
+    prisma.loan.count({
+      where: { userId, status: 'ACTIVE', dueAt: { lt: new Date() } },
     }),
   ]);
 
-  const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-  const today = Date.now();
+  const items = activeLoans.map((l) => ({
+    id: l.id,
+    title: l.resource.title,
+    author: (l.resource.authors[0] ?? '').toUpperCase(),
+    due: fmtMonth.format(l.dueAt),
+    late: l.dueAt.getTime() < Date.now(),
+    cover: pickCover<'navy' | 'orange' | 'ink' | 'cream' | 'olive'>(l.resource.id, [
+      'navy',
+      'orange',
+      'ink',
+      'cream',
+      'olive',
+    ]),
+  }));
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Mes prêts</h1>
-        {subscription ? (
-          <Button asChild variant="outline">
-            <a href="/api/me/card" target="_blank" rel="noopener">
-              Télécharger ma carte
-            </a>
-          </Button>
-        ) : (
-          <Button asChild>
-            <Link href="/me/abonnement">S’abonner</Link>
-          </Button>
-        )}
-      </header>
+    <div className="col gap-5">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'end' }}>
+        <h3>Mes prêts en cours</h3>
+        <button type="button" className="btn btn-ghost btn-sm">
+          Historique des prêts
+        </button>
+      </div>
+
+      <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
+        <div className="card" style={{ flex: 1, minWidth: 180 }}>
+          <div className="label">En cours</div>
+          <div className="serif" style={{ fontSize: 40, marginTop: 8 }}>
+            {activeLoans.length} <small className="mono fs-13 text-soft">/ 3</small>
+          </div>
+        </div>
+        <div className="card" style={{ flex: 1, minWidth: 180 }}>
+          <div className="label">À rendre cette semaine</div>
+          <div className="serif" style={{ fontSize: 40, marginTop: 8 }}>
+            {weekDueCount}
+          </div>
+        </div>
+        <div
+          className="card"
+          style={{ flex: 1, minWidth: 180, borderColor: lateCount > 0 ? 'var(--danger)' : undefined }}
+        >
+          <div className="label" style={{ color: lateCount > 0 ? 'var(--danger)' : undefined }}>
+            En retard
+          </div>
+          <div
+            className="serif"
+            style={{ fontSize: 40, marginTop: 8, color: lateCount > 0 ? 'var(--danger)' : undefined }}
+          >
+            {lateCount}
+          </div>
+        </div>
+      </div>
 
       {!subscription ? (
-        <p className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
-          Vous n’êtes pas abonné. Souscrivez pour emprunter jusqu’à 3 ouvrages simultanément.
-        </p>
+        <div
+          className="card"
+          style={{
+            background: 'var(--orange-soft)',
+            borderColor: 'transparent',
+            color: 'var(--orange-deep)',
+          }}
+        >
+          <div className="label" style={{ color: 'var(--orange-deep)' }}>
+            Abonnement requis
+          </div>
+          <p className="fs-15" style={{ marginTop: 8 }}>
+            Souscrivez à l&apos;abonnement bibliothèque pour emprunter jusqu&apos;à 3 ouvrages
+            simultanément.
+          </p>
+          <Link
+            href="/me/abonnement"
+            className="btn btn-orange btn-sm"
+            style={{ marginTop: 12, alignSelf: 'flex-start' }}
+          >
+            Souscrire <span className="arrow">→</span>
+          </Link>
+        </div>
       ) : null}
 
-      {loans.length === 0 ? (
-        <p className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
-          Aucun prêt enregistré. Demandez un emprunt à l’accueil de la bibliothèque.
+      {items.length === 0 ? (
+        <p className="text-soft">
+          Aucun prêt enregistré. Demandez un emprunt à l&apos;accueil de la bibliothèque.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full divide-y text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Ouvrage</th>
-                <th className="px-4 py-3">Emprunté le</th>
-                <th className="px-4 py-3">Échéance</th>
-                <th className="px-4 py-3">Statut</th>
-                <th className="px-4 py-3">Pénalité</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {loans.map((loan) => {
-                const overdue = loan.status === 'ACTIVE' && loan.dueAt.getTime() < today;
-                return (
-                  <tr key={loan.id}>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/bibliotheque/${loan.resource.id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {loan.resource.title}
-                      </Link>
-                      {loan.resource.authors.length > 0 ? (
-                        <div className="text-xs text-muted-foreground">
-                          {loan.resource.authors.join(', ')}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{fmt.format(loan.borrowedAt)}</td>
-                    <td className={`px-4 py-3 ${overdue ? 'font-semibold text-destructive' : ''}`}>
-                      {fmt.format(loan.dueAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge status={loan.status} overdue={overdue} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {loan.penaltyAmount > 0 ? `${loan.penaltyAmount.toLocaleString('fr-FR')} FCFA` : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <LoanList items={items} />
       )}
+
+      {recommended.length > 0 ? (
+        <div>
+          <h3 style={{ marginBottom: 16 }}>Recommandations pour vous</h3>
+          <div
+            className="book-grid"
+            style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}
+          >
+            {recommended.map((r) => (
+              <Book key={r.id} b={resourceToBook(r)} href={`/bibliotheque/${r.id}`} />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
-}
-
-function Badge({ status, overdue }: { status: string; overdue: boolean }) {
-  if (overdue) return <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">En retard</span>;
-  if (status === 'ACTIVE') return <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700">En cours</span>;
-  if (status === 'RETURNED') return <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Rendu</span>;
-  return <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{status}</span>;
 }

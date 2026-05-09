@@ -1,12 +1,34 @@
 import type { Metadata } from 'next';
+import { Instrument_Serif, Geist, Geist_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { TrpcProvider } from '@/components/providers/trpc-provider';
 import './globals.css';
 
+const serif = Instrument_Serif({
+  weight: '400',
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
+const sans = Geist({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const mono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'CPFA — Centre Professionnel de Formation à l’Assurance',
-  description: 'Formations, séminaires, concours et bibliothèque spécialisés en assurance.',
+  title: 'CPFA — Centre de Perfectionnement et de Formation en Assurance',
+  description:
+    "Premier centre de référence au Sénégal pour les métiers de l'assurance, de la réassurance et de l'actuariat. Trente ans à former la zone CIMA.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages();
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <TrpcProvider>{children}</TrpcProvider>
