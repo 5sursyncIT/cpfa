@@ -2,14 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Button } from '@cpfa/ui';
+import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
 
 type Row = {
   id: string;
   status: string;
   createdAt: Date;
-  user: { firstName: string | null; lastName: string | null; email: string };
+  user: { id: string; firstName: string | null; lastName: string | null; email: string };
   course: { title: string } | null;
   seminar: { title: string } | null;
   exam: { title: string } | null;
@@ -18,83 +18,163 @@ type Row = {
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
+const STATUS_PILL: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: 'Brouillon', className: '' },
+  SUBMITTED: { label: 'Soumise', className: 'pill-warning' },
+  PAID: { label: 'Réglée', className: 'pill-orange' },
+  VALIDATED: { label: 'Validée', className: 'pill-success' },
+  REJECTED: { label: 'Refusée', className: '' },
+  CANCELLED: { label: 'Annulée', className: '' },
+};
+
 export function RegistrationsTable({ registrations }: { registrations: Row[] }) {
   const router = useRouter();
-  const validate = trpc.registrations.validate.useMutation({ onSuccess: () => router.refresh() });
-  const reject = trpc.registrations.reject.useMutation({ onSuccess: () => router.refresh() });
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
 
+  const validate = trpc.registrations.validate.useMutation({
+    onSuccess: () => {
+      router.refresh();
+      setActionId(null);
+    },
+    onError: (e) => setError(e.message),
+  });
+  const reject = trpc.registrations.reject.useMutation({
+    onSuccess: () => {
+      router.refresh();
+      setActionId(null);
+    },
+    onError: (e) => setError(e.message),
+  });
+
   if (registrations.length === 0) {
-    return <p className="text-sm text-muted-foreground">Aucune inscription dans ce statut.</p>;
+    return (
+      <div className="panel">
+        <p className="text-soft" style={{ padding: 24 }}>Aucune inscription ne correspond.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="min-w-full divide-y text-sm">
-        <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
-          <tr>
-            <th className="px-4 py-3">Candidat</th>
-            <th className="px-4 py-3">Objet</th>
-            <th className="px-4 py-3">Reçue le</th>
-            <th className="px-4 py-3">Paiement</th>
-            <th className="px-4 py-3">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {registrations.map((r) => {
-            const fullName = [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') || r.user.email;
-            const target = r.course?.title ?? r.seminar?.title ?? r.exam?.title ?? '—';
-            const reason = reasonById[r.id] ?? '';
-            return (
-              <tr key={r.id}>
-                <td className="px-4 py-3">
-                  <div className="font-medium">{fullName}</div>
-                  <div className="text-xs text-muted-foreground">{r.user.email}</div>
-                </td>
-                <td className="px-4 py-3">{target}</td>
-                <td className="px-4 py-3 text-muted-foreground">{fmt.format(r.createdAt)}</td>
-                <td className="px-4 py-3">
-                  {r.payment ? (
-                    <>
-                      {r.payment.amountXof.toLocaleString('fr-FR')} FCFA
-                      <div className="text-xs text-muted-foreground">{r.payment.status}</div>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        disabled={validate.isPending}
-                        onClick={() => validate.mutate({ id: r.id })}
-                      >
-                        Valider
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={reject.isPending || reason.length < 3}
-                        onClick={() => reject.mutate({ id: r.id, reason })}
-                      >
-                        Rejeter
-                      </Button>
-                    </div>
-                    <input
-                      placeholder="Motif (≥ 3 caractères)"
-                      value={reason}
-                      onChange={(e) => setReasonById((s) => ({ ...s, [r.id]: e.target.value }))}
-                      className="w-48 rounded-md border bg-background px-2 py-1 text-xs"
-                    />
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {error ? (
+        <div
+          role="alert"
+          className="card"
+          style={{ borderColor: 'var(--danger)', color: 'var(--danger)', padding: 12, marginBottom: 12 }}
+        >
+          {error}{' '}
+          <button type="button" className="btn-link fs-13" onClick={() => setError(null)}>
+            Fermer
+          </button>
+        </div>
+      ) : null}
+
+      <div className="panel">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>Candidat</th>
+              <th>Programme</th>
+              <th>Statut</th>
+              <th>Paiement</th>
+              <th>Reçue le</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {registrations.map((r) => {
+              const fullName =
+                [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') || r.user.email;
+              const target = r.course?.title ?? r.seminar?.title ?? r.exam?.title ?? '—';
+              const kind = r.course ? 'Formation' : r.seminar ? 'Séminaire' : r.exam ? 'Concours' : '—';
+              const reason = reasonById[r.id] ?? '';
+              const pill = STATUS_PILL[r.status] ?? { label: r.status, className: '' };
+              const busy = actionId === r.id;
+              const actionable = r.status === 'SUBMITTED' || r.status === 'PAID';
+              return (
+                <tr key={r.id}>
+                  <td>
+                    <Link
+                      href={`/admin/users/${r.user.id}`}
+                      style={{ color: 'inherit', textDecoration: 'none' }}
+                    >
+                      <div style={{ fontWeight: 500 }}>{fullName}</div>
+                      <div className="fs-13 text-soft">{r.user.email}</div>
+                    </Link>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 500 }}>{target}</div>
+                    <div className="fs-13 text-soft">{kind}</div>
+                  </td>
+                  <td><span className={'pill ' + pill.className}>{pill.label}</span></td>
+                  <td className="mono fs-13">
+                    {r.payment ? (
+                      <>
+                        {r.payment.amountXof.toLocaleString('fr-FR')} FCFA
+                        <div className="fs-13 text-soft">{r.payment.status}</div>
+                      </>
+                    ) : (
+                      <span className="text-soft">—</span>
+                    )}
+                  </td>
+                  <td className="mono fs-13 text-soft">{fmt.format(r.createdAt)}</td>
+                  <td>
+                    {actionable ? (
+                      <div className="col gap-2" style={{ minWidth: 260 }}>
+                        <div className="row gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={busy}
+                            onClick={() => {
+                              setActionId(r.id);
+                              validate.mutate({ id: r.id });
+                            }}
+                          >
+                            {busy && validate.isPending ? '…' : 'Valider'}
+                          </button>
+                          <Link href={`/admin/registrations/${r.id}`} className="btn-link fs-13">
+                            Détail →
+                          </Link>
+                        </div>
+                        <div className="row gap-2" style={{ alignItems: 'stretch' }}>
+                          <input
+                            className="input"
+                            placeholder="Motif de refus (min 3 car.)"
+                            value={reason}
+                            onChange={(e) =>
+                              setReasonById((s) => ({ ...s, [r.id]: e.target.value }))
+                            }
+                            style={{ flex: 1, fontSize: 13 }}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                            disabled={busy || reason.trim().length < 3}
+                            onClick={() => {
+                              setActionId(r.id);
+                              reject.mutate({ id: r.id, reason: reason.trim() });
+                            }}
+                          >
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Link href={`/admin/registrations/${r.id}`} className="btn-link fs-13">
+                        Détail →
+                      </Link>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

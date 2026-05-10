@@ -1,9 +1,23 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signIn, auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { LogoMark } from '@/components/cpfa/logo-mark';
 
 export const metadata = { title: 'Connexion — CPFA' };
+
+function landingFor(roles: readonly string[] | undefined): string {
+  if (!roles) return '/me';
+  // Anyone with an admin/library-management permission lands in the
+  // backoffice — landing on /me hid the entire admin surface from staff.
+  if (
+    hasPermission(roles as never, 'admin:any') ||
+    hasPermission(roles as never, 'library:manage')
+  ) {
+    return '/admin';
+  }
+  return '/me';
+}
 
 export default async function SignInPage({
   searchParams,
@@ -12,7 +26,9 @@ export default async function SignInPage({
 }) {
   const session = await auth();
   const params = await searchParams;
-  if (session?.user) redirect(params.callbackUrl ?? '/me');
+  if (session?.user) {
+    redirect(params.callbackUrl ?? landingFor(session.user.roles));
+  }
 
   const callbackUrl = params.callbackUrl ?? '/me';
 

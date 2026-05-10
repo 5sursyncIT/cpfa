@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { MemberCard } from '@/components/cpfa/member-card';
 import { LoanList } from '@/components/cpfa/loan-list';
@@ -35,6 +36,9 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function MeDashboardPage() {
   const session = (await auth())!;
   const userId = session.user.id;
+  const isStaff =
+    hasPermission(session.user.roles, 'admin:any') ||
+    hasPermission(session.user.roles, 'library:manage');
 
   const [activeLoans, subscription, registrations, nextSeminar] = await Promise.all([
     prisma.loan.findMany({
@@ -100,10 +104,21 @@ export default async function MeDashboardPage() {
 
   return (
     <div className="col gap-6">
-      <div
-        className="row gap-5"
-        style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr' }}
-      >
+      {isStaff ? (
+        <Link href="/admin" className="staff-banner">
+          <div>
+            <div className="staff-banner-kicker">Accès staff</div>
+            <div className="staff-banner-title">
+              Tu disposes des droits administrateur — ouvrir le backoffice
+            </div>
+          </div>
+          <span className="btn btn-orange btn-sm">
+            Backoffice <span className="arrow">→</span>
+          </span>
+        </Link>
+      ) : null}
+
+      <div className="member-dashboard-grid">
         <MemberCard
           fullName={fullName}
           cardNumber={cardNumber}
@@ -111,25 +126,19 @@ export default async function MeDashboardPage() {
           status={subscription ? 'Abonné·e' : 'Visiteur·euse'}
           validUntil={validUntil}
         />
-        <div
-          className="card"
-          style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-        >
+        <div className="card member-next-card">
           {nextSeminar?.seminar ? (
             <>
               <div>
                 <div className="label">Prochain rendez-vous</div>
-                <div
-                  className="serif"
-                  style={{ fontSize: 32, lineHeight: 1.05, margin: '12px 0' }}
-                >
+                <div className="member-next-title">
                   {nextSeminar.seminar.title}
                 </div>
                 <div className="fs-13 text-soft">
                   {fmtMonth.format(nextSeminar.seminar.startsAt)}
                 </div>
               </div>
-              <div className="row gap-2" style={{ marginTop: 16 }}>
+              <div className="member-pill-row">
                 <span className="pill pill-orange">
                   {fmtMonth.format(nextSeminar.seminar.startsAt)}
                 </span>
@@ -142,10 +151,7 @@ export default async function MeDashboardPage() {
             <>
               <div>
                 <div className="label">Prochain rendez-vous</div>
-                <div
-                  className="serif"
-                  style={{ fontSize: 32, lineHeight: 1.05, margin: '12px 0' }}
-                >
+                <div className="member-next-title">
                   Aucun séminaire
                   <br />à venir
                 </div>
@@ -153,7 +159,7 @@ export default async function MeDashboardPage() {
                   Consultez le calendrier des séminaires.
                 </div>
               </div>
-              <div className="row gap-2" style={{ marginTop: 16 }}>
+              <div className="member-pill-row">
                 <Link href="/seminaires" className="btn btn-ghost btn-sm">
                   Voir les séminaires <span className="arrow">→</span>
                 </Link>
@@ -164,10 +170,7 @@ export default async function MeDashboardPage() {
       </div>
 
       <div>
-        <div
-          className="row"
-          style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 16 }}
-        >
+        <div className="section-title-row">
           <h3>Prêts en cours</h3>
           <Link href="/me/bibliotheque" className="btn-link fs-13">
             Voir tout →
@@ -183,10 +186,7 @@ export default async function MeDashboardPage() {
       </div>
 
       <div>
-        <div
-          className="row"
-          style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 16 }}
-        >
+        <div className="section-title-row">
           <h3>Mes inscriptions</h3>
           <Link href="/me/inscriptions" className="btn-link fs-13">
             Voir tout →
@@ -213,19 +213,13 @@ export default async function MeDashboardPage() {
                 <Link
                   key={r.id}
                   href={`/me/inscriptions/${r.id}`}
-                  className="card row gap-4"
-                  style={{
-                    alignItems: 'center',
-                    padding: 18,
-                    textDecoration: 'none',
-                    color: 'inherit',
-                  }}
+                  className="card member-registration-card"
                 >
-                  <div style={{ flex: 1 }}>
-                    <div className="fs-15" style={{ fontWeight: 500 }}>
+                  <div className="member-registration-main">
+                    <div className="member-registration-title">
                       {target}
                     </div>
-                    <div className="fs-13 text-soft" style={{ marginTop: 4 }}>
+                    <div className="member-registration-meta">
                       {sessionLabel}
                     </div>
                   </div>

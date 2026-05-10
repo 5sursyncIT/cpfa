@@ -48,12 +48,24 @@ export const settingsRegistry = {
     }),
     default: {
       eyebrow: 'Unité décentralisée de l’IIA Yaoundé',
-      headline:
-        'Premier centre de référence au Sénégal en matière de formation dans les métiers de l’assurance (reconnu par la Direction des Assurances).',
+      headline: 'Formez-vous aux métiers de l’assurance.',
       description:
         "Diplômes (DTA, BTS), certifications spécialisées, séminaires et bibliothèque dédiée — au service des professionnels et des étudiants de la zone CIMA.",
       backgroundImageKey: '',
     },
+  },
+
+  'home.marquee': {
+    label: 'Page d’accueil — bandeau défilant',
+    kind: 'array' as const,
+    schema: z.array(z.string().trim().min(1).max(160)).max(20),
+    default: [
+      "Concours d'entrée 2026 · Inscriptions ouvertes",
+      'Nouveau : Certificat Bancassurance',
+      'Séminaire CIMA · 14 juin',
+      'Bibliothèque · 3 200 références',
+      'Partenariat Institut des Actuaires',
+    ],
   },
 
   'home.testimonials': {

@@ -45,20 +45,20 @@ export default async function SeminarsIndexPage() {
         <div className="breadcrumb">
           CPFA · <span>Séminaires</span>
         </div>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'end', gap: 32 }}>
+        <div className="page-head-split">
           <h1>
             Séminaires &amp;
             <br />
             <em className="italic-emph">masterclass</em>.
           </h1>
-          <p className="fs-17 text-mid" style={{ maxWidth: 380, paddingBottom: 12 }}>
+          <p className="page-head-copy">
             Formats courts et intensifs pour cadres en exercice. Animés par des praticiens et
             universitaires de premier plan.
           </p>
         </div>
       </div>
 
-      <div className="container" style={{ paddingBottom: 96 }}>
+      <div className="container page-body">
         {seminars.length === 0 ? (
           <p className="text-soft">Aucun séminaire programmé prochainement.</p>
         ) : (
@@ -79,11 +79,11 @@ export default async function SeminarsIndexPage() {
                   <div>
                     <h4>{s.title}</h4>
                     {s.description ? (
-                      <p className="event-desc fs-14 text-mid" style={{ marginTop: 6 }}>
+                      <p className="event-desc fs-14 text-mid">
                         {s.description}
                       </p>
                     ) : null}
-                    <div className="row gap-2" style={{ marginTop: 12 }}>
+                    <div className="event-pills">
                       <span className="pill">{durationLabel(s.startsAt, s.endsAt)}</span>
                       <span
                         className={

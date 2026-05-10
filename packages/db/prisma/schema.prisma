@@ -247,6 +247,7 @@ model Course {
   durationHours Int
   priceXof    Int         // FCFA
   brochureKey String?
+  coverImageKey String?
   description String?     @db.Text
   published   Boolean     @default(false)
   // Application window — `registrations.create` rejects new applications

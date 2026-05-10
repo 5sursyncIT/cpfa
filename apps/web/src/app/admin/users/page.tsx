@@ -1,26 +1,40 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { RolesCell } from './roles-cell';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Utilisateurs — Admin CPFA' };
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; role?: string }>;
 }) {
-  const { q } = await searchParams;
+  const session = await auth();
+  if (!session?.user) redirect('/sign-in?callbackUrl=/admin/users');
+  if (!hasPermission(session.user.roles, 'admin:any')) redirect('/admin');
+
+  const { q, role } = await searchParams;
   const users = await prisma.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { email: { contains: q, mode: 'insensitive' } },
-            { firstName: { contains: q, mode: 'insensitive' } },
-            { lastName: { contains: q, mode: 'insensitive' } },
-          ],
-        }
-      : {},
+    where: {
+      ...(role
+        ? { roles: { has: role as Parameters<typeof prisma.user.findMany>[0] extends infer T ? T : never } as never }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { email: { contains: q, mode: 'insensitive' } },
+              { firstName: { contains: q, mode: 'insensitive' } },
+              { lastName: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: 'desc' },
     take: 100,
     select: {
@@ -28,55 +42,131 @@ export default async function AdminUsersPage({
       email: true,
       firstName: true,
       lastName: true,
+      phone: true,
       roles: true,
       createdAt: true,
       twoFactorEnabled: true,
+      passwordHash: true,
     },
   });
 
+  const ROLES = [
+    'VISITEUR',
+    'CANDIDAT',
+    'ABONNE_BIBLIOTHEQUE',
+    'FORMATEUR',
+    'EDITEUR',
+    'BIBLIOTHECAIRE',
+    'COMPTABLE',
+    'ADMIN',
+    'SUPER_ADMIN',
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Utilisateurs</h1>
-        <form className="flex items-center gap-2">
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Email, prénom, nom…"
-            className="w-64 rounded-md border bg-background px-3 py-1.5 text-sm"
-          />
-        </form>
+    <>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 24, gap: 24 }}
+      >
+        <div>
+          <div className="breadcrumb">
+            Admin · <span>Utilisateurs</span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px, 3vw, 36px)', marginTop: 8 }}>
+            Utilisateurs · {users.length}
+          </h2>
+        </div>
+        <a href="/api/admin/exports/users.csv" className="btn btn-ghost">
+          Export CSV
+        </a>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="min-w-full divide-y text-sm">
-          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Utilisateur</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Inscrit le</th>
-              <th className="px-4 py-3">2FA</th>
-              <th className="px-4 py-3">Rôles</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {users.map((u) => {
-              const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || '—';
-              return (
-                <tr key={u.id}>
-                  <td className="px-4 py-3 font-medium">{fullName}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{fmt.format(u.createdAt)}</td>
-                  <td className="px-4 py-3">{u.twoFactorEnabled ? '✓' : '—'}</td>
-                  <td className="px-4 py-3">
-                    <RolesCell userId={u.id} roles={u.roles} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <form className="panel" style={{ padding: 16, marginBottom: 24 }}>
+        <div className="row gap-3" style={{ flexWrap: 'wrap', alignItems: 'end' }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label className="label" htmlFor="filter-q">Recherche</label>
+            <input
+              id="filter-q"
+              name="q"
+              defaultValue={q ?? ''}
+              placeholder="Email, prénom, nom"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="filter-role">Rôle</label>
+            <select id="filter-role" name="role" defaultValue={role ?? ''} className="select">
+              <option value="">Tous</option>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="btn btn-ghost btn-sm">Filtrer</button>
+          {(q || role) ? (
+            <Link href="/admin/users" className="btn-link fs-13">Réinitialiser</Link>
+          ) : null}
+        </div>
+      </form>
+
+      <div className="panel">
+        {users.length === 0 ? (
+          <p className="text-soft" style={{ padding: 24 }}>Aucun utilisateur ne correspond.</p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Utilisateur</th>
+                <th>Inscrit le</th>
+                <th>2FA / Pwd</th>
+                <th>Rôles</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || '—';
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <Link
+                        href={`/admin/users/${u.id}`}
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                      >
+                        <div style={{ fontWeight: 500 }}>{fullName}</div>
+                        <div className="fs-13 text-soft">{u.email}</div>
+                        {u.phone ? <div className="fs-13 text-soft mono">{u.phone}</div> : null}
+                      </Link>
+                    </td>
+                    <td className="fs-13 text-soft">{fmt.format(u.createdAt)}</td>
+                    <td className="fs-13">
+                      {u.twoFactorEnabled ? (
+                        <span className="pill pill-success">2FA</span>
+                      ) : (
+                        <span className="text-soft">—</span>
+                      )}
+                      {' '}
+                      {u.passwordHash ? (
+                        <span className="text-soft">pwd ✓</span>
+                      ) : (
+                        <span className="text-soft">pwd ✕</span>
+                      )}
+                    </td>
+                    <td>
+                      <RolesCell userId={u.id} roles={u.roles} />
+                    </td>
+                    <td>
+                      <Link href={`/admin/users/${u.id}`} className="btn-link fs-13">
+                        Détail →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
-    </div>
+    </>
   );
 }

@@ -11,32 +11,15 @@ export function AdminSideNav({ sections }: { sections: Section[] }) {
   const path = usePathname() ?? '/admin';
   return (
     <aside className="admin-side">
-      <div
-        style={{
-          padding: '8px 12px 16px',
-          borderBottom: '1px solid oklch(28% 0.06 258)',
-          marginBottom: 8,
-        }}
-      >
+      <div className="admin-side-brand">
         <Link
           href="/admin"
-          className="row gap-3"
-          style={{ alignItems: 'center', textDecoration: 'none' }}
+          className="admin-side-brand-link"
         >
           <LogoMark size={28} />
           <div>
-            <div className="fs-13" style={{ color: 'white', fontWeight: 500 }}>
-              CPFA Admin
-            </div>
-            <div
-              className="mono"
-              style={{
-                fontSize: 9,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'oklch(60% 0.02 258)',
-              }}
-            >
+            <div className="admin-side-title">CPFA Admin</div>
+            <div className="admin-side-version">
               v2.4 · staging
             </div>
           </div>

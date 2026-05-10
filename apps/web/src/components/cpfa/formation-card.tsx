@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { mediaUrl } from '@/lib/media';
 
 export type FormationCover = 'navy' | 'orange' | 'cream' | 'ink';
 
@@ -11,12 +12,18 @@ export type FormationCardData = {
   level: string;
   priceLabel: string;
   cover: FormationCover;
+  coverImageKey?: string | null;
 };
 
 export function FormationCard({ f }: { f: FormationCardData }) {
+  const coverUrl = mediaUrl(f.coverImageKey);
   return (
     <Link href={`/formations/${f.slug}`} className="formation-card">
       <div className={`formation-cover formation-cover-${f.cover}`}>
+        {coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverUrl} alt="" className="formation-cover-img" />
+        ) : null}
         <span className="pill">{f.category}</span>
       </div>
       <h4>{f.title}</h4>

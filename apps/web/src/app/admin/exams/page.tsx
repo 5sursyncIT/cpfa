@@ -1,60 +1,124 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { ExamPublishToggle } from './exam-publish-toggle';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Concours & examens — Admin CPFA' };
 
-const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
+const KIND_LABEL: Record<string, string> = {
+  CONCOURS: 'Concours',
+  EXAM_BLANC: 'Examen blanc',
+  CERTIFICATION: 'Certification',
+};
 
 export default async function AdminExamsPage() {
+  const session = await auth();
+  if (!session?.user) redirect('/sign-in?callbackUrl=/admin/exams');
+  if (!hasPermission(session.user.roles, 'admin:any')) redirect('/admin');
+
   const exams = await prisma.exam.findMany({
     orderBy: { closeAt: 'desc' },
-    take: 100,
     include: { _count: { select: { registrations: true, papers: true } } },
   });
 
+  const now = Date.now();
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Concours & examens</h1>
+    <>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 24, gap: 24 }}
+      >
+        <div>
+          <div className="breadcrumb">
+            Admin · <span>Concours</span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px, 3vw, 36px)', marginTop: 8 }}>
+            Concours · {exams.length}
+          </h2>
+        </div>
+        <Link href="/admin/exams/new" className="btn btn-primary">
+          + Nouveau concours
+        </Link>
       </div>
 
       {exams.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucun concours créé.</p>
+        <div className="panel">
+          <p className="text-soft" style={{ padding: 24 }}>
+            Aucun concours créé. <Link href="/admin/exams/new">Créer le premier</Link>.
+          </p>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full divide-y text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="panel">
+          <table className="tbl">
+            <thead>
               <tr>
-                <th className="px-4 py-3">Titre</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Clôture</th>
-                <th className="px-4 py-3">Candidats</th>
-                <th className="px-4 py-3">Épreuves</th>
-                <th className="px-4 py-3">Publié</th>
+                <th>Titre</th>
+                <th>Type</th>
+                <th>Période</th>
+                <th>Frais</th>
+                <th>Candidatures</th>
+                <th>Épreuves</th>
+                <th>Publication</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {exams.map((e) => (
-                <tr key={e.id}>
-                  <td className="px-4 py-3 font-medium">
-                    <Link href={`/admin/exams/${e.id}`} className="hover:underline">
-                      {e.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{e.kind}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{fmt.format(e.closeAt)}</td>
-                  <td className="px-4 py-3">{e._count.registrations}</td>
-                  <td className="px-4 py-3">{e._count.papers}</td>
-                  <td className="px-4 py-3">
-                    <ExamPublishToggle id={e.id} published={e.published} />
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {exams.map((e) => {
+                const open = e.openAt.getTime() <= now && e.closeAt.getTime() >= now;
+                const closed = e.closeAt.getTime() < now;
+                return (
+                  <tr key={e.id}>
+                    <td>
+                      <Link
+                        href={`/admin/exams/${e.id}`}
+                        style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
+                      >
+                        {e.title}
+                      </Link>
+                      <div className="mono fs-13 text-soft">{e.slug}</div>
+                    </td>
+                    <td className="fs-13">{KIND_LABEL[e.kind] ?? e.kind}</td>
+                    <td className="fs-13">
+                      <span
+                        className={
+                          'pill ' +
+                          (open ? 'pill-success' : closed ? '' : 'pill-warning')
+                        }
+                      >
+                        {open ? 'Ouvert' : closed ? 'Fermé' : 'À venir'}
+                      </span>
+                      <div className="mono fs-13 text-soft" style={{ marginTop: 4 }}>
+                        {fmt.format(e.openAt)} → {fmt.format(e.closeAt)}
+                      </div>
+                    </td>
+                    <td className="mono fs-13">{e.feeXof.toLocaleString('fr-FR')} FCFA</td>
+                    <td className="mono fs-13">{e._count.registrations}</td>
+                    <td className="mono fs-13">{e._count.papers}</td>
+                    <td>
+                      <ExamPublishToggle id={e.id} published={e.published} />
+                    </td>
+                    <td>
+                      <div className="row gap-2">
+                        <Link href={`/admin/exams/${e.id}/edit`} className="btn-link fs-13">
+                          Éditer
+                        </Link>
+                        <Link href={`/admin/exams/${e.id}`} className="btn-link fs-13">
+                          Épreuves →
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </>
   );
 }

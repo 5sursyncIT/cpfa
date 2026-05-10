@@ -1,14 +1,16 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { applicationStatusAt } from '@/lib/course-rules';
 import { ApplicationWindowEditor } from './application-window-editor';
+import { CoursePublishToggle } from './course-publish-toggle';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Formations — Admin CPFA' };
 
-const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
 const KIND_LABEL: Record<string, string> = {
   DIPLOMANT: 'Diplômant',
   CERTIFIANT: 'Certifiant',
@@ -23,78 +25,105 @@ export default async function AdminCoursesPage() {
 
   const courses = await prisma.course.findMany({
     orderBy: [{ kind: 'asc' }, { title: 'asc' }],
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      kind: true,
-      published: true,
-      applicationsOpenAt: true,
-      applicationsCloseAt: true,
-    },
+    include: { _count: { select: { registrations: true, sessions: true } } },
   });
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Formations</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Gestion des fenêtres d&apos;inscription. Pour les diplômantes, fermez l&apos;accès au
-          formulaire en dehors des périodes de concours et rouvrez-le pour les sessions de
-          recrutement.
-        </p>
-      </header>
+    <>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 24, gap: 24 }}
+      >
+        <div>
+          <div className="breadcrumb">
+            Admin · <span>Formations</span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px, 3vw, 36px)', marginTop: 8 }}>
+            Formations · {courses.length}
+          </h2>
+        </div>
+        <Link href="/admin/courses/new" className="btn btn-primary">
+          + Nouvelle formation
+        </Link>
+      </div>
 
       {courses.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucune formation.</p>
+        <div className="panel">
+          <p className="text-soft" style={{ padding: 24 }}>
+            Aucune formation. <Link href="/admin/courses/new">Créer la première</Link>.
+          </p>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full divide-y text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="panel">
+          <table className="tbl">
+            <thead>
               <tr>
-                <th className="px-4 py-3">Titre</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Inscriptions</th>
-                <th className="px-4 py-3">Fenêtre</th>
-                <th className="px-4 py-3">Action</th>
+                <th>Titre</th>
+                <th>Type · Niveau</th>
+                <th>Durée · Prix</th>
+                <th>Fenêtre inscriptions</th>
+                <th>Inscriptions</th>
+                <th>Publication</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {courses.map((c) => {
                 const status = applicationStatusAt(c);
                 const statusBadge =
                   status.state === 'open' ? (
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-700">
-                      Ouvertes
-                    </span>
+                    <span className="pill pill-success">Ouvertes</span>
                   ) : status.state === 'before' ? (
-                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700">
-                      Avant {fmt.format(status.opensAt)}
-                    </span>
+                    <span className="pill pill-warning">Avant {fmt.format(status.opensAt)}</span>
                   ) : (
-                    <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-700">
-                      Fermées
-                    </span>
+                    <span className="pill">Fermées</span>
                   );
                 return (
                   <tr key={c.id}>
-                    <td className="px-4 py-3 font-medium">{c.title}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td>
+                      <Link
+                        href={`/admin/courses/${c.id}/edit`}
+                        style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
+                      >
+                        {c.title}
+                      </Link>
+                      <div className="mono fs-13 text-soft">{c.slug}</div>
+                    </td>
+                    <td className="fs-13 text-soft">
                       {KIND_LABEL[c.kind] ?? c.kind}
-                      {!c.published ? ' · brouillon' : ''}
+                      <br />
+                      <span className="mono">{c.level}</span>
                     </td>
-                    <td className="px-4 py-3">{statusBadge}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {c.applicationsOpenAt ? fmt.format(c.applicationsOpenAt) : '—'}
-                      {' → '}
-                      {c.applicationsCloseAt ? fmt.format(c.applicationsCloseAt) : '—'}
+                    <td className="fs-13 text-soft">
+                      {c.durationHours}h
+                      <br />
+                      <span className="mono">{c.priceXof.toLocaleString('fr-FR')} FCFA</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <ApplicationWindowEditor
-                        courseId={c.id}
-                        applicationsOpenAt={c.applicationsOpenAt}
-                        applicationsCloseAt={c.applicationsCloseAt}
-                      />
+                    <td className="fs-13">
+                      {statusBadge}
+                      <div className="mono fs-13 text-soft" style={{ marginTop: 4 }}>
+                        {c.applicationsOpenAt ? fmt.format(c.applicationsOpenAt) : '—'} →{' '}
+                        {c.applicationsCloseAt ? fmt.format(c.applicationsCloseAt) : '—'}
+                      </div>
+                      <div style={{ marginTop: 6 }}>
+                        <ApplicationWindowEditor
+                          courseId={c.id}
+                          applicationsOpenAt={c.applicationsOpenAt}
+                          applicationsCloseAt={c.applicationsCloseAt}
+                        />
+                      </div>
+                    </td>
+                    <td className="mono fs-13">{c._count.registrations}</td>
+                    <td>
+                      <CoursePublishToggle id={c.id} published={c.published} />
+                    </td>
+                    <td>
+                      <Link
+                        href={`/admin/courses/${c.id}/edit`}
+                        className="btn-link fs-13"
+                      >
+                        Éditer →
+                      </Link>
                     </td>
                   </tr>
                 );
@@ -103,6 +132,6 @@ export default async function AdminCoursesPage() {
           </table>
         </div>
       )}
-    </div>
+    </>
   );
 }

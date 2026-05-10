@@ -37,7 +37,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang={locale} className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
+        <a href="#main-content" className="skip-link">
+          Aller au contenu
+        </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <TrpcProvider>{children}</TrpcProvider>
         </NextIntlClientProvider>

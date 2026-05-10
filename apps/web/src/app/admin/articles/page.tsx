@@ -1,9 +1,13 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { ArticlePublishToggle } from './article-publish-toggle';
 import { CreateArticleButton } from './create-article-button';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Actualités — Admin CPFA' };
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const ALLOWED_LOCALES = ['fr', 'en'] as const;
@@ -11,13 +15,27 @@ const ALLOWED_LOCALES = ['fr', 'en'] as const;
 export default async function AdminArticlesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ locale?: string }>;
+  searchParams: Promise<{ locale?: string; q?: string }>;
 }) {
-  const { locale: rawLocale } = await searchParams;
+  const session = await auth();
+  if (!session?.user) redirect('/sign-in?callbackUrl=/admin/articles');
+  if (!hasPermission(session.user.roles, 'cms:write')) redirect('/admin');
+
+  const { locale: rawLocale, q } = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'fr';
 
   const articles = await prisma.article.findMany({
-    where: { locale },
+    where: {
+      locale,
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { slug: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { updatedAt: 'desc' },
     take: 100,
     select: {
@@ -32,62 +50,97 @@ export default async function AdminArticlesPage({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Actualités</h1>
-        <div className="flex gap-2">
-          <div className="flex gap-1 text-sm">
+    <>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 24, gap: 24 }}
+      >
+        <div>
+          <div className="breadcrumb">
+            Admin · <span>Actualités</span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px, 3vw, 36px)', marginTop: 8 }}>
+            Actualités · {articles.length}
+          </h2>
+        </div>
+        <div className="row gap-2">
+          <div className="row gap-2" style={{ alignItems: 'center' }}>
             {ALLOWED_LOCALES.map((loc) => (
-              <a
+              <Link
                 key={loc}
                 href={`/admin/articles?locale=${loc}`}
-                className={
-                  'rounded-md border px-3 py-1.5 ' +
-                  (loc === locale ? 'bg-primary text-primary-foreground' : 'bg-background')
-                }
+                className={'pill ' + (loc === locale ? 'pill-orange' : '')}
+                style={{ textDecoration: 'none', textTransform: 'uppercase' }}
               >
-                {loc.toUpperCase()}
-              </a>
+                {loc}
+              </Link>
             ))}
           </div>
           <CreateArticleButton locale={locale} />
         </div>
       </div>
 
-      {articles.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucun article.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full divide-y text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
+      <form className="panel" style={{ padding: 16, marginBottom: 16 }}>
+        <div className="row gap-3" style={{ alignItems: 'end' }}>
+          <div style={{ flex: 1 }}>
+            <label className="label" htmlFor="filter-q">Recherche</label>
+            <input
+              id="filter-q"
+              name="q"
+              defaultValue={q ?? ''}
+              placeholder="Titre, slug"
+              className="input"
+            />
+          </div>
+          {locale ? <input type="hidden" name="locale" value={locale} /> : null}
+          <button type="submit" className="btn btn-ghost btn-sm">Filtrer</button>
+          {q ? <Link href={`/admin/articles?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
+        </div>
+      </form>
+
+      <div className="panel">
+        {articles.length === 0 ? (
+          <p className="text-soft" style={{ padding: 24 }}>Aucun article.</p>
+        ) : (
+          <table className="tbl">
+            <thead>
               <tr>
-                <th className="px-4 py-3">Titre</th>
-                <th className="px-4 py-3">Slug</th>
-                <th className="px-4 py-3">Mis à jour</th>
-                <th className="px-4 py-3">Publié</th>
-                <th className="px-4 py-3">Action</th>
+                <th>Titre</th>
+                <th>Slug</th>
+                <th>Mis à jour</th>
+                <th>Publication</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {articles.map((a) => (
                 <tr key={a.id}>
-                  <td className="px-4 py-3 font-medium">
-                    <Link href={`/admin/articles/${a.id}`} className="hover:underline">
+                  <td>
+                    <Link
+                      href={`/admin/articles/${a.id}`}
+                      style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
+                    >
                       {a.title}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{a.slug}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{fmt.format(a.updatedAt)}</td>
-                  <td className="px-4 py-3">
-                    {a.published ? `Oui · ${a.publishedAt ? fmt.format(a.publishedAt) : ''}` : 'Non'}
+                  <td className="mono fs-13 text-soft">{a.slug}</td>
+                  <td className="mono fs-13 text-soft">{fmt.format(a.updatedAt)}</td>
+                  <td>
+                    {a.published ? (
+                      <span className="pill pill-success">
+                        Publié{a.publishedAt ? ` · ${fmt.format(a.publishedAt)}` : ''}
+                      </span>
+                    ) : (
+                      <span className="pill">Brouillon</span>
+                    )}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                  <td>
+                    <div className="row gap-2">
                       <ArticlePublishToggle id={a.id} published={a.published} />
                       {a.published ? (
                         <Link
                           href={`/blog/${a.slug}`}
-                          className="text-xs text-muted-foreground hover:underline"
+                          className="btn-link fs-13"
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -100,8 +153,8 @@ export default async function AdminArticlesPage({
               ))}
             </tbody>
           </table>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

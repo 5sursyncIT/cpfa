@@ -36,24 +36,24 @@ export default async function MeLayout({ children }: { children: ReactNode }) {
     <>
       <TopNav active="/me" />
       <div className="container">
-        <div className="page-head" style={{ paddingBottom: 32 }}>
+        <div className="page-head member-page-head">
           <div className="breadcrumb">
             CPFA · <span>Espace abonné</span>
           </div>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'end' }}>
+          <div className="member-page-title">
             <div>
-              <h1 style={{ fontSize: 'clamp(40px, 5vw, 64px)' }}>
+              <h1 className="member-page-heading">
                 Bienvenue,{' '}
                 <em className="italic-emph">{firstName || fallbackName}</em>.
               </h1>
-              <p className="fs-15 text-mid" style={{ marginTop: 12 }}>
+              <p className="member-page-subtitle">
                 {email}
                 {subscription?.expiresAt
                   ? ` · Abonné·e bibliothèque jusqu'au ${fmtDate.format(subscription.expiresAt)}`
                   : ''}
               </p>
             </div>
-            <div className="row gap-2">
+            <div className="member-page-status">
               <span className={'pill ' + (subscription ? 'pill-success' : '')}>
                 <span className="dot"></span>
                 {subscription ? 'Compte actif' : 'Sans abonnement'}
@@ -73,12 +73,11 @@ export default async function MeLayout({ children }: { children: ReactNode }) {
                 'use server';
                 await signOut({ redirectTo: '/' });
               }}
-              style={{ marginTop: 8 }}
+              className="side-nav-signout"
             >
               <button
                 type="submit"
-                className="item"
-                style={{ color: 'var(--danger)', cursor: 'pointer' }}
+                className="item side-nav-danger"
               >
                 Déconnexion
               </button>

@@ -44,7 +44,19 @@ export function durationLabel(hours: number): string {
   return `${hours} h`;
 }
 
-export function courseToCard(c: Pick<Course, 'slug' | 'title' | 'kind' | 'level' | 'durationHours' | 'priceXof' | 'description'>): FormationCardData {
+export function courseToCard(
+  c: Pick<
+    Course,
+    | 'slug'
+    | 'title'
+    | 'kind'
+    | 'level'
+    | 'durationHours'
+    | 'priceXof'
+    | 'description'
+    | 'coverImageKey'
+  >,
+): FormationCardData {
   return {
     slug: c.slug,
     title: c.title,
@@ -54,6 +66,7 @@ export function courseToCard(c: Pick<Course, 'slug' | 'title' | 'kind' | 'level'
     level: COURSE_LEVEL[c.level] ?? c.level,
     priceLabel: fmtXof(c.priceXof),
     cover: pickCover<FormationCover>(c.slug, COVER_PALETTE),
+    coverImageKey: c.coverImageKey,
   };
 }
 

@@ -1,8 +1,11 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { fetchCmsPage } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
 import { getSetting } from '@/lib/site-settings/get';
 import { resolveLocale } from '@/i18n/request';
+import { Breadcrumb } from '@/components/cpfa/breadcrumb';
+import directorPhoto from '../mot-du-directeur/DG.jpg';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +45,7 @@ export default async function AboutPage() {
   return (
     <div>
       <div className="container page-head">
-        <div className="breadcrumb">
-          CPFA · <span>À propos</span>
-        </div>
+        <Breadcrumb items={[{ href: '/', label: 'CPFA' }, { label: 'À propos' }]} />
         <h1 style={{ maxWidth: 1100, fontSize: 'clamp(56px, 6.5vw, 96px)' }}>
           Trente ans à former l&apos;<em className="italic-emph">orbite</em> de l&apos;assurance
           ouest-africaine.
@@ -52,6 +53,51 @@ export default async function AboutPage() {
       </div>
 
       <div className="container">
+        <section className="director-card" style={{ marginBottom: 96 }}>
+          <div className="director-photo-frame">
+            <div className="director-photo-stage" aria-hidden="true" />
+            <div className="director-photo">
+              <Image
+                src={directorPhoto}
+                alt="El Hadji Cheikhou Oumar SECK, Directeur du CPFA"
+                placeholder="blur"
+                sizes="(max-width: 1100px) 100vw, 480px"
+              />
+            </div>
+            <div className="director-badge">
+              <div className="director-badge-kicker">Directeur</div>
+              <div className="director-badge-name">EHCO Seck</div>
+            </div>
+          </div>
+
+          <div className="director-body">
+            <span className="eyebrow" style={{ marginBottom: 16 }}>
+              Mot du directeur
+            </span>
+            <blockquote className="director-quote">
+              Promouvoir la formation aux métiers de l&apos;assurance à grande échelle, au
+              Sénégal et dans toute la zone CIMA — telle est la mission qui nous a été
+              confiée. <em className="italic-emph">Trois décennies plus tard</em>, le CPFA
+              forme techniciens, cadres et dirigeants capables de répondre aux exigences
+              d&apos;un secteur en transformation rapide.
+            </blockquote>
+            <div className="director-meta">
+              <div className="director-name">El Hadji Cheikhou Oumar SECK</div>
+              <div className="director-role">
+                Directeur du CPFA · Unité décentralisée de l&apos;IIA Yaoundé
+              </div>
+            </div>
+            <div className="row gap-3" style={{ marginTop: 24, flexWrap: 'wrap' }}>
+              <Link href="/mot-du-directeur" className="btn btn-primary">
+                Lire le mot intégral <span className="arrow">→</span>
+              </Link>
+              <Link href="/contact" className="btn btn-ghost">
+                Prendre rendez-vous
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <div
           className="row gap-7"
           style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', marginBottom: 96 }}

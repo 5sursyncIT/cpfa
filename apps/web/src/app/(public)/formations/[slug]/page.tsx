@@ -3,6 +3,7 @@ import { prisma } from '@cpfa/db';
 import { EnrollLauncher } from '@/components/cpfa/enroll-launcher';
 import { fmtXof, durationLabel } from '@/lib/cpfa-mappers';
 import { applicationStatusAt } from '@/lib/course-rules';
+import { mediaUrl } from '@/lib/media';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
   if (!course || !course.published) notFound();
 
   const category = COURSE_CATEGORY[course.kind] ?? course.kind;
+  const coverUrl = mediaUrl(course.coverImageKey);
   const sessionsLabel =
     course.sessions.length > 0
       ? course.sessions
@@ -60,6 +62,10 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
             CPFA · Formations · <span>{course.title}</span>
           </div>
           <div className="detail-hero">
+            {coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={coverUrl} alt="" className="detail-hero-img" />
+            ) : null}
             <div>
               <span
                 className="pill"

@@ -176,7 +176,6 @@ export default async function ExamsIndexPage() {
                       key={e.id}
                       href={`/concours/${e.slug}`}
                       className="event"
-                      style={{ gridTemplateColumns: '110px 1fr auto auto' }}
                     >
                       <div className="event-date">
                         <div className="day">{String(e.closeAt.getDate()).padStart(2, '0')}</div>
@@ -187,7 +186,7 @@ export default async function ExamsIndexPage() {
                       </div>
                       <div>
                         <h4>{e.title}</h4>
-                        <p className="fs-14 text-mid" style={{ marginTop: 6 }}>
+                        <p className="event-desc fs-14 text-mid">
                           {KIND_LABEL[e.kind] ?? e.kind} · clôture le {fmtDate.format(e.closeAt)}
                         </p>
                       </div>

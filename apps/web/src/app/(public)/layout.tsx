@@ -6,7 +6,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <TopNav />
-      <main>{children}</main>
+      <main id="main-content" tabIndex={-1}>{children}</main>
       <CpfaFooter />
     </>
   );

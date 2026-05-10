@@ -1,9 +1,12 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
-import { Button } from '@cpfa/ui';
 import { CreatePageButton } from './create-page-button';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Pages CMS — Admin CPFA' };
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const ALLOWED_LOCALES = ['fr', 'en'] as const;
@@ -11,13 +14,27 @@ const ALLOWED_LOCALES = ['fr', 'en'] as const;
 export default async function AdminCmsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ locale?: string }>;
+  searchParams: Promise<{ locale?: string; q?: string }>;
 }) {
-  const { locale: rawLocale } = await searchParams;
+  const session = await auth();
+  if (!session?.user) redirect('/sign-in?callbackUrl=/admin/cms');
+  if (!hasPermission(session.user.roles, 'cms:write')) redirect('/admin');
+
+  const { locale: rawLocale, q } = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'fr';
 
   const pages = await prisma.page.findMany({
-    where: { locale },
+    where: {
+      locale,
+      ...(q
+        ? {
+            OR: [
+              { title: { contains: q, mode: 'insensitive' } },
+              { slug: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { updatedAt: 'desc' },
     take: 200,
     select: {
@@ -31,63 +48,116 @@ export default async function AdminCmsPage({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Pages CMS</h1>
-        <div className="flex gap-2">
-          <div className="flex gap-1 text-sm">
+    <>
+      <div
+        className="row"
+        style={{ justifyContent: 'space-between', alignItems: 'end', marginBottom: 24, gap: 24 }}
+      >
+        <div>
+          <div className="breadcrumb">
+            Admin · <span>Pages CMS</span>
+          </div>
+          <h2 style={{ fontSize: 'clamp(28px, 3vw, 36px)', marginTop: 8 }}>
+            Pages CMS · {pages.length}
+          </h2>
+        </div>
+        <div className="row gap-2">
+          <div className="row gap-2" style={{ alignItems: 'center' }}>
             {ALLOWED_LOCALES.map((loc) => (
-              <a
+              <Link
                 key={loc}
                 href={`/admin/cms?locale=${loc}`}
-                className={
-                  'rounded-md border px-3 py-1.5 ' +
-                  (loc === locale ? 'bg-primary text-primary-foreground' : 'bg-background')
-                }
+                className={'pill ' + (loc === locale ? 'pill-orange' : '')}
+                style={{ textDecoration: 'none', textTransform: 'uppercase' }}
               >
-                {loc.toUpperCase()}
-              </a>
+                {loc}
+              </Link>
             ))}
           </div>
           <CreatePageButton locale={locale} />
         </div>
       </div>
 
-      {pages.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Aucune page CMS pour le moment. Les pages publiées sont accessibles via{' '}
-          <code className="font-mono text-xs">/p/&lt;slug&gt;</code>.
-        </p>
-      ) : (
-        <ul className="divide-y rounded-lg border bg-card">
-          {pages.map((p) => (
-            <li key={p.id} className="flex items-center justify-between gap-4 p-4">
-              <div>
-                <Link href={`/admin/cms/${p.id}`} className="font-medium hover:underline">
-                  {p.title}
-                </Link>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  /p/{p.slug} · {p.locale} · maj {fmt.format(p.updatedAt)}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    p.published
-                      ? 'bg-emerald-500/10 text-emerald-700'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {p.published ? 'Publiée' : 'Brouillon'}
-                </span>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/admin/cms/${p.id}`}>Éditer</Link>
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <form className="panel" style={{ padding: 16, marginBottom: 16 }}>
+        <div className="row gap-3" style={{ alignItems: 'end' }}>
+          <div style={{ flex: 1 }}>
+            <label className="label" htmlFor="filter-q">Recherche</label>
+            <input
+              id="filter-q"
+              name="q"
+              defaultValue={q ?? ''}
+              placeholder="Titre, slug"
+              className="input"
+            />
+          </div>
+          {locale ? <input type="hidden" name="locale" value={locale} /> : null}
+          <button type="submit" className="btn btn-ghost btn-sm">Filtrer</button>
+          {q ? <Link href={`/admin/cms?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
+        </div>
+      </form>
+
+      <div className="panel">
+        {pages.length === 0 ? (
+          <p className="text-soft" style={{ padding: 24 }}>
+            Aucune page CMS pour le moment. Les pages publiées sont accessibles via{' '}
+            <code className="mono fs-13">/p/&lt;slug&gt;</code>.
+          </p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Titre</th>
+                <th>Slug</th>
+                <th>Locale</th>
+                <th>Mis à jour</th>
+                <th>Publication</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {pages.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <Link
+                      href={`/admin/cms/${p.id}`}
+                      style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
+                    >
+                      {p.title}
+                    </Link>
+                  </td>
+                  <td className="mono fs-13 text-soft">/p/{p.slug}</td>
+                  <td className="mono fs-13 text-soft">{p.locale}</td>
+                  <td className="mono fs-13 text-soft">{fmt.format(p.updatedAt)}</td>
+                  <td>
+                    {p.published ? (
+                      <span className="pill pill-success">Publiée</span>
+                    ) : (
+                      <span className="pill">Brouillon</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="row gap-2">
+                      <Link href={`/admin/cms/${p.id}`} className="btn-link fs-13">
+                        Éditer →
+                      </Link>
+                      {p.published ? (
+                        <Link
+                          href={`/p/${p.slug}`}
+                          className="btn-link fs-13"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          ↗ voir
+                        </Link>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }

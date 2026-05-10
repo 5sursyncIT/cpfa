@@ -20,6 +20,7 @@
     "db:migrate:deploy": "pnpm --filter @cpfa/db migrate:deploy",
     "db:studio": "pnpm --filter @cpfa/db studio",
     "db:seed": "pnpm --filter @cpfa/db seed",
+    "admin:set-password": "pnpm --filter @cpfa/web exec tsx --env-file=.env scripts/set-admin-password.ts",
     "worker": "pnpm --filter @cpfa/web worker",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down"

@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import { LogoMark } from './logo-mark';
 import { LocaleSwitcher } from './locale-switcher';
+import { MobileNav } from './mobile-nav';
 
 export async function TopNav({ active }: { active?: string }) {
   const [session, t, tCommon] = await Promise.all([
@@ -11,14 +13,27 @@ export async function TopNav({ active }: { active?: string }) {
     getTranslations('common'),
   ]);
   const isMember = !!session?.user;
+  const isStaff =
+    !!session?.user &&
+    (hasPermission(session.user.roles, 'admin:any') ||
+      hasPermission(session.user.roles, 'library:manage'));
 
+  // Top-nav reflète les onglets demandés par le Directeur (§1.1) :
+  // Formations · Séminaires · Bibliothèque · Concours · Espace Apprenants ·
+  // Actualités & médias. « Accueil » passe par le logo et « À propos » est
+  // dans le footer pour limiter l'encombrement.
   const links = [
-    { href: '/', label: t('home') },
     { href: '/formations', label: t('courses') },
     { href: '/seminaires', label: t('seminars') },
     { href: '/bibliotheque', label: t('library') },
     { href: '/concours', label: t('exams') },
     { href: '/espace-apprenants', label: t('learners') },
+    { href: '/blog', label: t('blog') },
+  ];
+  // Mobile drawer keeps the longer list — there's room for it there.
+  const mobileLinks = [
+    { href: '/', label: t('home') },
+    ...links,
     { href: '/a-propos', label: t('about') },
   ];
 
@@ -47,12 +62,11 @@ export async function TopNav({ active }: { active?: string }) {
           ))}
         </div>
 
-        <div className="row gap-2" style={{ alignItems: 'center' }}>
+        <div className="nav-actions">
           <form
             method="get"
             action="/recherche"
-            className="row gap-1"
-            style={{ alignItems: 'center' }}
+            className="nav-search"
           >
             <input
               type="search"
@@ -60,16 +74,30 @@ export async function TopNav({ active }: { active?: string }) {
               placeholder={tCommon('search') + '…'}
               aria-label={t('search')}
               className="input"
-              style={{ width: 160, fontSize: 13, padding: '6px 10px' }}
             />
           </form>
           <LocaleSwitcher />
-          <Link href={isMember ? '/me' : '/sign-in?callbackUrl=/me'} className="btn btn-ghost btn-sm">
-            {tCommon('memberSpace')}
-          </Link>
-          <Link href="/formations" className="btn btn-primary btn-sm">
-            {t('courses')} <span className="arrow">→</span>
-          </Link>
+          {isStaff ? (
+            <Link href="/admin" className="btn btn-orange btn-sm desktop-only">
+              Backoffice <span className="arrow">→</span>
+            </Link>
+          ) : (
+            <Link
+              href={isMember ? '/me' : '/sign-in?callbackUrl=/me'}
+              className="btn btn-ghost btn-sm desktop-only"
+            >
+              {tCommon('memberSpace')}
+            </Link>
+          )}
+          <MobileNav
+            links={mobileLinks}
+            memberHref={isMember ? '/me' : '/sign-in?callbackUrl=/me'}
+            memberLabel={tCommon('memberSpace')}
+            catalogLabel={t('courses')}
+            searchLabel={t('search')}
+            searchPlaceholder={tCommon('search') + '…'}
+            active={active}
+          />
         </div>
       </div>
     </nav>

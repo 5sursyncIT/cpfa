@@ -23,6 +23,7 @@ export default async function CoursesIndexPage({
       durationHours: true,
       priceXof: true,
       description: true,
+      coverImageKey: true,
     },
   });
 
@@ -34,23 +35,20 @@ export default async function CoursesIndexPage({
         <div className="breadcrumb">
           CPFA · <span>Formations</span>
         </div>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'end', gap: 32 }}>
-          <h1 style={{ fontSize: 'clamp(48px, 6vw, 84px)' }}>
+        <div className="page-head-split">
+          <h1 className="page-head-title">
             Le <em className="italic-emph">catalogue</em>
             <br />
             2026 — 2027.
           </h1>
-          <p
-            className="fs-17 text-mid"
-            style={{ maxWidth: 380, paddingBottom: 12 }}
-          >
+          <p className="page-head-copy">
             Six programmes diplômants, certifications professionnelles, séminaires courts et
             formations sur mesure pour vos équipes.
           </p>
         </div>
       </div>
 
-      <div className="container" style={{ paddingBottom: 96 }}>
+      <div className="container page-body">
         <FormationsCatalog cards={cards} initialCategory={cat} />
       </div>
     </div>

@@ -1,14 +1,19 @@
 import { ContactBlock } from '@/components/cpfa/contact-block';
+import { Breadcrumb } from '@/components/cpfa/breadcrumb';
+import { getSetting } from '@/lib/site-settings/get';
+import { resolveLocale } from '@/i18n/request';
 
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Contact — CPFA' };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const locale = await resolveLocale();
+  const contact = await getSetting('footer.contact', locale);
+
   return (
     <div>
       <div className="container page-head">
-        <div className="breadcrumb">
-          CPFA · <span>Contact</span>
-        </div>
+        <Breadcrumb items={[{ href: '/', label: 'CPFA' }, { label: 'Contact' }]} />
         <h1>
           Une question, un projet,
           <br />
@@ -17,7 +22,7 @@ export default function ContactPage() {
       </div>
 
       <div className="container" style={{ paddingBottom: 96 }}>
-        <ContactBlock />
+        <ContactBlock contact={contact} />
       </div>
     </div>
   );

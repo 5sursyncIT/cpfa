@@ -24,6 +24,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     activeLoansCount,
     overdueLoansCount,
     catalogCount,
+    activeSubsCount,
   ] = await Promise.all([
     prisma.registration.count({
       where: {
@@ -39,6 +40,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     prisma.loan.count({ where: { status: 'ACTIVE' } }),
     prisma.loan.count({ where: { status: 'ACTIVE', dueAt: { lt: new Date() } } }),
     prisma.resource.count(),
+    prisma.subscription.count({ where: { status: 'ACTIVE' } }),
   ]);
 
   const sections = [
@@ -50,13 +52,19 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       ],
     },
     {
-      title: 'Gestion',
+      title: 'Académique',
       items: [
         { href: '/admin/registrations', label: 'Inscriptions', count: submittedRegs },
         { href: '/admin/courses', label: 'Formations' },
-        { href: '/admin/exams', label: 'Candidatures', count: pendingApplicants },
+        { href: '/admin/seminars', label: 'Séminaires' },
+        { href: '/admin/exams', label: 'Concours', count: pendingApplicants },
         { href: '/admin/trainers', label: 'Formateurs', count: pendingTrainers },
         { href: '/admin/jobs', label: 'Job board', count: pendingJobOffers },
+      ],
+    },
+    {
+      title: 'Contenu',
+      items: [
         { href: '/admin/articles', label: 'Actualités' },
         { href: '/admin/testimonials', label: 'Témoignages' },
         { href: '/admin/cms', label: 'Pages CMS' },
@@ -67,9 +75,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     {
       title: 'Bibliothèque',
       items: [
+        { href: '/admin/library', label: "Vue d'ensemble" },
+        { href: '/admin/library/resources', label: 'Catalogue', count: catalogCount },
+        { href: '/admin/library/categories', label: 'Catégories' },
+        { href: '/admin/library/subscribers', label: 'Abonnés', count: activeSubsCount },
+        { href: '/admin/library/borrow', label: 'Prêter un ouvrage' },
         { href: '/admin/loans', label: 'Prêts en cours', count: activeLoansCount },
         { href: '/admin/loans?overdue=1', label: 'Retards', count: overdueLoansCount },
-        { href: '/bibliotheque', label: 'Catalogue', count: catalogCount },
       ],
     },
     {
@@ -83,27 +95,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <div>
-      <div style={{ background: 'var(--ink)', color: 'var(--bg)', padding: '12px 0' }}>
-        <div
-          className="container row"
-          style={{ justifyContent: 'space-between', alignItems: 'center' }}
-        >
-          <span
-            className="mono"
-            style={{
-              fontSize: 11,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              opacity: 0.7,
-            }}
-          >
-            ⚙ Espace administrateur
-          </span>
-          <div className="row gap-2">
+      <div className="admin-topbar">
+        <div className="container admin-topbar-inner">
+          <span className="admin-topbar-kicker">Espace administrateur</span>
+          <div className="admin-topbar-actions">
             <Link
               href="/"
-              className="btn btn-ghost btn-sm"
-              style={{ color: 'var(--bg)', borderColor: 'rgba(255,255,255,0.2)' }}
+              className="btn btn-ghost btn-sm admin-topbar-button"
             >
               ← Retour au site public
             </Link>
@@ -115,8 +113,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             >
               <button
                 type="submit"
-                className="btn btn-ghost btn-sm"
-                style={{ color: 'var(--bg)', borderColor: 'rgba(255,255,255,0.2)' }}
+                className="btn btn-ghost btn-sm admin-topbar-button"
               >
                 Déconnexion
               </button>
@@ -126,7 +123,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       </div>
       <div className="admin-shell">
         <AdminSideNav sections={sections} />
-        <main className="admin-main">{children}</main>
+        <main id="main-content" tabIndex={-1} className="admin-main">{children}</main>
       </div>
     </div>
   );
