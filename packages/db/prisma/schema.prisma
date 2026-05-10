@@ -57,7 +57,13 @@ model User {
   authoredArticles Article[] @relation("ArticleAuthor")
   uploadedMedia   Media[]   @relation("MediaUploader")
   auditLogs       AuditLog[]
-  trainerProfile  TrainerProfile?
+  trainerProfile  TrainerProfile? @relation("TrainerProfileUser")
+  reviewedTrainers TrainerProfile[] @relation("TrainerProfileReviewer")
+  uploadedTrainerResources TrainerResource[] @relation("TrainerResourceUploader")
+  coachedSessions  CourseSession[]  @relation("CourseSessionTrainer")
+  updatedSiteSettings SiteSetting[]  @relation("SiteSettingUpdater")
+  jobPostings      JobPosting[]     @relation("JobPostingRecruiter")
+  jobApplications  JobApplication[] @relation("JobApplicationCandidate")
 
   @@index([createdAt])
 }
@@ -117,6 +123,9 @@ model Subscription {
   id          String             @id @default(cuid())
   userId      String
   cardNumber  String             @unique
+  // Three formules — see lib/library-rules.ts (LIBRARY_TIERS).
+  // STUDENT 10k/an · PROFESSIONAL 15k/an · HOME_LOAN 50k/an (emprunt domicile).
+  tier        SubscriptionTier   @default(PROFESSIONAL)
   status      SubscriptionStatus @default(PENDING)
   startedAt   DateTime?
   expiresAt   DateTime?
@@ -131,6 +140,12 @@ model Subscription {
 
   @@index([userId])
   @@index([status])
+}
+
+enum SubscriptionTier {
+  STUDENT
+  PROFESSIONAL
+  HOME_LOAN
 }
 
 model Category {
@@ -234,9 +249,15 @@ model Course {
   brochureKey String?
   description String?     @db.Text
   published   Boolean     @default(false)
+  // Application window — `registrations.create` rejects new applications
+  // outside [applicationsOpenAt, applicationsCloseAt]. Both NULL means the
+  // form is always open. Used for diplômantes (DTA, BTS) gated by concours.
+  applicationsOpenAt   DateTime?
+  applicationsCloseAt  DateTime?
   modules     Module[]
   sessions    CourseSession[]
   registrations Registration[]
+  trainerResources TrainerResource[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -248,6 +269,7 @@ model Module {
   position  Int
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons   Lesson[]
+  trainerResources TrainerResource[]
 
   @@unique([courseId, position])
 }
@@ -267,14 +289,17 @@ model Lesson {
 model CourseSession {
   id        String   @id @default(cuid())
   courseId  String
+  trainerId String?
   startsAt  DateTime
   endsAt    DateTime
   location  String?
   capacity  Int      @default(30)
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  trainer   User?    @relation("CourseSessionTrainer", fields: [trainerId], references: [id], onDelete: SetNull)
   registrations Registration[]
 
   @@index([courseId, startsAt])
+  @@index([trainerId, startsAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -417,6 +442,7 @@ model Attachment {
 enum PaymentProvider {
   WAVE
   ORANGE_MONEY
+  PAYTECH
   STATIC_QR
   CASH
   BANK_TRANSFER
@@ -480,6 +506,132 @@ model Invoice {
 // CMS (institutional site)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Job board (§3.2 du doc Directeur).
+//
+// Modèle anti-spam : n'importe qui peut soumettre une offre via le form public,
+// elle est créée en DRAFT ; un admin (`cms:write`) bascule à PUBLISHED ou
+// REJECTED après revue. Les candidatures vont à l'email recruteur de l'offre.
+model JobPosting {
+  id              String              @id @default(cuid())
+  recruiterId     String?
+  recruiterEmail  String              // Toujours présent — destinataire des notifs candidature.
+  companyName     String
+  title           String
+  description     String              @db.Text
+  profile         String              @db.Text
+  contact         String              // Tel / email / adresse libre côté entreprise.
+  fileSheetKey    String?
+  type            JobType             @default(CDI)
+  level           JobLevel            @default(JUNIOR)
+  location        String?
+  urgent          Boolean             @default(false)
+  status          JobStatus           @default(DRAFT)
+  closesAt        DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  recruiter       User?               @relation("JobPostingRecruiter", fields: [recruiterId], references: [id])
+  applications    JobApplication[]
+
+  @@index([status, closesAt])
+}
+
+enum JobType {
+  CDI
+  CDD
+  STAGE
+  FREELANCE
+  ALTERNANCE
+}
+
+enum JobLevel {
+  JUNIOR
+  INTERMEDIAIRE
+  SENIOR
+  EXECUTIVE
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  REJECTED
+}
+
+model JobApplication {
+  id              String              @id @default(cuid())
+  jobPostingId    String
+  candidateUserId String?
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  motivation      String              @db.Text
+  cvKey           String
+  status          JobApplicationStatus @default(SUBMITTED)
+  createdAt       DateTime            @default(now())
+
+  jobPosting      JobPosting          @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  candidate       User?               @relation("JobApplicationCandidate", fields: [candidateUserId], references: [id])
+
+  @@index([jobPostingId])
+}
+
+enum JobApplicationStatus {
+  SUBMITTED
+  REVIEWED
+  REJECTED
+  ACCEPTED
+}
+
+// Témoignages affichés sur la home, /enseigner-au-cpfa et /espaces-apprenants.
+// Le scope distingue les voix (étudiants, profs, pros, partenaires).
+// `displayOrder` (croissant) gouverne l'ordre dans le carrousel ; à défaut on
+// se rabat sur `createdAt` desc.
+model Testimonial {
+  id             String          @id @default(cuid())
+  scope          TestimonialScope
+  authorName     String
+  authorRole     String?
+  authorPhotoKey String?
+  quote          String          @db.Text
+  locale         String          @default("fr")
+  published      Boolean         @default(false)
+  displayOrder   Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([published, locale, scope, displayOrder])
+}
+
+enum TestimonialScope {
+  STUDENT
+  TEACHER
+  PROFESSIONAL
+  PARTNER
+}
+
+// Key-value site-wide settings. Each known key has a typed schema enforced
+// in the application layer (apps/web/src/lib/site-settings/registry.ts) —
+// the DB stores the raw JSON. Used for content that doesn't fit in a Page
+// (homepage testimonials, hero copy, footer info, governance/stats lists).
+//
+// Locale-aware: each (key, locale) pair stores an independent value so the
+// editor can localise content per language. Reads fall back to the default
+// locale when no row exists for the requested locale.
+model SiteSetting {
+  key           String
+  locale        String   @default("fr")
+  value         Json
+  updatedAt     DateTime @updatedAt
+  updatedById   String?
+
+  updatedBy     User?    @relation("SiteSettingUpdater", fields: [updatedById], references: [id])
+
+  @@id([key, locale])
+}
+
 model Page {
   id          String   @id @default(cuid())
   slug        String   @unique
@@ -535,14 +687,54 @@ model Media {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model TrainerProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  bio         String?  @db.Text
-  domains     String[]
-  cvKey       String?
-  approved    Boolean  @default(false)
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  bio             String?        @db.Text
+  domains         String[]
+  cvKey           String?
+  phone           String?
+  experienceYears Int?
+  status          TrainerStatus  @default(PENDING)
+  submittedAt     DateTime       @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+  rejectionReason String?        @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User           @relation("TrainerProfileUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy      User?          @relation("TrainerProfileReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status])
+}
+
+enum TrainerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Pedagogical resources visible to all approved trainers. Uploaded by an
+// editor/admin with `trainer:manage`; downloadable via presigned GET by any
+// FORMATEUR. Optional course/module scoping for organisation in the UI.
+model TrainerResource {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?   @db.Text
+  storageKey    String
+  mimeType      String
+  sizeBytes     Int
+  courseId      String?
+  moduleId      String?
+  uploadedById  String
+  createdAt     DateTime  @default(now())
+
+  uploadedBy    User      @relation("TrainerResourceUploader", fields: [uploadedById], references: [id])
+  course        Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  module        Module?   @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

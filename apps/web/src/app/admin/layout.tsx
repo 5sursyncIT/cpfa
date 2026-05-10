@@ -19,6 +19,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const [
     submittedRegs,
     pendingApplicants,
+    pendingTrainers,
+    pendingJobOffers,
     activeLoansCount,
     overdueLoansCount,
     catalogCount,
@@ -32,6 +34,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     prisma.registration.count({
       where: { status: { in: ['SUBMITTED', 'PAID'] }, examId: { not: null } },
     }),
+    prisma.trainerProfile.count({ where: { status: 'PENDING' } }),
+    prisma.jobPosting.count({ where: { status: 'DRAFT' } }),
     prisma.loan.count({ where: { status: 'ACTIVE' } }),
     prisma.loan.count({ where: { status: 'ACTIVE', dueAt: { lt: new Date() } } }),
     prisma.resource.count(),
@@ -49,9 +53,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       title: 'Gestion',
       items: [
         { href: '/admin/registrations', label: 'Inscriptions', count: submittedRegs },
+        { href: '/admin/courses', label: 'Formations' },
         { href: '/admin/exams', label: 'Candidatures', count: pendingApplicants },
+        { href: '/admin/trainers', label: 'Formateurs', count: pendingTrainers },
+        { href: '/admin/jobs', label: 'Job board', count: pendingJobOffers },
         { href: '/admin/articles', label: 'Actualités' },
+        { href: '/admin/testimonials', label: 'Témoignages' },
         { href: '/admin/cms', label: 'Pages CMS' },
+        { href: '/admin/media', label: 'Médias' },
+        { href: '/admin/settings', label: 'Paramètres du site' },
       ],
     },
     {

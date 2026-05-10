@@ -14,4 +14,11 @@ describe('rbac.hasPermission', () => {
     expect(hasPermission(['SUPER_ADMIN'], 'audit:read')).toBe(true);
     expect(hasPermission(['SUPER_ADMIN'], 'payment:validate')).toBe(true);
   });
+
+  it('trainer:manage is reserved for ADMIN and SUPER_ADMIN', () => {
+    expect(hasPermission(['ADMIN'], 'trainer:manage')).toBe(true);
+    expect(hasPermission(['SUPER_ADMIN'], 'trainer:manage')).toBe(true);
+    expect(hasPermission(['EDITEUR'], 'trainer:manage')).toBe(false);
+    expect(hasPermission(['FORMATEUR'], 'trainer:manage')).toBe(false);
+  });
 });

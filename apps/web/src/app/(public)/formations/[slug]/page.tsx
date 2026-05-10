@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@cpfa/db';
 import { EnrollLauncher } from '@/components/cpfa/enroll-launcher';
 import { fmtXof, durationLabel } from '@/lib/cpfa-mappers';
+import { applicationStatusAt } from '@/lib/course-rules';
 
 export const dynamic = 'force-dynamic';
 
@@ -177,6 +178,11 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
               courseId={course.id}
               courseTitle={course.title}
               priceXof={course.priceXof}
+              applicationsOpen={applicationStatusAt(course).state === 'open'}
+              reopensAt={(() => {
+                const s = applicationStatusAt(course);
+                return s.state === 'before' ? fmtDate.format(s.opensAt) : undefined;
+              })()}
               sessions={course.sessions.map((s) => ({
                 id: s.id,
                 label: fmtDate.format(s.startsAt),

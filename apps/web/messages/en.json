@@ -1,0 +1,69 @@
+{
+  "common": {
+    "appName": "CPFA",
+    "tagline": "Professional Training Center for the Insurance Sector",
+    "memberSpace": "Member area",
+    "myAccount": "My account",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "search": "Search",
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "language": "Language",
+    "french": "Français",
+    "english": "English"
+  },
+  "nav": {
+    "home": "Home",
+    "courses": "Programs",
+    "seminars": "Seminars",
+    "library": "Library",
+    "exams": "Entrance exams",
+    "contact": "Contact",
+    "about": "About",
+    "blog": "News",
+    "directorWord": "Director's word",
+    "partners": "Partners",
+    "becomeTrainer": "Become a trainer",
+    "search": "Search",
+    "learners": "Learners' area",
+    "jobs": "Job board"
+  },
+  "footer": {
+    "tagline": "Senegal's leading training reference for careers in the insurance industry.",
+    "joinUs": "I want to enrol",
+    "joinUsDesc": "See the catalogue and apply",
+    "askQuestions": "Ask us a question",
+    "askQuestionsDesc": "Our team replies within 48 business hours",
+    "partnersLabel": "Partners",
+    "programs": "Programs",
+    "diplomas": "Degree programs",
+    "certifications": "Professional certifications",
+    "seminarsLong": "Seminars & masterclasses",
+    "entryExams": "Entrance exams",
+    "customCourses": "Tailor-made programs",
+    "resources": "Resources",
+    "library": "Library",
+    "publications": "Publications & research",
+    "regulatoryWatch": "Regulatory watch",
+    "alumni": "Alumni directory",
+    "memberArea": "Member area",
+    "contact": "Contact",
+    "copyright": "© 2026 CPFA · Accredited by the Ministry of Finance",
+    "designedIn": "Designed in Dakar · Built in orbit"
+  },
+  "auth": {
+    "signInTitle": "Sign in to your account",
+    "magicLinkPlaceholder": "you@example.com",
+    "sendMagicLink": "Email me a sign-in link",
+    "checkEmail": "Check your inbox to finish signing in."
+  },
+  "blog": {
+    "title": "CPFA News",
+    "intro": "Press releases, new sessions, field reports, regulatory updates.",
+    "empty": "No posts yet.",
+    "draft": "Draft"
+  }
+}

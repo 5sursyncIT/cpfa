@@ -1,19 +1,26 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { LogoMark } from './logo-mark';
-
-const links = [
-  { href: '/', label: 'Accueil' },
-  { href: '/formations', label: 'Formations' },
-  { href: '/seminaires', label: 'Séminaires' },
-  { href: '/bibliotheque', label: 'Bibliothèque' },
-  { href: '/concours', label: 'Concours' },
-  { href: '/a-propos', label: 'À propos' },
-] as const;
+import { LocaleSwitcher } from './locale-switcher';
 
 export async function TopNav({ active }: { active?: string }) {
-  const session = await auth();
+  const [session, t, tCommon] = await Promise.all([
+    auth(),
+    getTranslations('nav'),
+    getTranslations('common'),
+  ]);
   const isMember = !!session?.user;
+
+  const links = [
+    { href: '/', label: t('home') },
+    { href: '/formations', label: t('courses') },
+    { href: '/seminaires', label: t('seminars') },
+    { href: '/bibliotheque', label: t('library') },
+    { href: '/concours', label: t('exams') },
+    { href: '/espace-apprenants', label: t('learners') },
+    { href: '/a-propos', label: t('about') },
+  ];
 
   return (
     <nav className="topnav">
@@ -23,8 +30,8 @@ export async function TopNav({ active }: { active?: string }) {
             <LogoMark size={38} />
           </div>
           <div className="brand-text">
-            <span className="brand-name">CPFA</span>
-            <span className="brand-tag">Centre de Formation · Assurance</span>
+            <span className="brand-name">{tCommon('appName')}</span>
+            <span className="brand-tag">{tCommon('tagline')}</span>
           </div>
         </Link>
 
@@ -40,12 +47,28 @@ export async function TopNav({ active }: { active?: string }) {
           ))}
         </div>
 
-        <div className="row gap-2">
+        <div className="row gap-2" style={{ alignItems: 'center' }}>
+          <form
+            method="get"
+            action="/recherche"
+            className="row gap-1"
+            style={{ alignItems: 'center' }}
+          >
+            <input
+              type="search"
+              name="q"
+              placeholder={tCommon('search') + '…'}
+              aria-label={t('search')}
+              className="input"
+              style={{ width: 160, fontSize: 13, padding: '6px 10px' }}
+            />
+          </form>
+          <LocaleSwitcher />
           <Link href={isMember ? '/me' : '/sign-in?callbackUrl=/me'} className="btn btn-ghost btn-sm">
-            Espace abonné
+            {tCommon('memberSpace')}
           </Link>
           <Link href="/formations" className="btn btn-primary btn-sm">
-            S&apos;inscrire <span className="arrow">→</span>
+            {t('courses')} <span className="arrow">→</span>
           </Link>
         </div>
       </div>

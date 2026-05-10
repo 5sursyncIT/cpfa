@@ -24,6 +24,8 @@ export default async function MeLayout({ children }: { children: ReactNode }) {
     }),
   ]);
 
+  const isTrainer = session.user.roles.includes('FORMATEUR');
+
   const fmtDate = new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'short',
@@ -64,6 +66,7 @@ export default async function MeLayout({ children }: { children: ReactNode }) {
           <aside className="side-nav">
             <MemberSideNav
               counts={{ loans: activeLoansCount, registrations: registrationsCount }}
+              isTrainer={isTrainer}
             />
             <form
               action={async () => {

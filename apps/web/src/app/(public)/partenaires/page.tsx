@@ -1,4 +1,10 @@
-export const metadata = { title: 'Partenaires — CPFA' };
+import { fetchCmsPage } from '@/lib/cms-page';
+import { BlockRenderer } from '@/components/cms/block-renderer';
+import { resolveLocale } from '@/i18n/request';
+
+export const dynamic = 'force-dynamic';
+
+const STATIC_SLUG = 'partenaires';
 
 const partnerCategories = [
   {
@@ -15,7 +21,28 @@ const partnerCategories = [
   },
 ];
 
-export default function PartnersPage() {
+export async function generateMetadata() {
+  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  return {
+    title: cms?.metaTitle ?? `${cms?.title ?? 'Partenaires'} — CPFA`,
+    description: cms?.metaDescription ?? undefined,
+  };
+}
+
+export default async function PartnersPage() {
+  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+
+  if (cms) {
+    return (
+      <article className="container max-w-3xl py-16">
+        <h1 className="text-4xl font-bold tracking-tight">{cms.title}</h1>
+        <div className="prose prose-slate mt-8 max-w-none">
+          <BlockRenderer content={cms.content} />
+        </div>
+      </article>
+    );
+  }
+
   return (
     <section className="container py-16">
       <h1 className="text-4xl font-bold tracking-tight">Partenaires</h1>

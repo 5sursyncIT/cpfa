@@ -14,13 +14,40 @@ export function EnrollLauncher({
   courseTitle,
   priceXof,
   sessions,
+  applicationsOpen = true,
+  reopensAt,
 }: {
   courseId: string;
   courseTitle: string;
   priceXof: number;
   sessions: Session[];
+  applicationsOpen?: boolean;
+  reopensAt?: string; // pre-formatted FR date — passed in by the server
 }) {
   const [open, setOpen] = useState(false);
+
+  if (!applicationsOpen) {
+    return (
+      <div
+        className="col gap-2"
+        style={{
+          padding: 16,
+          border: '1px solid var(--line)',
+          borderRadius: 8,
+          background: 'var(--bg-soft)',
+        }}
+      >
+        <div className="fs-15" style={{ fontWeight: 500 }}>
+          Inscriptions fermées
+        </div>
+        <div className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
+          {reopensAt
+            ? `Les candidatures rouvriront le ${reopensAt}.`
+            : 'Les candidatures sont fermées en dehors des périodes de concours. Revenez prochainement.'}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

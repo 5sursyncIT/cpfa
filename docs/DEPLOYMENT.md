@@ -14,6 +14,7 @@ Recommended for the first year (zero DevOps).
 | Redis | Upstash | Already region-pinned via `REDIS_URL`. |
 | Object storage | Backblaze B2 | S3-compatible — works with `@cpfa/lib/storage` unchanged. |
 | Email | Resend | Set `RESEND_API_KEY` and `EMAIL_FROM`. |
+| Payments | PayTech | Set `PAYTECH_API_KEY`, `PAYTECH_API_SECRET`, `PAYTECH_ENV=prod`, and the three return URLs. IPN must be HTTPS and reachable from PayTech's network (no IP allowlisting on Vercel by default). |
 
 ### Setup
 
@@ -98,7 +99,8 @@ The web service has a healthcheck on `/api/health`; the orchestrator only marks 
 
 ## Observability
 
-- `/api/health` for uptime probes (no auth).
+- `/api/health` for uptime probes (no auth). Returns 200 only when both Postgres
+  (`SELECT 1`) and Redis (`PING`) succeed; 503 otherwise. Body includes per-probe status.
 - Sentry: set `SENTRY_DSN`, then add `@sentry/nextjs` instrumentation (left for the operator — the env var is wired but the SDK is not yet installed).
 - Logs: Docker captures stdout/stderr; ship to Better Stack / Axiom via the Docker logging driver.
 

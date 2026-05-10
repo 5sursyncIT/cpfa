@@ -10,7 +10,13 @@ const PRIMARY = [
   { href: '/me/inscriptions', label: 'Mes inscriptions', countKey: 'registrations' },
 ] as const;
 
-export function MemberSideNav({ counts }: { counts: { loans: number; registrations: number } }) {
+export function MemberSideNav({
+  counts,
+  isTrainer,
+}: {
+  counts: { loans: number; registrations: number };
+  isTrainer?: boolean;
+}) {
   const path = usePathname() ?? '/me';
 
   return (
@@ -32,6 +38,18 @@ export function MemberSideNav({ counts }: { counts: { loans: number; registratio
           </Link>
         );
       })}
+
+      {isTrainer ? (
+        <>
+          <div className="side-nav-title">Espace formateur</div>
+          <Link
+            href="/me/formateur"
+            className={'item' + (path.startsWith('/me/formateur') ? ' active' : '')}
+          >
+            <span>Mon espace formateur</span>
+          </Link>
+        </>
+      ) : null}
 
       <div className="side-nav-title">Réservations</div>
       <span className="item">

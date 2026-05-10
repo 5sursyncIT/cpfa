@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
-export function CreatePageButton() {
+export function CreatePageButton({ locale = 'fr' }: { locale?: 'fr' | 'en' }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [slug, setSlug] = useState('');
@@ -15,7 +15,11 @@ export function CreatePageButton() {
   });
 
   if (!open) {
-    return <Button onClick={() => setOpen(true)}>Nouvelle page</Button>;
+    return (
+      <Button onClick={() => setOpen(true)}>
+        Nouvelle page ({locale.toUpperCase()})
+      </Button>
+    );
   }
 
   return (
@@ -39,7 +43,7 @@ export function CreatePageButton() {
       </label>
       <Button
         disabled={!slug || !title || create.isPending}
-        onClick={() => create.mutate({ slug, title, content: [], published: false })}
+        onClick={() => create.mutate({ slug, title, locale, content: [], published: false })}
       >
         {create.isPending ? '…' : 'Créer'}
       </Button>

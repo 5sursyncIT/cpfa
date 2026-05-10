@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage build for the CPFA web app + BullMQ worker.
 # Build context = monorepo root (see docker/docker-compose.prod.yml).
-# Final image runs Next.js standalone server by default; the worker service
-# overrides CMD to "node apps/web/dist-worker/index.js".
+# Three runtime targets:
+#   - web       : Next.js standalone (CMD node apps/web/server.js)
+#   - worker    : BullMQ worker bundled to a single CJS file (CMD node worker.cjs)
+#   - migrate   : Prisma schema + CLI for `prisma migrate deploy` (one-shot)
 
 ARG NODE_VERSION=20-alpine
 
@@ -71,3 +73,18 @@ COPY --from=builder --chown=nodejs:nodejs /repo/node_modules/@prisma/client ./no
 USER nodejs
 ENTRYPOINT ["tini", "--"]
 CMD ["node", "worker.cjs"]
+
+# ── Migrate runtime (one-shot Prisma migrate deploy) ─────────────────────────
+# Run via:  docker compose -f docker/docker-compose.prod.yml --profile tools run --rm migrate
+# Self-contained: ships the prisma CLI, generated client, and the schema/migrations folder.
+FROM node:${NODE_VERSION} AS migrate
+ENV NODE_ENV=production
+RUN apk add --no-cache libc6-compat openssl tini
+WORKDIR /app
+COPY --from=builder /repo/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /repo/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /repo/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /repo/node_modules/.bin/prisma ./node_modules/.bin/prisma
+COPY --from=builder /repo/packages/db/prisma ./prisma
+ENTRYPOINT ["tini", "--"]
+CMD ["node_modules/.bin/prisma", "migrate", "deploy", "--schema=prisma/schema.prisma"]

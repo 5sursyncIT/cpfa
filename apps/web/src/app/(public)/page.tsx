@@ -6,61 +6,58 @@ import { FormationCard } from '@/components/cpfa/formation-card';
 import { Marquee } from '@/components/cpfa/marquee';
 import { OrbitGraphic } from '@/components/cpfa/logo-mark';
 import { courseToCard, resourceToBook } from '@/lib/cpfa-mappers';
+import { getSetting } from '@/lib/site-settings/get';
+import { resolveLocale } from '@/i18n/request';
+import { HomeBlocksSection } from '@/components/cpfa/home-blocks-section';
 
 export const dynamic = 'force-dynamic';
 
-const TESTIMONIALS = [
-  {
-    quote:
-      "Le CPFA m'a ouvert les portes de la direction technique d'une grande compagnie panafricaine. Les cas pratiques étaient redoutablement réalistes.",
-    name: 'Aïssatou Ndiaye',
-    role: 'Directrice Technique · NSIA Assurances',
-  },
-  {
-    quote:
-      "Ce que j'ai apprécié, c'est la rigueur académique alliée à une lecture profonde du contexte ouest-africain. C'est rare.",
-    name: 'Cheikh A. Bâ',
-    role: 'Inspecteur · Direction des Assurances',
-  },
-  {
-    quote:
-      "La bibliothèque seule justifie l'inscription. Aucun autre fonds documentaire spécialisé ne s'en approche dans la sous-région.",
-    name: 'Marie-Louise Sagna',
-    role: 'Doctorante · UCAD',
-  },
-];
-
-const HOME_STATS = [
-  { value: '30', sup: 'ans', label: 'Au service du secteur' },
-  { value: '4 200', sup: '+', label: 'Diplômés actifs' },
-  { value: '14', sup: '', label: "Pays d'Afrique représentés" },
-  { value: '96', sup: '%', label: "Taux d'insertion 12 mois" },
-];
-
 export default async function HomePage() {
   const concoursDeadline = new Date('2026-08-30T23:59:59.000Z');
+  const locale = await resolveLocale();
 
-  const [featured, books] = await Promise.all([
-    prisma.course.findMany({
-      where: { published: true },
-      orderBy: { createdAt: 'desc' },
-      take: 3,
-      select: {
-        slug: true,
-        title: true,
-        kind: true,
-        level: true,
-        durationHours: true,
-        priceXof: true,
-        description: true,
-      },
-    }),
-    prisma.resource.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { id: true, title: true, authors: true, totalCopies: true },
-    }),
-  ]);
+  const [featured, books, hero, testimonialRows, fallbackTestimonials, homeStats] =
+    await Promise.all([
+      prisma.course.findMany({
+        where: { published: true },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        select: {
+          slug: true,
+          title: true,
+          kind: true,
+          level: true,
+          durationHours: true,
+          priceXof: true,
+          description: true,
+        },
+      }),
+      prisma.resource.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { id: true, title: true, authors: true, totalCopies: true },
+      }),
+      getSetting('home.hero', locale),
+      // Prefer DB-managed testimonials (richer admin UI). Fall back to the
+      // SiteSetting JSON if the editor hasn't published any yet — keeps the
+      // home looking populated on day one.
+      prisma.testimonial.findMany({
+        where: { published: true, locale },
+        orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
+        take: 6,
+      }),
+      getSetting('home.testimonials', locale),
+      getSetting('home.stats', locale),
+    ]);
+
+  const testimonials =
+    testimonialRows.length > 0
+      ? testimonialRows.map((t) => ({
+          quote: t.quote,
+          name: t.authorName,
+          role: t.authorRole ?? '',
+        }))
+      : fallbackTestimonials;
 
   return (
     <>
@@ -69,22 +66,12 @@ export default async function HomePage() {
           <div className="hero-grid">
             <div>
               <span className="eyebrow" style={{ marginBottom: 24, display: 'inline-flex' }}>
-                Promotion 2026 · Inscriptions ouvertes
+                {hero.eyebrow}
               </span>
-              <h1 className="hero-headline">
-                Former l&apos;<span className="accent">orbite</span>
-                <br />
-                de l&apos;assurance
-                <br />
-                ouest-africaine.
-              </h1>
+              <h1 className="hero-headline">{hero.headline}</h1>
             </div>
             <div className="hero-meta">
-              <p>
-                Le CPFA est l&apos;<em>institut de référence au Sénégal</em> pour les métiers de
-                l&apos;assurance, de la réassurance et de l&apos;actuariat. Trente ans à former les
-                cadres techniques et dirigeants de la zone CIMA.
-              </p>
+              <p>{hero.description}</p>
               <div className="row gap-3">
                 <Link href="/formations" className="btn btn-primary btn-lg">
                   Catalogue des formations <span className="arrow">→</span>
@@ -101,11 +88,13 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <HomeBlocksSection locale={locale} />
+
       <Marquee />
 
       <div className="container">
         <div className="stat-row">
-          {HOME_STATS.map((s, i) => (
+          {homeStats.map((s, i) => (
             <div key={i} className="stat">
               <div className="stat-value">
                 {s.value}
@@ -190,7 +179,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="quote-grid">
-            {TESTIMONIALS.map((t, i) => (
+            {testimonials.map((t, i) => (
               <div key={i} className="quote-card">
                 <div
                   style={{

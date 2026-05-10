@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getPaymentProvider } from '@cpfa/lib/payments';
 import { getQueue } from '@cpfa/lib/queues';
 import { router, protectedProcedure, permissionProcedure } from '../trpc';
+import { applicationStatusAt } from '@/lib/course-rules';
 
 const registerCourseInput = z.object({
   courseId: z.string().cuid(),
@@ -176,9 +177,26 @@ async function createRegistration(ctx: Ctx, input: CreateRegistrationInput) {
   if (input.kind === 'course') {
     const course = await ctx.prisma.course.findUnique({
       where: { id: input.courseId },
-      select: { id: true, title: true, priceXof: true, published: true },
+      select: {
+        id: true,
+        title: true,
+        priceXof: true,
+        published: true,
+        applicationsOpenAt: true,
+        applicationsCloseAt: true,
+      },
     });
     if (!course?.published) throw new TRPCError({ code: 'NOT_FOUND' });
+    const status = applicationStatusAt(course);
+    if (status.state !== 'open') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message:
+          status.state === 'before'
+            ? `Inscriptions fermées — réouverture le ${status.opensAt.toLocaleDateString('fr-FR')}.`
+            : 'Inscriptions fermées pour cette session.',
+      });
+    }
     amountXof = course.priceXof;
     purpose = 'COURSE_REGISTRATION';
     description = `Inscription — ${course.title}`;

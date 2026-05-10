@@ -91,7 +91,7 @@ export const libraryRouter = router({
       const [subscription, resource, activeLoans, copiesOnLoan] = await Promise.all([
         ctx.prisma.subscription.findUnique({
           where: { id: input.subscriptionId },
-          select: { userId: true, status: true, expiresAt: true },
+          select: { userId: true, status: true, expiresAt: true, tier: true },
         }),
         ctx.prisma.resource.findUnique({
           where: { id: input.resourceId },
@@ -118,7 +118,7 @@ export const libraryRouter = router({
           eligibility.reason === 'subscription-not-usable'
             ? "L'abonnement n'est pas actif ou a expiré."
             : eligibility.reason === 'quota-reached'
-              ? 'Quota de 3 prêts simultanés atteint.'
+              ? `Quota de prêts simultanés atteint pour la formule ${subscription.tier}.`
               : 'Aucun exemplaire disponible.';
         throw new TRPCError({ code: 'BAD_REQUEST', message });
       }

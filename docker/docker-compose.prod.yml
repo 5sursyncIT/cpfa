@@ -66,19 +66,16 @@ services:
     env_file: ../.env.production
 
   migrate:
-    image: cpfa/web:latest
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: migrate
+    image: cpfa/migrate:latest
     profiles: ["tools"]
     depends_on:
       postgres: { condition: service_healthy }
     env_file: ../.env.production
-    entrypoint: ["sh", "-c"]
-    # Standalone image doesn't ship `prisma migrate`; for prod use a
-    # one-shot container that runs migrations from a node_modules layer.
-    # If you prefer, wire CI to run `pnpm --filter @cpfa/db migrate:deploy`
-    # from the runner just before the rolling restart.
-    command:
-      - |
-        cd /repo && pnpm --filter @cpfa/db migrate:deploy
+    # Default CMD runs `prisma migrate deploy` against $DATABASE_URL.
 
 volumes:
   cpfa-postgres-data:

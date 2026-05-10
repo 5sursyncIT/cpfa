@@ -47,7 +47,11 @@ export type UploadKind =
   | 'paper' // exam paper bank
   | 'cover' // book/article cover images
   | 'brochure' // course/seminar brochures
-  | 'media'; // generic CMS media
+  | 'media' // generic CMS media
+  | 'trainer-cv' // trainer candidacy CV
+  | 'trainer-resource' // pedagogical resource shared with approved trainers
+  | 'job-cv' // candidate CV submitted to a JobApplication
+  | 'job-sheet'; // recruiter-uploaded job description PDF
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25MB
 const ALLOWED_MIME = new Set<string>([
@@ -108,4 +112,27 @@ export async function objectExists(key: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Server-side direct upload. Used by the worker for generated PDFs (cards,
+// invoices, convocations) where the bytes never leave the cluster, so a
+// presigned PUT roundtrip would be wasteful.
+export async function putObject({
+  key,
+  body,
+  contentType,
+}: {
+  key: string;
+  body: Buffer | Uint8Array;
+  contentType: string;
+}): Promise<{ key: string }> {
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: bucket(),
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+  return { key };
 }

@@ -9,6 +9,7 @@ import { coursesRouter } from './courses';
 import { examsRouter } from './exams';
 import { examPapersRouter } from './exam-papers';
 import { healthRouter } from './health';
+import { jobsRouter } from './jobs';
 import { libraryRouter } from './library';
 import { loansRouter } from './loans';
 import { pagesRouter } from './pages';
@@ -16,6 +17,8 @@ import { paymentsRouter } from './payments';
 import { registrationsRouter } from './registrations';
 import { seminarsRouter } from './seminars';
 import { subscriptionsRouter } from './subscriptions';
+import { testimonialsRouter } from './testimonials';
+import { trainersRouter } from './trainers';
 import { usersRouter } from './users';
 
 export const appRouter = router({
@@ -33,6 +36,9 @@ export const appRouter = router({
   pages: pagesRouter,
   articles: articlesRouter,
   contact: contactRouter,
+  trainers: trainersRouter,
+  testimonials: testimonialsRouter,
+  jobs: jobsRouter,
   // Admin-only namespaces
   adminStats: adminStatsRouter,
   audit: auditRouter,

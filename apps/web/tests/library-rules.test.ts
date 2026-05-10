@@ -147,3 +147,65 @@ describe('library-rules: borrow eligibility', () => {
     expect(r.ok).toBe(true);
   });
 });
+
+describe('library-rules: tiers', () => {
+  it('STUDENT tier: 10 000 FCFA, 2 prêts max', async () => {
+    const { LIBRARY_TIERS, priceForTier, maxConcurrentForTier } = await import(
+      '@/lib/library-rules'
+    );
+    expect(LIBRARY_TIERS.STUDENT.priceXof).toBe(10_000);
+    expect(priceForTier('STUDENT')).toBe(10_000);
+    expect(maxConcurrentForTier('STUDENT')).toBe(2);
+  });
+
+  it('PROFESSIONAL tier: 15 000 FCFA, 3 prêts max (compatible avec règle historique)', async () => {
+    const { priceForTier, maxConcurrentForTier } = await import('@/lib/library-rules');
+    expect(priceForTier('PROFESSIONAL')).toBe(15_000);
+    expect(maxConcurrentForTier('PROFESSIONAL')).toBe(LIBRARY_MAX_CONCURRENT);
+  });
+
+  it('HOME_LOAN tier: 50 000 FCFA, 5 prêts max', async () => {
+    const { priceForTier, maxConcurrentForTier } = await import('@/lib/library-rules');
+    expect(priceForTier('HOME_LOAN')).toBe(50_000);
+    expect(maxConcurrentForTier('HOME_LOAN')).toBe(5);
+  });
+
+  it('quota d’éligibilité respecte le tier de l’abonnement', () => {
+    const usable = { status: 'ACTIVE', expiresAt: null };
+    // STUDENT plafonne à 2 — le 2e prêt est encore OK, le 3e est refusé.
+    expect(
+      evaluateBorrowEligibility({
+        subscription: { ...usable, tier: 'STUDENT' },
+        activeLoansForSubscription: 1,
+        totalCopies: 5,
+        copiesOnLoan: 0,
+      }).ok,
+    ).toBe(true);
+    expect(
+      evaluateBorrowEligibility({
+        subscription: { ...usable, tier: 'STUDENT' },
+        activeLoansForSubscription: 2,
+        totalCopies: 5,
+        copiesOnLoan: 0,
+      }),
+    ).toEqual({ ok: false, reason: 'quota-reached' });
+
+    // HOME_LOAN va jusqu’à 5.
+    expect(
+      evaluateBorrowEligibility({
+        subscription: { ...usable, tier: 'HOME_LOAN' },
+        activeLoansForSubscription: 4,
+        totalCopies: 10,
+        copiesOnLoan: 0,
+      }).ok,
+    ).toBe(true);
+    expect(
+      evaluateBorrowEligibility({
+        subscription: { ...usable, tier: 'HOME_LOAN' },
+        activeLoansForSubscription: 5,
+        totalCopies: 10,
+        copiesOnLoan: 0,
+      }),
+    ).toEqual({ ok: false, reason: 'quota-reached' });
+  });
+});

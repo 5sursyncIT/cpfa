@@ -1,41 +1,44 @@
 import Link from 'next/link';
+import { fetchCmsPage } from '@/lib/cms-page';
+import { BlockRenderer } from '@/components/cms/block-renderer';
+import { getSetting } from '@/lib/site-settings/get';
+import { resolveLocale } from '@/i18n/request';
 
-export const metadata = { title: 'À propos — CPFA' };
+export const dynamic = 'force-dynamic';
 
-const GOVERNANCE = [
-  { role: 'Direction générale', name: 'Pr Ousmane Diagne', note: 'Agrégé droit privé, UCAD' },
-  { role: 'Direction académique', name: 'Dr Fatou Sow', note: 'PhD Actuariat, ISFA Lyon' },
-  { role: 'Direction des programmes', name: 'M. Cheikh Bâ', note: 'Ex-DG NSIA Sénégal' },
-  {
-    role: 'Conseil pédagogique',
-    name: '12 cadres du secteur',
-    note: 'Représentants compagnies + régulateur',
-  },
-];
+const STATIC_SLUG = 'a-propos';
 
-const PARTNERS = [
-  'CIMA',
-  'BCEAO',
-  'FSSA',
-  'CICA-Re',
-  'Africa-Re',
-  'FANAF',
-  'ISFA Lyon',
-  'ENASS Paris',
-  'UCAD',
-  'Inst. Actuaires',
-  'AFRA',
-  'CIPRES',
-];
+export async function generateMetadata() {
+  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  return {
+    title: cms?.metaTitle ?? `${cms?.title ?? 'À propos'} — CPFA`,
+    description: cms?.metaDescription ?? undefined,
+  };
+}
 
-const STATS = [
-  { value: '1996', sup: '', label: 'Année de création' },
-  { value: '4 200', sup: '+', label: 'Diplômés' },
-  { value: '86', sup: '', label: 'Intervenants experts' },
-  { value: '14', sup: '', label: 'Pays africains' },
-];
+export default async function AboutPage() {
+  const locale = await resolveLocale();
+  const [cms, governance, partners, stats] = await Promise.all([
+    fetchCmsPage(STATIC_SLUG, locale),
+    getSetting('about.governance', locale),
+    getSetting('about.partners', locale),
+    getSetting('about.stats', locale),
+  ]);
 
-export default function AboutPage() {
+  if (cms) {
+    // Editor opted in to a fully CMS-driven page. The rich governance/stats
+    // layout is sacrificed; if you want both, manage governance/stats via the
+    // future SiteSetting model rather than overriding here.
+    return (
+      <article className="container max-w-3xl py-16">
+        <h1 className="text-4xl font-bold tracking-tight">{cms.title}</h1>
+        <div className="prose prose-slate mt-8 max-w-none">
+          <BlockRenderer content={cms.content} />
+        </div>
+      </article>
+    );
+  }
+
   return (
     <div>
       <div className="container page-head">
@@ -78,7 +81,7 @@ export default function AboutPage() {
           <div className="card" style={{ padding: 32 }}>
             <div className="label">Gouvernance</div>
             <div className="col gap-4" style={{ marginTop: 16 }}>
-              {GOVERNANCE.map((g, i) => (
+              {governance.map((g, i) => (
                 <div
                   key={g.role}
                   style={{
@@ -113,7 +116,7 @@ export default function AboutPage() {
             marginBottom: 96,
           }}
         >
-          {PARTNERS.map((p, i) => (
+          {partners.map((p, i) => (
             <div
               key={p}
               style={{
@@ -135,7 +138,7 @@ export default function AboutPage() {
             Trois décennies, <em className="italic-emph">en chiffres</em>.
           </h2>
           <div className="stat-row">
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <div key={s.label} className="stat">
                 <div className="stat-value">
                   {s.value}

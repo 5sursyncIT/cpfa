@@ -7,6 +7,7 @@ export type Permission =
   | 'training:register'
   | 'payment:validate'
   | 'audit:read'
+  | 'trainer:manage'
   | 'admin:any';
 
 const grants: Record<Role, Permission[]> = {
@@ -17,7 +18,14 @@ const grants: Record<Role, Permission[]> = {
   EDITEUR: ['cms:write'],
   BIBLIOTHECAIRE: ['library:manage'],
   COMPTABLE: ['payment:validate'],
-  ADMIN: ['cms:write', 'library:manage', 'payment:validate', 'audit:read', 'admin:any'],
+  ADMIN: [
+    'cms:write',
+    'library:manage',
+    'payment:validate',
+    'audit:read',
+    'trainer:manage',
+    'admin:any',
+  ],
   SUPER_ADMIN: [
     'cms:write',
     'library:manage',
@@ -25,6 +33,7 @@ const grants: Record<Role, Permission[]> = {
     'training:register',
     'payment:validate',
     'audit:read',
+    'trainer:manage',
     'admin:any',
   ],
 };

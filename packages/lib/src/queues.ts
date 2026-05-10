@@ -30,9 +30,26 @@ export function getQueue<T = unknown>(name: QueueName): Queue<T> {
 export type EmailJob = {
   to: string;
   // Magic-link is sent inline by Auth.js (Resend provider) — never enqueued here.
-  template: 'loan-reminder' | 'contact' | 'convocation';
+  template:
+    | 'loan-reminder'
+    | 'contact'
+    | 'convocation'
+    | 'trainer-approved'
+    | 'trainer-rejected'
+    | 'job-application-recruiter'
+    | 'job-application-candidate'
+    | 'job-posted'
+    | 'receipt';
   data: Record<string, unknown>;
   replyTo?: string;
+  // Worker resolves storageKey to a presigned URL at send-time so the URL
+  // stays fresh (presigned ≤ 1h). Used by the receipt flow to attach the
+  // generated invoice PDF.
+  attachments?: Array<{
+    filename: string;
+    storageKey: string;
+    contentType?: string;
+  }>;
 };
 
 export type PdfJob =

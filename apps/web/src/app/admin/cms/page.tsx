@@ -6,9 +6,18 @@ import { CreatePageButton } from './create-page-button';
 export const dynamic = 'force-dynamic';
 
 const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+const ALLOWED_LOCALES = ['fr', 'en'] as const;
 
-export default async function AdminCmsPage() {
+export default async function AdminCmsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ locale?: string }>;
+}) {
+  const { locale: rawLocale } = await searchParams;
+  const locale = rawLocale === 'en' ? 'en' : 'fr';
+
   const pages = await prisma.page.findMany({
+    where: { locale },
     orderBy: { updatedAt: 'desc' },
     take: 200,
     select: {
@@ -23,9 +32,25 @@ export default async function AdminCmsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Pages CMS</h1>
-        <CreatePageButton />
+        <div className="flex gap-2">
+          <div className="flex gap-1 text-sm">
+            {ALLOWED_LOCALES.map((loc) => (
+              <a
+                key={loc}
+                href={`/admin/cms?locale=${loc}`}
+                className={
+                  'rounded-md border px-3 py-1.5 ' +
+                  (loc === locale ? 'bg-primary text-primary-foreground' : 'bg-background')
+                }
+              >
+                {loc.toUpperCase()}
+              </a>
+            ))}
+          </div>
+          <CreatePageButton locale={locale} />
+        </div>
       </div>
 
       {pages.length === 0 ? (

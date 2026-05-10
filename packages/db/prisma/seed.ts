@@ -4,6 +4,7 @@ import {
   CourseLevel,
   ExamKind,
   ExamPaperAccess,
+  Prisma,
   PrismaClient,
   ResourceKind,
   Role,
@@ -307,6 +308,108 @@ async function main() {
     },
   });
 
+  // ── Static page CMS overrides ──────────────────────────────────────────
+  // Routes /mot-du-directeur, /partenaires, /a-propos check for a published
+  // Page row at these slugs and render its body when found. Created as
+  // brouillons so editors can review before flipping to published.
+  const staticPages: Array<{
+    slug: string;
+    title: string;
+    content: Array<{ kind: string; [k: string]: unknown }>;
+  }> = [
+    {
+      slug: 'mot-du-directeur',
+      title: 'Mot du Directeur',
+      content: [
+        {
+          kind: 'paragraph',
+          text:
+            "Bienvenue au Centre Professionnel de Formation en Assurance, unité décentralisée de l'Institut International des Assurances (IIA) de Yaoundé. Notre mission : promouvoir la formation aux métiers de l'assurance à grande échelle, au Sénégal et dans toute la zone CIMA.",
+        },
+        {
+          kind: 'paragraph',
+          text:
+            "Reconnu par la Direction des Assurances, le CPFA forme depuis sa création des techniciens, cadres et dirigeants capables de répondre aux exigences techniques, juridiques et commerciales d'un secteur en transformation rapide.",
+        },
+        {
+          kind: 'paragraph',
+          text:
+            "Que vous soyez étudiant, professionnel en reconversion ou cadre confirmé, vous trouverez ici le parcours adapté à votre projet : DTA, BTS Assurance, certifications spécialisées, séminaires d'actualité et accès à notre bibliothèque dédiée.",
+        },
+        { kind: 'paragraph', text: '— El Hadji Cheikhou Oumar SECK, Directeur' },
+      ],
+    },
+    {
+      slug: 'partenaires',
+      title: 'Partenaires',
+      content: [
+        {
+          kind: 'paragraph',
+          text:
+            "Le CPFA s'appuie sur un réseau de partenaires institutionnels, académiques et professionnels qui soutiennent sa mission de formation aux métiers de l'assurance.",
+        },
+        { kind: 'heading', level: 2, text: 'Partenaires institutionnels' },
+        {
+          kind: 'list',
+          ordered: false,
+          items: [
+            'Direction des Assurances (DNA)',
+            'FSSA — Fédération Sénégalaise des Sociétés d’Assurances',
+            'IIA Yaoundé — Institut International des Assurances',
+          ],
+        },
+        { kind: 'heading', level: 2, text: 'Partenaires de coopération' },
+        {
+          kind: 'list',
+          ordered: false,
+          items: ['PF2E', 'PNUD', 'Cabinet CASAI'],
+        },
+      ],
+    },
+    {
+      slug: 'a-propos',
+      title: 'À propos du CPFA',
+      content: [
+        {
+          kind: 'paragraph',
+          text:
+            "Le Centre Professionnel de Formation en Assurance (CPFA) est une unité décentralisée de l'Institut International des Assurances (IIA) de Yaoundé. Implanté à Dakar, il est reconnu par la Direction des Assurances comme centre de référence au Sénégal.",
+        },
+        { kind: 'heading', level: 2, text: 'Notre vocation' },
+        {
+          kind: 'paragraph',
+          text:
+            "Former les techniciens, cadres et dirigeants de l'industrie de l'assurance dans la zone CIMA — par des programmes alignés sur le Code CIMA, des partenariats académiques et un ancrage opérationnel fort sur le marché ouest-africain.",
+        },
+        { kind: 'heading', level: 2, text: 'Nos cursus' },
+        {
+          kind: 'list',
+          ordered: false,
+          items: [
+            'DTA — Diplôme de Technicien en Assurance (2 ans, accessible sur BAC)',
+            'BTS Assurance — préparation aux fonctions de cadre intermédiaire (2 ans, BAC ou DTA)',
+            'Certifications spécialisées (auto, vie, santé, transport, sinistres, conformité CIMA…)',
+            'Séminaires courts et masterclass pour professionnels en exercice',
+          ],
+        },
+      ],
+    },
+  ];
+
+  for (const sp of staticPages) {
+    await prisma.page.upsert({
+      where: { slug_locale: { slug: sp.slug, locale: 'fr' } },
+      update: {}, // never overwrite an editor's edits on re-seed
+      create: {
+        slug: sp.slug,
+        locale: 'fr',
+        title: sp.title,
+        content: sp.content as unknown as Prisma.InputJsonValue,
+        published: false,
+      },
+    });
+  }
+
   // eslint-disable-next-line no-console
   console.log('Seed complete:');
   // eslint-disable-next-line no-console
@@ -319,6 +422,8 @@ async function main() {
   console.log('  • 2 formations + 1 session DTA + 1 séminaire publiés.');
   // eslint-disable-next-line no-console
   console.log('  • 1 concours d’entrée DTA 2026 + 2 sujets banque (1 PUBLIC, 1 PAID).');
+  // eslint-disable-next-line no-console
+  console.log('  • 3 pages CMS en brouillon (mot-du-directeur, partenaires, a-propos).');
 }
 
 main()

@@ -3,12 +3,21 @@ import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { buildQrPayload } from '@cpfa/lib/qr';
 import { getPaymentProvider } from '@cpfa/lib/payments';
-import { router, protectedProcedure } from '../trpc';
+import { router, protectedProcedure, publicProcedure } from '../trpc';
+import { LIBRARY_TIERS, priceForTier, type SubscriptionTier } from '@/lib/library-rules';
 
-const LIBRARY_SUBSCRIPTION_PRICE_XOF = 10_000;
 const LIBRARY_SUBSCRIPTION_DURATION_DAYS = 365;
+const tierSchema = z.enum(['STUDENT', 'PROFESSIONAL', 'HOME_LOAN']);
 
 export const subscriptionsRouter = router({
+  // Public price list — used to render the 3 formules before sign-up.
+  tiers: publicProcedure.query(() =>
+    (Object.keys(LIBRARY_TIERS) as SubscriptionTier[]).map((tier) => ({
+      tier,
+      ...LIBRARY_TIERS[tier],
+    })),
+  ),
+
   mine: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.subscription.findFirst({
       where: { userId: ctx.session.user.id },
@@ -18,9 +27,14 @@ export const subscriptionsRouter = router({
 
   // Initiate a library subscription. Creates a PENDING subscription + Payment,
   // returns provider-specific data (QR payload or redirect URL) for the UI.
+  // The chosen tier drives both the price and the per-tier loan quota
+  // enforced later by `evaluateBorrowEligibility`.
   initiate: protectedProcedure
-    .input(z.object({}).optional())
-    .mutation(async ({ ctx }) => {
+    .input(z.object({ tier: tierSchema.default('PROFESSIONAL') }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const tier = input?.tier ?? 'PROFESSIONAL';
+      const amountXof = priceForTier(tier);
+
       const existing = await ctx.prisma.subscription.findFirst({
         where: { userId: ctx.session.user.id, status: 'ACTIVE' },
       });
@@ -38,6 +52,7 @@ export const subscriptionsRouter = router({
         data: {
           userId: ctx.session.user.id,
           cardNumber,
+          tier,
           status: 'PENDING',
           qrPayload: buildQrPayload('subscription', cardNumber, qrSecret),
         },
@@ -45,32 +60,44 @@ export const subscriptionsRouter = router({
 
       const provider = getPaymentProvider();
       const init = await provider.initiate({
-        amountXof: LIBRARY_SUBSCRIPTION_PRICE_XOF,
+        amountXof,
         reference: subscription.id,
         customer: {
           id: ctx.session.user.id,
           email: ctx.session.user.email ?? undefined,
         },
-        description: 'Abonnement bibliothèque CPFA — 1 an',
+        description: `Abonnement bibliothèque CPFA — ${LIBRARY_TIERS[tier].label}`,
       });
 
       const payment = await ctx.prisma.payment.create({
         data: {
           userId: ctx.session.user.id,
           subscriptionId: subscription.id,
-          amountXof: LIBRARY_SUBSCRIPTION_PRICE_XOF,
-          provider: init.provider === 'wave' ? 'WAVE' : init.provider === 'orange-money' ? 'ORANGE_MONEY' : 'STATIC_QR',
+          amountXof,
+          provider:
+            init.provider === 'wave'
+              ? 'WAVE'
+              : init.provider === 'orange-money'
+                ? 'ORANGE_MONEY'
+                : init.provider === 'paytech'
+                  ? 'PAYTECH'
+                  : 'STATIC_QR',
           status: 'PENDING',
           purpose: 'LIBRARY_SUBSCRIPTION',
           providerRef: init.providerRef,
-          metadata: { redirectUrl: init.redirectUrl, qrPayload: init.qrPayload },
+          metadata: {
+            redirectUrl: init.redirectUrl,
+            qrPayload: init.qrPayload,
+            tier,
+          },
         },
       });
 
       return {
         subscriptionId: subscription.id,
         paymentId: payment.id,
-        amountXof: LIBRARY_SUBSCRIPTION_PRICE_XOF,
+        tier,
+        amountXof,
         durationDays: LIBRARY_SUBSCRIPTION_DURATION_DAYS,
         ...init,
       };
@@ -87,7 +114,9 @@ export const subscriptionsRouter = router({
       if (!payment?.subscription) throw new TRPCError({ code: 'NOT_FOUND' });
       if (payment.status === 'CONFIRMED') return payment;
 
-      const expiresAt = new Date(Date.now() + LIBRARY_SUBSCRIPTION_DURATION_DAYS * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(
+        Date.now() + LIBRARY_SUBSCRIPTION_DURATION_DAYS * 24 * 60 * 60 * 1000,
+      );
 
       const [confirmed] = await ctx.prisma.$transaction([
         ctx.prisma.payment.update({

@@ -9,7 +9,7 @@ Operational procedures. Read [`DEPLOYMENT.md`](DEPLOYMENT.md) first for context.
 | `/api/health` returning non-200 | Check Postgres + Redis health; tail web logs. |
 | 500s on `/api/me/card` or `/api/registrations/*/convocation` | Most likely Prisma engine missing — verify `node_modules/.prisma` is in the runtime image. |
 | Library reminders silent for 24 h | Worker container down — `docker compose ps worker`, then logs. The cron is `0 9 * * *` Africa/Dakar. |
-| Payments stuck PENDING | Static-QR is manual — confirm via `/admin/payments`. Wave/OM webhooks: check provider dashboard for delivery, then `/admin/audit?entity=Payment`. |
+| Payments stuck PENDING | Static-QR is manual — confirm via `/admin/payments`. PayTech: check the merchant dashboard for IPN delivery; then `/admin/audit?entity=Payment` for our side. A 4xx on `/api/webhooks/payments/paytech` usually means an HMAC mismatch — most often a stale `PAYTECH_API_SECRET` after a key rotation. |
 | Storage uploads fail | Verify S3_ENDPOINT/keys, then bucket policy. `@cpfa/lib/storage` throws a clear error if env vars missing. |
 | Auth loop on /admin | `AUTH_SECRET` mismatch between web replicas — rotate to a single value across all instances. |
 
@@ -51,16 +51,21 @@ Migrations are forward-only. If a migration broke prod:
 
 ### Postgres
 
-Daily encrypted dump shipped to S3. From the host:
+Daily encrypted dump shipped to S3. Use [`scripts/backup-postgres.sh`](../scripts/backup-postgres.sh):
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml exec -T postgres \
-  pg_dump -U cpfa -Fc cpfa | \
-  age -r "<recipient>" | \
-  aws s3 cp - "s3://cpfa-backups/$(date -u +%Y-%m-%d).dump.age"
+AGE_RECIPIENT="age1..." S3_BUCKET="cpfa-backups" \
+  ./scripts/backup-postgres.sh
 ```
 
-Retain 14 daily, 12 monthly, 7 yearly (3-2-1 rule with the off-site copy).
+Suggested host crontab entry:
+
+```cron
+15 2 * * *  /opt/cpfa/repo/scripts/backup-postgres.sh >> /var/log/cpfa-backup.log 2>&1
+```
+
+Retain 14 daily, 12 monthly, 7 yearly (3-2-1 rule with the off-site copy) — enforced via the
+S3 bucket lifecycle policy, not by the script.
 
 ### Redis
 
@@ -131,7 +136,7 @@ docker compose exec worker node -e "
 | `AUTH_SECRET` | Every 90 days, or after suspected leak | `openssl rand -base64 32`, push to `.env.production`, restart web. All sessions invalidated. |
 | Postgres password | After role changes | Update DB role + `.env.production`, rolling restart. |
 | S3 keys | After staff changes | Issue new application key, update env, then revoke the old one once new image is healthy. |
-| Wave / OM merchant keys | Per provider policy | Coordinate window with comptabilité — payments in flight may need manual reconciliation. |
+| PayTech `API_SECRET` | After staff changes / suspected leak | Rotate from the PayTech dashboard, update `.env.production`, restart web only (worker doesn't need it). PENDING payments mid-flight will fail HMAC verification — confirm them manually from `/admin/payments` after reconciling against the PayTech dashboard. |
 
 ## Incident severities
 

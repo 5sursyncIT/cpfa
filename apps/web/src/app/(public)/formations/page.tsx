@@ -5,7 +5,12 @@ import { courseToCard } from '@/lib/cpfa-mappers';
 export const metadata = { title: 'Formations — CPFA' };
 export const dynamic = 'force-dynamic';
 
-export default async function CoursesIndexPage() {
+export default async function CoursesIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cat?: string }>;
+}) {
+  const { cat } = await searchParams;
   const courses = await prisma.course.findMany({
     where: { published: true },
     orderBy: { createdAt: 'desc' },
@@ -46,7 +51,7 @@ export default async function CoursesIndexPage() {
       </div>
 
       <div className="container" style={{ paddingBottom: 96 }}>
-        <FormationsCatalog cards={cards} />
+        <FormationsCatalog cards={cards} initialCategory={cat} />
       </div>
     </div>
   );

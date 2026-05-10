@@ -1,7 +1,8 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { Prisma } from '@cpfa/db';
-import { router, permissionProcedure } from '../trpc';
+import { router, permissionProcedure, protectedProcedure } from '../trpc';
+import { confirmPayment } from '@/lib/payments-confirm';
+import { getPaymentProvider } from '@cpfa/lib/payments';
 
 export const paymentsRouter = router({
   list: permissionProcedure('payment:validate')
@@ -36,61 +37,72 @@ export const paymentsRouter = router({
   confirm: permissionProcedure('payment:validate')
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
+      const result = await confirmPayment(input.id, { actorId: ctx.session.user.id });
+      if (result.kind === 'not-found') throw new TRPCError({ code: 'NOT_FOUND' });
+      return ctx.prisma.payment.findUniqueOrThrow({ where: { id: input.id } });
+    }),
+
+  // Initiate a hosted-checkout flow (PayTech in production). The caller must
+  // own the payment. Returns the redirectUrl the client should navigate to.
+  // Idempotent for PENDING payments — repeated calls reuse the same checkout
+  // session via providerRef when the provider supports it.
+  initiate: protectedProcedure
+    .input(z.object({ paymentId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findUnique({
-        where: { id: input.id },
-        include: { subscription: true },
+        where: { id: input.paymentId },
+        include: { user: { select: { id: true, email: true } } },
       });
       if (!payment) throw new TRPCError({ code: 'NOT_FOUND' });
-      if (payment.status === 'CONFIRMED') return payment;
-
-      const now = new Date();
-      const ops: Prisma.PrismaPromise<unknown>[] = [
-        ctx.prisma.payment.update({
-          where: { id: payment.id },
-          data: { status: 'CONFIRMED', receivedAt: now },
-        }),
-        ctx.prisma.auditLog.create({
-          data: {
-            actorId: ctx.session.user.id,
-            action: 'payment.confirm',
-            entity: 'Payment',
-            entityId: payment.id,
-            diff: { amountXof: payment.amountXof, purpose: payment.purpose },
-          },
-        }),
-      ];
-
-      if (payment.purpose === 'LIBRARY_SUBSCRIPTION' && payment.subscription) {
-        const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-        ops.push(
-          ctx.prisma.subscription.update({
-            where: { id: payment.subscription.id },
-            data: { status: 'ACTIVE', startedAt: now, expiresAt },
-          }),
-        );
+      if (payment.userId !== ctx.session.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
       }
-
-      // For training payments, update the linked registration to PAID.
-      if (
-        payment.purpose === 'COURSE_REGISTRATION' ||
-        payment.purpose === 'SEMINAR_REGISTRATION' ||
-        payment.purpose === 'EXAM_FEE'
-      ) {
-        const reg = await ctx.prisma.registration.findFirst({
-          where: { paymentId: payment.id },
-          select: { id: true },
+      if (payment.status !== 'PENDING') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Paiement déjà ${payment.status.toLowerCase()}.`,
         });
-        if (reg) {
-          ops.push(
-            ctx.prisma.registration.update({
-              where: { id: reg.id },
-              data: { status: 'PAID' },
-            }),
-          );
-        }
       }
 
-      const results = await ctx.prisma.$transaction(ops);
-      return results[0];
+      const provider = getPaymentProvider();
+      const result = await provider.initiate({
+        amountXof: payment.amountXof,
+        reference: payment.id,
+        customer: { id: payment.userId, email: payment.user.email ?? undefined },
+        description: `CPFA — ${payment.purpose}`,
+      });
+
+      if (result.providerRef && result.providerRef !== payment.providerRef) {
+        await ctx.prisma.payment.update({
+          where: { id: payment.id },
+          data: { providerRef: result.providerRef, provider: providerEnumFor(result.provider) },
+        });
+      }
+
+      if (!result.redirectUrl && !result.qrPayload) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Provider returned neither redirectUrl nor qrPayload.',
+        });
+      }
+
+      return {
+        provider: result.provider,
+        redirectUrl: result.redirectUrl,
+        qrPayload: result.qrPayload,
+      };
     }),
 });
+
+function providerEnumFor(id: string): 'PAYTECH' | 'STATIC_QR' | 'WAVE' | 'ORANGE_MONEY' {
+  switch (id) {
+    case 'paytech':
+      return 'PAYTECH';
+    case 'wave':
+      return 'WAVE';
+    case 'orange-money':
+      return 'ORANGE_MONEY';
+    default:
+      return 'STATIC_QR';
+  }
+}

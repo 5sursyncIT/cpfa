@@ -4,7 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository status
 
-All eight sprints from `docs/projet.md` §7 scaffolded (S1 → S8). The product surface, RBAC, business rules, payments, storage, admin tooling, tests, and deployment artefacts are in code; §10 still has open product decisions (multilingue runtime activation, Wave/OM API contracts, hébergement final, mobile, équipe, souveraineté, budget) that the operator must lock before go-live.
+S1-S8 scaffolded **plus 10 lots de réponse** aux modifications demandées par
+le Directeur ([`docs/modofocations _demandees.md`](<docs/modofocations _demandees.md>)).
+Voir [`CHANGELOG.md`](CHANGELOG.md) pour l'inventaire détaillé de tout ce qui
+a été ajouté et [`docs/release-notes-directeur.md`](docs/release-notes-directeur.md)
+pour la lecture executive.
+
+État des décisions §10 : **§10.2 (paiement) tranchée → PayTech**, **§10.3
+(multilingue) tranchée → FR + EN actifs**. §10.1 (hébergement), §10.4
+(mobile), §10.5 (équipe), §10.6 (souveraineté), §10.7 (budget) toujours
+ouvertes — à arbitrer avant go-live.
 
 | Sprint | What landed |
 |---|---|
@@ -14,8 +23,9 @@ All eight sprints from `docs/projet.md` §7 scaffolded (S1 → S8). The product 
 | S4 | Formations & séminaires (catalog, inscriptions, convocation PDF) |
 | S5 | Concours (avis, candidatures, banque d'épreuves, uploads S3 presigned) |
 | S6 | Admin & analytics (dashboard, audit, users, payments, CMS editor, exports CSV) |
-| S7 | Pure-rule extraction (`lib/library-rules.ts`), 32 unit tests, Playwright e2e, [`SECURITY.md`](SECURITY.md) |
+| S7 | Pure-rule extraction (`lib/library-rules.ts`), 36 unit tests (28 web + 8 lib), Playwright e2e, [`SECURITY.md`](SECURITY.md) |
 | S8 | Multi-stage Dockerfile, `docker-compose.prod.yml`, [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md), [`docs/RUNBOOK.md`](docs/RUNBOOK.md) |
+| Post-S8 | PayTech provider (§10.2), payment-webhook plumbing, full PDF worker, real `/api/health` probes, Espace formateurs (§4.6) — candidature `/devenir-formateur`, dashboard `/me/formateur`, admin review `/admin/trainers`, `TrainerStatus` workflow + `TrainerResource` model + `CourseSession.trainerId`. CMS étendu : médiathèque `/admin/media` (upload S3 presigned + grille), éditeur d'articles `/admin/articles/[id]` (block-based), blocs `image`/`quote`/`list` ajoutés au page editor, proxy public `/api/media/[...key]` (DB-gated 302 → presigned GET). Pages hardcodées (mot-du-directeur, partenaires, a-propos) → CMS-fallback via `fetchCmsPage`. Modèle `SiteSetting` (key/value JSON validé via registry zod) + `/admin/settings` pour l'édition du contenu transverse : hero, témoignages, chiffres-clés, gouvernance, partenaires, coordonnées du pied de page. |
 
 ## Workspace commands
 
@@ -73,8 +83,8 @@ Both copy `node_modules/.prisma` and `node_modules/@prisma/client` from the buil
 
 §10 of `docs/projet.md` lists 7 decisions. Defaults baked into the scaffold:
 
-- **Paiement (§10.2)**: `PaymentProvider` interface in `packages/lib/src/payments/`. Default `PAYMENT_PROVIDER=static-qr`. Wave/OM providers must implement `PaymentProvider` and register in the provider map.
-- **Multilingue (§10.3)**: FR-only at runtime, `next-intl` wired so EN can be added without refactor. Locales in `apps/web/src/i18n/request.ts`; messages in `apps/web/messages/*.json`.
+- **Paiement (§10.2) — décidé**: PayTech (agrégateur sénégalais — Wave, Orange Money, Free Money, Wizall, E-money, Visa, Mastercard). Implémentation : [`packages/lib/src/payments/paytech.ts`](packages/lib/src/payments/paytech.ts). `PAYMENT_PROVIDER=paytech` en prod, `static-qr` reste comme fallback manuel via `/admin/payments`. IPN HMAC-SHA256 vérifiée par `verifyWebhook`, route publique `/api/webhooks/payments/paytech`, mutation tRPC `payments.initiate` côté serveur.
+- **Multilingue (§10.3) — décidé**: FR + EN actifs. Locale résolu côté serveur via cookie `NEXT_LOCALE` (puis `Accept-Language`, puis défaut FR). Pas de prefix d'URL — toutes les routes restent au même chemin, le contenu s'adapte. UI shell traduit via [`apps/web/messages/{fr,en}.json`](apps/web/messages/). CMS Pages, Articles et SiteSettings sont locale-aware avec fallback FR systématique pour les contenus pas encore localisés. Switcher dans le top-nav + footer.
 
 Lock the other open decisions (hébergement, mobile, équipe, souveraineté, budget) before infra freeze.
 

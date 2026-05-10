@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
+import { router, publicProcedure, permissionProcedure } from '../trpc';
 import type { Prisma } from '@cpfa/db';
 
 export const coursesRouter = router({
@@ -65,5 +65,52 @@ export const coursesRouter = router({
       });
       if (!course || !course.published) throw new TRPCError({ code: 'NOT_FOUND' });
       return course;
+    }),
+
+  // Admin: configure the application window. Both null = always open.
+  // Used by the Director to gate diplômantes (DTA, BTS) outside concours.
+  setApplicationWindow: permissionProcedure('admin:any')
+    .input(
+      z
+        .object({
+          courseId: z.string().cuid(),
+          applicationsOpenAt: z.date().nullable(),
+          applicationsCloseAt: z.date().nullable(),
+        })
+        .refine(
+          (v) =>
+            !v.applicationsOpenAt ||
+            !v.applicationsCloseAt ||
+            v.applicationsOpenAt < v.applicationsCloseAt,
+          { message: "La date d'ouverture doit précéder la date de fermeture." },
+        ),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await ctx.prisma.course.update({
+        where: { id: input.courseId },
+        data: {
+          applicationsOpenAt: input.applicationsOpenAt,
+          applicationsCloseAt: input.applicationsCloseAt,
+        },
+        select: {
+          id: true,
+          slug: true,
+          applicationsOpenAt: true,
+          applicationsCloseAt: true,
+        },
+      });
+      await ctx.prisma.auditLog.create({
+        data: {
+          actorId: ctx.session.user.id,
+          action: 'course.setApplicationWindow',
+          entity: 'Course',
+          entityId: input.courseId,
+          diff: {
+            applicationsOpenAt: input.applicationsOpenAt?.toISOString() ?? null,
+            applicationsCloseAt: input.applicationsCloseAt?.toISOString() ?? null,
+          },
+        },
+      });
+      return updated;
     }),
 });

@@ -6,8 +6,20 @@ import { FormationCard, type FormationCardData } from './formation-card';
 const CATEGORIES = ['Tout', 'Cursus diplômant', 'Certification', 'Séminaire', 'Sur mesure'] as const;
 type Category = (typeof CATEGORIES)[number];
 
-export function FormationsCatalog({ cards }: { cards: FormationCardData[] }) {
-  const [cat, setCat] = useState<Category>('Tout');
+function isCategory(v: string | undefined): v is Category {
+  return !!v && (CATEGORIES as readonly string[]).includes(v);
+}
+
+export function FormationsCatalog({
+  cards,
+  initialCategory,
+}: {
+  cards: FormationCardData[];
+  initialCategory?: string;
+}) {
+  const [cat, setCat] = useState<Category>(
+    isCategory(initialCategory) ? initialCategory : 'Tout',
+  );
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {

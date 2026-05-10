@@ -1,13 +1,19 @@
 {
   "common": {
     "appName": "CPFA",
-    "tagline": "Centre Professionnel de Formation à l'Assurance"
-  },
-  "home": {
-    "heroTitle": "Formez-vous aux métiers de l'assurance",
-    "heroSubtitle": "Diplômes, certifications, séminaires et bibliothèque spécialisée.",
-    "ctaCatalog": "Voir les formations",
-    "ctaLibrary": "Accéder à la bibliothèque"
+    "tagline": "Centre Professionnel de Formation à l'Assurance",
+    "memberSpace": "Espace abonné",
+    "myAccount": "Mon espace",
+    "signIn": "Se connecter",
+    "signOut": "Déconnexion",
+    "search": "Rechercher",
+    "loading": "Chargement…",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "back": "Retour",
+    "language": "Langue",
+    "french": "Français",
+    "english": "English"
   },
   "nav": {
     "home": "Accueil",
@@ -16,6 +22,48 @@
     "library": "Bibliothèque",
     "exams": "Concours",
     "contact": "Contact",
-    "signIn": "Se connecter"
+    "about": "À propos",
+    "blog": "Actualités",
+    "directorWord": "Mot du Directeur",
+    "partners": "Partenaires",
+    "becomeTrainer": "Devenir formateur",
+    "search": "Recherche",
+    "learners": "Espaces Apprenants",
+    "jobs": "Offres d’emploi"
+  },
+  "footer": {
+    "tagline": "Premier centre de référence au Sénégal en matière de formation dans les métiers de l'assurance.",
+    "joinUs": "Je m’inscris",
+    "joinUsDesc": "Voir le catalogue des formations et postuler",
+    "askQuestions": "Posez vos questions",
+    "askQuestionsDesc": "Notre équipe vous répond sous 48 heures ouvrées",
+    "partnersLabel": "Partenaires",
+    "programs": "Programmes",
+    "diplomas": "Cursus diplômants",
+    "certifications": "Certifications professionnelles",
+    "seminarsLong": "Séminaires & masterclass",
+    "entryExams": "Concours d'entrée",
+    "customCourses": "Formations sur mesure",
+    "resources": "Ressources",
+    "library": "Bibliothèque",
+    "publications": "Publications & études",
+    "regulatoryWatch": "Veille réglementaire",
+    "alumni": "Annuaire alumni",
+    "memberArea": "Espace abonné",
+    "contact": "Contact",
+    "copyright": "© 2026 CPFA · Agréé par le Ministère des Finances",
+    "designedIn": "Conçu à Dakar · Fait en orbite"
+  },
+  "auth": {
+    "signInTitle": "Se connecter à votre espace",
+    "magicLinkPlaceholder": "vous@exemple.com",
+    "sendMagicLink": "Recevoir un lien de connexion",
+    "checkEmail": "Vérifiez votre email pour finaliser la connexion."
+  },
+  "blog": {
+    "title": "Actualités du CPFA",
+    "intro": "Communiqués, ouverture de sessions, retours d’expérience, réglementation.",
+    "empty": "Aucune publication pour le moment.",
+    "draft": "Brouillon"
   }
 }

@@ -17,6 +17,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "db:generate": "pnpm --filter @cpfa/db generate",
     "db:migrate": "pnpm --filter @cpfa/db migrate",
+    "db:migrate:deploy": "pnpm --filter @cpfa/db migrate:deploy",
     "db:studio": "pnpm --filter @cpfa/db studio",
     "db:seed": "pnpm --filter @cpfa/db seed",
     "worker": "pnpm --filter @cpfa/web worker",
