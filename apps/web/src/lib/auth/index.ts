@@ -1,7 +1,7 @@
 import NextAuth, { type DefaultSession } from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import Credentials from 'next-auth/providers/credentials';
-import Resend from 'next-auth/providers/resend';
+import Nodemailer from 'next-auth/providers/nodemailer';
 import argon2 from 'argon2';
 import { z } from 'zod';
 import { prisma, type Role } from '@cpfa/db';
@@ -27,10 +27,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
   providers: [
     ...authConfig.providers,
-    // Magic-link email (Resend). Falls back gracefully if RESEND_API_KEY isn't
-    // set: the provider stays registered but Auth.js refuses to send.
-    Resend({
-      apiKey: process.env.RESEND_API_KEY,
+    // Magic-link email via SMTP (Nodemailer). Falls back gracefully if SMTP_HOST
+    // isn't set: the provider stays registered but Auth.js refuses to send.
+    Nodemailer({
+      server: {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT ?? 587),
+        secure: Number(process.env.SMTP_PORT ?? 587) === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD,
+        },
+        tls: { rejectUnauthorized: process.env.SMTP_TLS_INSECURE !== 'true' },
+      },
       from: process.env.EMAIL_FROM ?? 'CPFA <noreply@cpfa.local>',
     }),
     Credentials({

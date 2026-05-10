@@ -1,10 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { signIn, auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { LogoMark } from '@/components/cpfa/logo-mark';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Connexion — CPFA' };
+export async function generateMetadata() {
+  const t = await getTranslations('signIn');
+  return { title: t('metaTitle') };
+}
 
 function landingFor(roles: readonly string[] | undefined): string {
   if (!roles) return '/me';
@@ -31,6 +36,7 @@ export default async function SignInPage({
   }
 
   const callbackUrl = params.callbackUrl ?? '/me';
+  const t = await getTranslations('signIn');
 
   return (
     <main
@@ -44,25 +50,19 @@ export default async function SignInPage({
       }}
     >
       <div className="card" style={{ width: '100%', maxWidth: 460, padding: 40 }}>
-        <Link
-          href="/"
-          className="brand"
-          style={{ marginBottom: 32, display: 'inline-flex' }}
-        >
+        <Link href="/" className="brand" style={{ marginBottom: 32, display: 'inline-flex' }}>
           <div className="brand-mark">
             <LogoMark size={38} />
           </div>
           <div className="brand-text">
             <span className="brand-name">CPFA</span>
-            <span className="brand-tag">Centre de Formation · Assurance</span>
+            <span className="brand-tag">{t('brandTag')}</span>
           </div>
         </Link>
 
-        <h3 style={{ marginTop: 16 }}>
-          Espace <em className="italic-emph">abonné</em>.
-        </h3>
+        <h3 style={{ marginTop: 16 }}>{t.rich('heading', richTags)}</h3>
         <p className="fs-15 text-mid" style={{ marginTop: 8 }}>
-          Accédez à votre espace personnel CPFA.
+          {t('intro')}
         </p>
 
         {params.error ? (
@@ -77,7 +77,7 @@ export default async function SignInPage({
               background: 'oklch(95% 0.04 25)',
             }}
           >
-            Identifiants invalides. Réessayez ou utilisez un autre fournisseur.
+            {t('errorBadCredentials')}
           </p>
         ) : null}
 
@@ -89,14 +89,14 @@ export default async function SignInPage({
           style={{ marginTop: 32 }}
         >
           <button type="submit" className="btn btn-ghost btn-lg" style={{ width: '100%' }}>
-            Continuer avec Google
+            {t('googleCta')}
           </button>
         </form>
 
         <form
           action={async (formData: FormData) => {
             'use server';
-            await signIn('resend', {
+            await signIn('nodemailer', {
               email: formData.get('email'),
               redirectTo: callbackUrl,
             });
@@ -108,12 +108,12 @@ export default async function SignInPage({
             name="email"
             type="email"
             required
-            placeholder="vous@exemple.com"
+            placeholder={t('magicLinkPlaceholder')}
             className="input"
             style={{ flex: 1 }}
           />
           <button type="submit" className="btn btn-ghost btn-lg">
-            Lien magique
+            {t('magicLinkCta')}
           </button>
         </form>
 
@@ -130,7 +130,7 @@ export default async function SignInPage({
           }}
         >
           <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--line)' }} />
-          <span>ou</span>
+          <span>{t('or')}</span>
           <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--line)' }} />
         </div>
 
@@ -146,27 +146,24 @@ export default async function SignInPage({
           className="col gap-3"
         >
           <div>
-            <label className="label">Email</label>
+            <label className="label">{t('emailLabel')}</label>
             <input name="email" type="email" required className="input" />
           </div>
           <div>
-            <label className="label">Mot de passe</label>
+            <label className="label">{t('passwordLabel')}</label>
             <input name="password" type="password" required minLength={8} className="input" />
           </div>
           <button type="submit" className="btn btn-primary btn-lg">
-            Se connecter <span className="arrow">→</span>
+            {t('submitCta')} <span className="arrow">→</span>
           </button>
         </form>
 
-        <p
-          className="fs-13 text-soft"
-          style={{ marginTop: 24, textAlign: 'center' }}
-        >
-          Pas encore de compte ? Contactez l&apos;administration ou{' '}
+        <p className="fs-13 text-soft" style={{ marginTop: 24, textAlign: 'center' }}>
+          {t('noAccountPart1')}{' '}
           <Link href="/formations" style={{ color: 'var(--ink)' }}>
-            créez votre dossier de candidature
+            {t('noAccountLink')}
           </Link>
-          .
+          {t('noAccountPart2')}
         </p>
       </div>
     </main>

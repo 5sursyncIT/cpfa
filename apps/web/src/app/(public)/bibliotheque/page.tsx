@@ -1,23 +1,32 @@
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
 import { LibraryCatalog } from '@/components/cpfa/library-catalog';
 import { resourceToBook } from '@/lib/cpfa-mappers';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Bibliothèque — CPFA' };
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata() {
+  const t = await getTranslations('library');
+  return { title: t('metaTitle') };
+}
+
 export default async function LibraryIndexPage() {
-  const resources = await prisma.resource.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 60,
-    select: {
-      id: true,
-      title: true,
-      authors: true,
-      kind: true,
-      totalCopies: true,
-      keywords: true,
-    },
-  });
+  const [resources, t] = await Promise.all([
+    prisma.resource.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 60,
+      select: {
+        id: true,
+        title: true,
+        authors: true,
+        kind: true,
+        totalCopies: true,
+        keywords: true,
+      },
+    }),
+    getTranslations('library'),
+  ]);
 
   // Tag each resource with its current loan count for availability badges.
   const ids = resources.map((r) => r.id);
@@ -51,17 +60,12 @@ export default async function LibraryIndexPage() {
     <div>
       <div className="container page-head">
         <div className="breadcrumb">
-          CPFA · <span>Bibliothèque</span>
+          CPFA · <span>{t('title')}</span>
         </div>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'end', gap: 32 }}>
-          <h1>
-            Bibliothèque
-            <br />
-            <em className="italic-emph">spécialisée</em>.
-          </h1>
+          <h1>{t.rich('h1', richTags)}</h1>
           <p className="fs-17 text-mid" style={{ maxWidth: 420, paddingBottom: 12 }}>
-            3 200 références — ouvrages techniques, mémoires d&apos;étudiants, études CIMA et
-            publications professionnelles. Accès libre aux abonnés.
+            {t('intro')}
           </p>
         </div>
       </div>

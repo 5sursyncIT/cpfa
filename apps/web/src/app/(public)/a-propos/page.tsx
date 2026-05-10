@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { getTranslations } from 'next-intl/server';
 import { fetchCmsPage } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
 import { getSetting } from '@/lib/site-settings/get';
 import { resolveLocale } from '@/i18n/request';
 import { Breadcrumb } from '@/components/cpfa/breadcrumb';
+import { richTags } from '@/lib/i18n-tags';
 import directorPhoto from '../mot-du-directeur/DG.jpg';
 
 export const dynamic = 'force-dynamic';
@@ -12,20 +14,25 @@ export const dynamic = 'force-dynamic';
 const STATIC_SLUG = 'a-propos';
 
 export async function generateMetadata() {
-  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  const locale = await resolveLocale();
+  const [cms, t] = await Promise.all([
+    fetchCmsPage(STATIC_SLUG, locale),
+    getTranslations('about'),
+  ]);
   return {
-    title: cms?.metaTitle ?? `${cms?.title ?? 'À propos'} — CPFA`,
+    title: cms?.metaTitle ?? `${cms?.title ?? t('title')} — CPFA`,
     description: cms?.metaDescription ?? undefined,
   };
 }
 
 export default async function AboutPage() {
   const locale = await resolveLocale();
-  const [cms, governance, partners, stats] = await Promise.all([
+  const [cms, governance, partners, stats, t] = await Promise.all([
     fetchCmsPage(STATIC_SLUG, locale),
     getSetting('about.governance', locale),
     getSetting('about.partners', locale),
     getSetting('about.stats', locale),
+    getTranslations('about'),
   ]);
 
   if (cms) {
@@ -45,10 +52,9 @@ export default async function AboutPage() {
   return (
     <div>
       <div className="container page-head">
-        <Breadcrumb items={[{ href: '/', label: 'CPFA' }, { label: 'À propos' }]} />
+        <Breadcrumb items={[{ href: '/', label: 'CPFA' }, { label: t('title') }]} />
         <h1 style={{ maxWidth: 1100, fontSize: 'clamp(56px, 6.5vw, 96px)' }}>
-          Trente ans à former l&apos;<em className="italic-emph">orbite</em> de l&apos;assurance
-          ouest-africaine.
+          {t.rich('h1', richTags)}
         </h1>
       </div>
 
@@ -59,40 +65,34 @@ export default async function AboutPage() {
             <div className="director-photo">
               <Image
                 src={directorPhoto}
-                alt="El Hadji Cheikhou Oumar SECK, Directeur du CPFA"
+                alt={t('directorPhotoAlt')}
                 placeholder="blur"
                 sizes="(max-width: 1100px) 100vw, 480px"
               />
             </div>
             <div className="director-badge">
-              <div className="director-badge-kicker">Directeur</div>
-              <div className="director-badge-name">EHCO Seck</div>
+              <div className="director-badge-kicker">{t('directorBadge')}</div>
+              <div className="director-badge-name">{t('directorBadgeShort')}</div>
             </div>
           </div>
 
           <div className="director-body">
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              Mot du directeur
+              {t('directorEyebrow')}
             </span>
             <blockquote className="director-quote">
-              Promouvoir la formation aux métiers de l&apos;assurance à grande échelle, au
-              Sénégal et dans toute la zone CIMA — telle est la mission qui nous a été
-              confiée. <em className="italic-emph">Trois décennies plus tard</em>, le CPFA
-              forme techniciens, cadres et dirigeants capables de répondre aux exigences
-              d&apos;un secteur en transformation rapide.
+              {t.rich('directorQuote', richTags)}
             </blockquote>
             <div className="director-meta">
-              <div className="director-name">El Hadji Cheikhou Oumar SECK</div>
-              <div className="director-role">
-                Directeur du CPFA · Unité décentralisée de l&apos;IIA Yaoundé
-              </div>
+              <div className="director-name">{t('directorName')}</div>
+              <div className="director-role">{t('directorRole')}</div>
             </div>
             <div className="row gap-3" style={{ marginTop: 24, flexWrap: 'wrap' }}>
               <Link href="/mot-du-directeur" className="btn btn-primary">
-                Lire le mot intégral <span className="arrow">→</span>
+                {t('ctaReadFull')} <span className="arrow">→</span>
               </Link>
               <Link href="/contact" className="btn btn-ghost">
-                Prendre rendez-vous
+                {t('ctaBookMeeting')}
               </Link>
             </div>
           </div>
@@ -104,28 +104,23 @@ export default async function AboutPage() {
         >
           <div className="col gap-5">
             <p className="fs-17 text-mid" style={{ lineHeight: 1.55 }}>
-              Fondé en 1996 sous l&apos;impulsion conjointe du Ministère des Finances et de la
-              Fédération Sénégalaise des Sociétés d&apos;Assurances, le CPFA est devenu en trois
-              décennies <em className="italic-emph">la référence académique régionale</em> pour
-              les métiers techniques et managériaux de l&apos;assurance.
+              {t.rich('intro1', richTags)}
             </p>
             <p className="fs-17 text-mid" style={{ lineHeight: 1.55 }}>
-              Plus de 4 200 diplômés exercent aujourd&apos;hui dans les compagnies de la zone
-              CIMA, à la Direction des Assurances, dans les cabinets de courtage, et jusqu&apos;aux
-              institutions panafricaines comme la CICA-Re et Africa-Re.
+              {t('intro2')}
             </p>
             <div className="row gap-3">
               <button type="button" className="btn btn-primary">
-                Rapport annuel 2025 (PDF)
+                {t('ctaAnnualReport')}
               </button>
               <Link href="/contact" className="btn btn-ghost">
-                Nous écrire
+                {t('ctaWriteUs')}
               </Link>
             </div>
           </div>
 
           <div className="card" style={{ padding: 32 }}>
-            <div className="label">Gouvernance</div>
+            <div className="label">{t('governanceLabel')}</div>
             <div className="col gap-4" style={{ marginTop: 16 }}>
               {governance.map((g, i) => (
                 <div
@@ -148,9 +143,7 @@ export default async function AboutPage() {
           </div>
         </div>
 
-        <h2 style={{ marginBottom: 32 }}>
-          Partenaires <em className="italic-emph">institutionnels</em>.
-        </h2>
+        <h2 style={{ marginBottom: 32 }}>{t.rich('partnersHeading', richTags)}</h2>
         <div
           style={{
             display: 'grid',
@@ -180,9 +173,7 @@ export default async function AboutPage() {
         </div>
 
         <div style={{ marginBottom: 96 }}>
-          <h2 style={{ marginBottom: 32 }}>
-            Trois décennies, <em className="italic-emph">en chiffres</em>.
-          </h2>
+          <h2 style={{ marginBottom: 32 }}>{t.rich('statsHeading', richTags)}</h2>
           <div className="stat-row">
             {stats.map((s) => (
               <div key={s.label} className="stat">

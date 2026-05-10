@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { ArticlePublishToggle } from './article-publish-toggle';
 import { CreateArticleButton } from './create-article-button';
+import { CloneArticleButton } from './clone-article-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Actualités — Admin CPFA' };
@@ -24,30 +25,43 @@ export default async function AdminArticlesPage({
   const { locale: rawLocale, q } = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'fr';
 
-  const articles = await prisma.article.findMany({
-    where: {
-      locale,
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { slug: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 100,
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      locale: true,
-      published: true,
-      publishedAt: true,
-      updatedAt: true,
-    },
-  });
+  const otherLocale = locale === 'fr' ? 'en' : 'fr';
+
+  const [articles, otherArticles] = await Promise.all([
+    prisma.article.findMany({
+      where: {
+        locale,
+        ...(q
+          ? {
+              OR: [
+                { title: { contains: q, mode: 'insensitive' } },
+                { slug: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        locale: true,
+        published: true,
+        publishedAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.article.findMany({
+      where: { locale: otherLocale },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      select: { id: true, slug: true, title: true, locale: true, published: true },
+    }),
+  ]);
+
+  const ownSlugs = new Set(articles.map((a) => a.slug));
+  const missingFromCurrent = otherArticles.filter((a) => !ownSlugs.has(a.slug));
 
   return (
     <>
@@ -97,6 +111,45 @@ export default async function AdminArticlesPage({
           {q ? <Link href={`/admin/articles?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
         </div>
       </form>
+
+      {missingFromCurrent.length > 0 ? (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <h4>
+              Articles présents en {otherLocale.toUpperCase()} mais manquants en{' '}
+              {locale.toUpperCase()} · {missingFromCurrent.length}
+            </h4>
+          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Titre ({otherLocale.toUpperCase()})</th>
+                <th>Slug</th>
+                <th>Publication</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {missingFromCurrent.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.title}</td>
+                  <td className="mono fs-13 text-soft">{a.slug}</td>
+                  <td>
+                    {a.published ? (
+                      <span className="pill pill-success">Publié</span>
+                    ) : (
+                      <span className="pill">Brouillon</span>
+                    )}
+                  </td>
+                  <td>
+                    <CloneArticleButton sourceId={a.id} targetLocale={locale} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div className="panel">
         {articles.length === 0 ? (

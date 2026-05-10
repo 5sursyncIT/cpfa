@@ -378,6 +378,27 @@ p { margin: 0; }
   font-size: 13px;
   padding: 6px 10px;
 }
+.nav-search-toggle { display: flex; align-items: center; }
+.nav-search-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--bg-card);
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  padding: 0;
+}
+.nav-search-icon:hover { background: var(--bg-soft); color: var(--ink); }
+.nav-search-form .input {
+  width: 220px;
+  font-size: 13px;
+  padding: 6px 10px;
+}
 
 /* Hero ===================================================== */
 .hero {
@@ -1996,6 +2017,11 @@ p { margin: 0; }
 .breadcrumb-sep { color: var(--ink-soft); opacity: 0.7; }
 
 /* Responsive (basic) ====================================== */
+/* Hide the brand tagline below 1400px so the longer nav (7 entries) breathes. */
+@media (max-width: 1399px) {
+  .topnav .brand-tag { display: none; }
+}
+
 @media (max-width: 1100px) {
   .hero-grid { grid-template-columns: 1fr; gap: var(--s-7); }
   .hero-visual { max-width: 520px; margin: 0 auto; width: 100%; }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 
 type FormValues = {
@@ -25,6 +26,7 @@ const ALLOWED_CV = ['application/pdf'];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export function TrainerApplyForm({ initial }: { initial?: Initial }) {
+  const t = useTranslations('applyForm');
   const apply = trpc.trainers.submitApplication.useMutation();
   const requestUpload = trpc.trainers.requestCvUpload.useMutation();
   const [cvKey, setCvKey] = useState<string | undefined>(initial?.cvKey);
@@ -48,11 +50,11 @@ export function TrainerApplyForm({ initial }: { initial?: Initial }) {
   async function uploadCv(file: File) {
     setUploadError(undefined);
     if (!ALLOWED_CV.includes(file.type)) {
-      setUploadError('Format non autorisé : merci de fournir un PDF.');
+      setUploadError(t('errorBadFormat'));
       return;
     }
     if (file.size > MAX_BYTES) {
-      setUploadError('Fichier trop volumineux (max 8 Mo).');
+      setUploadError(t('errorTooLarge'));
       return;
     }
     setUploading(true);
@@ -95,33 +97,38 @@ export function TrainerApplyForm({ initial }: { initial?: Initial }) {
   if (apply.isSuccess) {
     return (
       <div className="card" style={{ padding: 24, marginTop: 24 }}>
-        <h3>Candidature reçue</h3>
-        <p>
-          Merci. Votre dossier est en cours d&apos;examen — vous recevrez un email dès qu&apos;une
-          décision aura été prise.
-        </p>
+        <h3>{t('successHeading')}</h3>
+        <p>{t('successBody')}</p>
       </div>
     );
   }
 
   return (
-    <form className="col gap-4 card" style={{ padding: 24, marginTop: 24 }} onSubmit={handleSubmit(onSubmit)}>
+    <form
+      className="col gap-4 card"
+      style={{ padding: 24, marginTop: 24 }}
+      onSubmit={handleSubmit(onSubmit)}
+    >
       {initial?.status === 'PENDING' ? (
         <div style={{ background: '#fef3c7', padding: 12, borderRadius: 6, fontSize: 14 }}>
-          Votre candidature précédente est en cours d&apos;examen. Vous pouvez la mettre à jour
-          ici — la soumission réinitialise la file d&apos;attente.
+          {t('pendingNote')}
         </div>
       ) : null}
       {initial?.status === 'REJECTED' ? (
         <div style={{ background: '#fee2e2', padding: 12, borderRadius: 6, fontSize: 14 }}>
-          <strong>Votre candidature précédente a été refusée.</strong>
-          {initial.rejectionReason ? <div style={{ marginTop: 6 }}>Motif : {initial.rejectionReason}</div> : null}
-          Vous pouvez en soumettre une nouvelle.
+          <strong>{t('rejectedHeading')}</strong>
+          {initial.rejectionReason ? (
+            <div style={{ marginTop: 6 }}>
+              {t('rejectedReason', { reason: initial.rejectionReason })}
+            </div>
+          ) : null}
+          {' '}
+          {t('rejectedRetry')}
         </div>
       ) : null}
 
       <div>
-        <label className="label">Présentation (mini-bio)</label>
+        <label className="label">{t('bioLabel')}</label>
         <textarea
           className="input"
           rows={6}
@@ -129,30 +136,32 @@ export function TrainerApplyForm({ initial }: { initial?: Initial }) {
         />
         {errors.bio ? (
           <p className="fs-13" style={{ color: 'var(--danger)' }}>
-            Décrivez votre parcours en au moins 20 caractères.
+            {t('bioError')}
           </p>
         ) : null}
       </div>
 
       <div>
-        <label className="label">Domaines d&apos;expertise (séparés par une virgule)</label>
+        <label className="label">{t('domainsLabel')}</label>
         <input
           className="input"
-          placeholder="Comptabilité, Audit, Fiscalité OHADA"
+          placeholder={t('domainsPlaceholder')}
           {...register('domainsCsv', { required: true })}
         />
         {errors.domainsCsv ? (
-          <p className="fs-13" style={{ color: 'var(--danger)' }}>Au moins un domaine est requis.</p>
+          <p className="fs-13" style={{ color: 'var(--danger)' }}>
+            {t('domainsError')}
+          </p>
         ) : null}
       </div>
 
       <div className="row gap-3">
         <div style={{ flex: 1 }}>
-          <label className="label">Téléphone (optionnel)</label>
+          <label className="label">{t('phoneLabel')}</label>
           <input className="input" type="tel" {...register('phone')} />
         </div>
         <div style={{ flex: 1 }}>
-          <label className="label">Années d&apos;expérience (optionnel)</label>
+          <label className="label">{t('experienceLabel')}</label>
           <input
             className="input"
             type="number"
@@ -164,7 +173,7 @@ export function TrainerApplyForm({ initial }: { initial?: Initial }) {
       </div>
 
       <div>
-        <label className="label">CV (PDF, max 8 Mo)</label>
+        <label className="label">{t('cvLabel')}</label>
         <input
           type="file"
           accept="application/pdf"
@@ -174,13 +183,15 @@ export function TrainerApplyForm({ initial }: { initial?: Initial }) {
             if (f) void uploadCv(f);
           }}
         />
-        {uploading ? <p className="fs-13">Téléversement en cours…</p> : null}
+        {uploading ? <p className="fs-13">{t('uploadInProgress')}</p> : null}
         {uploadError ? (
-          <p className="fs-13" style={{ color: 'var(--danger)' }}>{uploadError}</p>
+          <p className="fs-13" style={{ color: 'var(--danger)' }}>
+            {uploadError}
+          </p>
         ) : null}
         {cvKey ? (
           <p className="fs-13">
-            CV joint : <code>{cvName ?? cvKey.split('/').pop()}</code>
+            {t('cvAttached')} <code>{cvName ?? cvKey.split('/').pop()}</code>
           </p>
         ) : null}
       </div>
@@ -190,7 +201,7 @@ export function TrainerApplyForm({ initial }: { initial?: Initial }) {
       ) : null}
 
       <button type="submit" className="btn btn-primary" disabled={isSubmitting || uploading}>
-        {initial ? 'Renvoyer ma candidature' : 'Envoyer ma candidature'}
+        {initial ? t('submitResubmit') : t('submitNew')}
       </button>
     </form>
   );

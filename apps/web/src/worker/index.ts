@@ -61,7 +61,7 @@ const emailWorker = new Worker<EmailJob>(
     });
     // eslint-disable-next-line no-console
     console.log(
-      `[worker:email] ${template} → ${to} ${result.mocked ? '(mocked, no RESEND_API_KEY)' : `id=${result.id}`}`,
+      `[worker:email] ${template} → ${to} ${result.mocked ? '(mocked, SMTP not configured)' : `id=${result.id}`}`,
     );
   },
   { connection },

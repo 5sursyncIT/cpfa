@@ -129,6 +129,59 @@ export const cmsRouter = router({
 
         return next;
       }),
+
+    // Bootstrap a translation: copy the source page's slug + content into a
+    // new locale as a draft. Refuses if a row with the same (slug, locale) pair
+    // already exists.
+    cloneFromLocale: permissionProcedure('cms:write')
+      .input(
+        z.object({
+          sourceId: z.string().cuid(),
+          targetLocale: z.string().min(2).max(8),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const source = await ctx.prisma.page.findUnique({ where: { id: input.sourceId } });
+        if (!source) throw new TRPCError({ code: 'NOT_FOUND' });
+        if (source.locale === input.targetLocale) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'La langue cible doit différer de la langue source.',
+          });
+        }
+        const existing = await ctx.prisma.page.findFirst({
+          where: { slug: source.slug, locale: input.targetLocale },
+          select: { id: true },
+        });
+        if (existing) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Une page existe déjà pour ce slug dans la langue cible.',
+          });
+        }
+        const created = await ctx.prisma.page.create({
+          data: {
+            slug: source.slug,
+            title: source.title,
+            locale: input.targetLocale,
+            metaTitle: source.metaTitle,
+            metaDescription: source.metaDescription,
+            content: source.content as Prisma.InputJsonValue,
+            published: false,
+            publishedAt: null,
+          },
+        });
+        await ctx.prisma.auditLog.create({
+          data: {
+            actorId: ctx.session.user.id,
+            action: 'page.cloneFromLocale',
+            entity: 'Page',
+            entityId: created.id,
+            diff: { sourceId: source.id, sourceLocale: source.locale, targetLocale: input.targetLocale },
+          },
+        });
+        return created;
+      }),
   }),
 
   // Article admin actions ────────────────────────────────────────────────
@@ -246,6 +299,58 @@ export const cmsRouter = router({
             ...(input.published ? { publishedAt: new Date() } : {}),
           },
         });
+      }),
+
+    cloneFromLocale: permissionProcedure('cms:write')
+      .input(
+        z.object({
+          sourceId: z.string().cuid(),
+          targetLocale: z.string().min(2).max(8),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const source = await ctx.prisma.article.findUnique({ where: { id: input.sourceId } });
+        if (!source) throw new TRPCError({ code: 'NOT_FOUND' });
+        if (source.locale === input.targetLocale) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'La langue cible doit différer de la langue source.',
+          });
+        }
+        const existing = await ctx.prisma.article.findFirst({
+          where: { slug: source.slug, locale: input.targetLocale },
+          select: { id: true },
+        });
+        if (existing) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Un article existe déjà pour ce slug dans la langue cible.',
+          });
+        }
+        const created = await ctx.prisma.article.create({
+          data: {
+            slug: source.slug,
+            title: source.title,
+            excerpt: source.excerpt,
+            locale: input.targetLocale,
+            tags: source.tags,
+            content: source.content as Prisma.InputJsonValue,
+            coverKey: source.coverKey,
+            published: false,
+            publishedAt: null,
+            authorId: ctx.session.user.id,
+          },
+        });
+        await ctx.prisma.auditLog.create({
+          data: {
+            actorId: ctx.session.user.id,
+            action: 'article.cloneFromLocale',
+            entity: 'Article',
+            entityId: created.id,
+            diff: { sourceId: source.id, sourceLocale: source.locale, targetLocale: input.targetLocale },
+          },
+        });
+        return created;
       }),
   }),
 

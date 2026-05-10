@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
 import { Book } from '@/components/cpfa/book';
 import { Countdown } from '@/components/cpfa/countdown';
@@ -12,6 +13,7 @@ import { getSetting } from '@/lib/site-settings/get';
 import { resolveLocale, type Locale } from '@/i18n/request';
 import { HomeBlocksSection } from '@/components/cpfa/home-blocks-section';
 import { renderEmph } from '@/lib/render-emph';
+import { richTags } from '@/lib/i18n-tags';
 import heroPhoto from './hero/hero_cpafa_v2.jpg';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +22,10 @@ const concoursDeadline = new Date('2026-08-30T23:59:59.000Z');
 
 export default async function HomePage() {
   const locale = await resolveLocale();
-  const hero = await getSetting('home.hero', locale);
+  const [hero, t] = await Promise.all([
+    getSetting('home.hero', locale),
+    getTranslations('home'),
+  ]);
 
   return (
     <>
@@ -36,10 +41,10 @@ export default async function HomePage() {
               <p className="hero-lede">{hero.description}</p>
               <div className="row gap-3 hero-ctas">
                 <Link href="/formations" className="btn btn-primary btn-lg">
-                  Catalogue des formations <span className="arrow">→</span>
+                  {t('heroCtaPrimary')} <span className="arrow">→</span>
                 </Link>
                 <Link href="/a-propos" className="btn btn-ghost btn-lg">
-                  Découvrir l&apos;institut
+                  {t('heroCtaSecondary')}
                 </Link>
               </div>
             </div>
@@ -49,7 +54,7 @@ export default async function HomePage() {
                 <div className="hero-photo">
                   <Image
                     src={heroPhoto}
-                    alt="Pile de trois ouvrages d'assurance protégée par un parapluie orange, entourée d'icônes de toque, diplôme, livre ouvert et bouclier — métaphore visuelle du CPFA : la formation comme protection."
+                    alt={t('heroPhotoAlt')}
                     placeholder="blur"
                     priority
                     sizes="(max-width: 1100px) 100vw, 560px"
@@ -59,14 +64,14 @@ export default async function HomePage() {
                 <div className="hero-photo-tag hero-photo-tag--top">
                   <span className="hero-photo-tag-dot" aria-hidden="true" />
                   <div>
-                    <div className="hero-photo-tag-kicker">Reconnaissance</div>
-                    <div className="hero-photo-tag-value">Direction des Assurances</div>
+                    <div className="hero-photo-tag-kicker">{t('heroTagRecognition')}</div>
+                    <div className="hero-photo-tag-value">{t('heroTagRecognitionValue')}</div>
                   </div>
                 </div>
                 <div className="hero-photo-tag hero-photo-tag--bottom">
                   <div>
-                    <div className="hero-photo-tag-kicker">Affiliation</div>
-                    <div className="hero-photo-tag-value">IIA Yaoundé · Zone CIMA</div>
+                    <div className="hero-photo-tag-kicker">{t('heroTagAffiliation')}</div>
+                    <div className="hero-photo-tag-value">{t('heroTagAffiliationValue')}</div>
                   </div>
                 </div>
               </div>
@@ -95,54 +100,54 @@ export default async function HomePage() {
         <TestimonialsSection locale={locale} />
       </Suspense>
 
-      <section className="section" style={{ paddingBottom: 0, borderTop: 'none' }}>
-        <div className="container">
-          <div className="concours-card">
-            <div>
-              <span className="eyebrow" style={{ marginBottom: 16 }}>
-                Concours d&apos;entrée 2026
-              </span>
-              <div className="concours-headline">
-                Le concours
-                <br />
-                <em className="italic-emph">ferme dans</em>
-              </div>
-              <Countdown deadline={concoursDeadline} />
-              <div className="row gap-3">
-                <Link href="/concours" className="btn btn-orange btn-lg">
-                  Préparer mon dossier <span className="arrow">→</span>
-                </Link>
-                <Link href="/concours" className="btn btn-ghost btn-lg">
-                  Télécharger les annales
-                </Link>
-              </div>
+      <ConcoursSection />
+    </>
+  );
+}
+
+async function ConcoursSection() {
+  const t = await getTranslations('home');
+  return (
+    <section className="section" style={{ paddingBottom: 0, borderTop: 'none' }}>
+      <div className="container">
+        <div className="concours-card">
+          <div>
+            <span className="eyebrow" style={{ marginBottom: 16 }}>
+              {t('concoursEyebrow')}
+            </span>
+            <div className="concours-headline">{t.rich('concoursHeadline', richTags)}</div>
+            <Countdown deadline={concoursDeadline} />
+            <div className="row gap-3">
+              <Link href="/concours" className="btn btn-orange btn-lg">
+                {t('concoursCtaPrimary')} <span className="arrow">→</span>
+              </Link>
+              <Link href="/concours" className="btn btn-ghost btn-lg">
+                {t('concoursCtaSecondary')}
+              </Link>
             </div>
-            <div>
-              <p className="fs-17 text-mid" style={{ lineHeight: 1.5 }}>
-                Le concours d&apos;entrée au MBA et à la Licence Professionnelle est ouvert aux
-                titulaires d&apos;un diplôme reconnu par le CAMES. Quatre épreuves : culture
-                économique, mathématiques financières, anglais des affaires et entretien de
-                motivation.
-              </p>
-              <div className="divider" style={{ margin: '24px 0' }}></div>
-              <div className="col gap-3">
-                {[
-                  ['Dépôt en ligne', "jusqu'au 30 août 2026"],
-                  ['Épreuves écrites', '12 septembre 2026'],
-                  ['Résultats', '25 septembre 2026'],
-                  ['Frais de dossier', '25 000 FCFA'],
-                ].map(([k, v]) => (
-                  <div key={k} className="row" style={{ justifyContent: 'space-between' }}>
-                    <span className="text-soft fs-13">{k}</span>
-                    <span className="mono fs-13">{v}</span>
-                  </div>
-                ))}
-              </div>
+          </div>
+          <div>
+            <p className="fs-17 text-mid" style={{ lineHeight: 1.5 }}>
+              {t('concoursDescription')}
+            </p>
+            <div className="divider" style={{ margin: '24px 0' }}></div>
+            <div className="col gap-3">
+              {[
+                [t('concoursFactDeposit'), t('concoursFactDepositValue')],
+                [t('concoursFactWritten'), t('concoursFactWrittenValue')],
+                [t('concoursFactResults'), t('concoursFactResultsValue')],
+                [t('concoursFactFee'), t('concoursFactFeeValue')],
+              ].map(([k, v]) => (
+                <div key={k} className="row" style={{ justifyContent: 'space-between' }}>
+                  <span className="text-soft fs-13">{k}</span>
+                  <span className="mono fs-13">{v}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }
 
@@ -181,44 +186,43 @@ function StatsSkeleton() {
 }
 
 async function FeaturedFormationsSection() {
-  const featured = await prisma.course.findMany({
-    where: { published: true },
-    orderBy: { createdAt: 'desc' },
-    take: 3,
-    select: {
-      slug: true,
-      title: true,
-      kind: true,
-      level: true,
-      durationHours: true,
-      priceXof: true,
-      description: true,
-      coverImageKey: true,
-    },
-  });
+  const [featured, t] = await Promise.all([
+    prisma.course.findMany({
+      where: { published: true },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: {
+        slug: true,
+        title: true,
+        kind: true,
+        level: true,
+        durationHours: true,
+        priceXof: true,
+        description: true,
+        coverImageKey: true,
+      },
+    }),
+    getTranslations('home'),
+  ]);
   return (
     <section className="section">
       <div className="container">
         <div className="section-header">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              Programmes phares
+              {t('featuredEyebrow')}
             </span>
-            <h2>
-              Six cursus pour <em className="italic-emph">six trajectoires</em>
-              <br />
-              de carrière dans l&apos;assurance.
-            </h2>
+            <h2>{t.rich('featuredHeadline', richTags)}</h2>
           </div>
           <Link href="/formations" className="btn btn-ghost">
-            Voir le catalogue complet <span className="arrow">→</span>
+            {t('featuredCta')} <span className="arrow">→</span>
           </Link>
         </div>
         {featured.length === 0 ? (
           <EmptyState
-            title="Le catalogue se prépare"
-            description="Aucune formation n'est encore publiée. Revenez très bientôt — la session 2026 ouvre dans quelques jours."
-            action={{ href: '/contact', label: 'Être informé du lancement' }}
+            title={t('featuredEmptyTitle')}
+            description={t('featuredEmptyDesc')}
+            action={{ href: '/contact', label: t('featuredEmptyAction') }}
           />
         ) : (
           <div className="formations-grid">
@@ -253,34 +257,33 @@ function FeaturedSkeleton() {
 }
 
 async function BooksSection() {
-  const books = await prisma.resource.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 5,
-    select: { id: true, title: true, authors: true, totalCopies: true },
-  });
+  const [books, t] = await Promise.all([
+    prisma.resource.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, title: true, authors: true, totalCopies: true },
+    }),
+    getTranslations('home'),
+  ]);
   return (
     <section className="section">
       <div className="container">
         <div className="section-header">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              Bibliothèque spécialisée
+              {t('booksEyebrow')}
             </span>
-            <h2>
-              3 200 ouvrages, mémoires et
-              <br />
-              études — accès aux abonnés.
-            </h2>
+            <h2>{t.rich('booksHeadline', richTags)}</h2>
           </div>
           <Link href="/bibliotheque" className="btn btn-ghost">
-            Explorer le fonds <span className="arrow">→</span>
+            {t('booksCta')} <span className="arrow">→</span>
           </Link>
         </div>
         {books.length === 0 ? (
           <EmptyState
-            title="Le fonds se constitue"
-            description="Les premières références arrivent au catalogue. La bibliothèque sera consultable dès l'ouverture des abonnements."
-            action={{ href: '/bibliotheque', label: 'Voir les conditions d’accès' }}
+            title={t('booksEmptyTitle')}
+            description={t('booksEmptyDesc')}
+            action={{ href: '/bibliotheque', label: t('booksEmptyAction') }}
           />
         ) : (
           <div className="book-grid">
@@ -315,13 +318,14 @@ function BooksSkeleton() {
 }
 
 async function TestimonialsSection({ locale }: { locale: Locale }) {
-  const [rows, fallback] = await Promise.all([
+  const [rows, fallback, t] = await Promise.all([
     prisma.testimonial.findMany({
       where: { published: true, locale },
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
       take: 6,
     }),
     getSetting('home.testimonials', locale),
+    getTranslations('home'),
   ]);
   const testimonials =
     rows.length > 0
@@ -334,19 +338,15 @@ async function TestimonialsSection({ locale }: { locale: Locale }) {
         <div className="section-header">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              Voix d&apos;alumni
+              {t('testimonialsEyebrow')}
             </span>
-            <h2>
-              Ils ont étudié au CPFA
-              <br />
-              <em className="italic-emph">— et l&apos;ont prouvé.</em>
-            </h2>
+            <h2>{t.rich('testimonialsHeadline', richTags)}</h2>
           </div>
         </div>
         {testimonials.length === 0 ? (
           <EmptyState
-            title="Les premiers retours arrivent"
-            description="Les diplômés de la promotion 2026 partageront leurs parcours dès la fin du cursus."
+            title={t('testimonialsEmptyTitle')}
+            description={t('testimonialsEmptyDesc')}
           />
         ) : (
           <div className="quote-grid">

@@ -4,25 +4,24 @@
 //   - Recrutement (pointe vers Espace Recruteur + Offres d'emploi)
 
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
 import { resolveLocale } from '@/i18n/request';
 import { mediaUrl } from '@/lib/media';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Espaces Apprenants — CPFA' };
 export const dynamic = 'force-dynamic';
 
-const SCOPE_LABEL: Record<string, string> = {
-  STUDENT: 'Étudiant·e',
-  TEACHER: 'Enseignant·e',
-  PROFESSIONAL: 'Professionnel·le',
-  PARTNER: 'Partenaire',
-};
+export async function generateMetadata() {
+  const t = await getTranslations('learners');
+  return { title: t('metaTitle') };
+}
 
 export default async function EspaceApprenantsPage() {
   const locale = await resolveLocale();
   const now = new Date();
 
-  const [testimonials, jobsCount, recentJobs] = await Promise.all([
+  const [testimonials, jobsCount, recentJobs, t] = await Promise.all([
     prisma.testimonial.findMany({
       where: { published: true, locale },
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
@@ -50,32 +49,39 @@ export default async function EspaceApprenantsPage() {
         urgent: true,
       },
     }),
+    getTranslations('learners'),
   ]);
+
+  const SCOPE_LABEL: Record<string, string> = {
+    STUDENT: t('scopeStudent'),
+    TEACHER: t('scopeTeacher'),
+    PROFESSIONAL: t('scopeProfessional'),
+    PARTNER: t('scopePartner'),
+  };
 
   return (
     <div className="container" style={{ padding: '64px 0' }}>
       <div className="breadcrumb">
-        CPFA · <span>Espaces Apprenants</span>
+        CPFA · <span>{t('title')}</span>
       </div>
-      <h1 style={{ fontSize: 'clamp(48px, 6vw, 84px)' }}>
-        L&apos;<em className="italic-emph">espace</em> des apprenants.
-      </h1>
+      <h1 style={{ fontSize: 'clamp(48px, 6vw, 84px)' }}>{t.rich('h1', richTags)}</h1>
       <p className="fs-17 text-mid" style={{ maxWidth: 720, marginBottom: 64, lineHeight: 1.55 }}>
-        Témoignages des parties prenantes du CPFA — étudiants, enseignants, professionnels en
-        exercice et partenaires — et opportunités d&apos;emploi proposées par notre réseau
-        d&apos;entreprises.
+        {t('intro')}
       </p>
 
       {/* Blog Témoignages */}
       <section style={{ marginBottom: 96 }}>
-        <div className="row" style={{ alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}>
-          <h2>
-            Témoignages <em className="italic-emph">multi-voix</em>
-          </h2>
-          <span className="fs-13 text-soft">{testimonials.length} contribution(s)</span>
+        <div
+          className="row"
+          style={{ alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}
+        >
+          <h2>{t.rich('testimonialsHeading', richTags)}</h2>
+          <span className="fs-13 text-soft">
+            {t('contributionsCount', { count: testimonials.length })}
+          </span>
         </div>
         {testimonials.length === 0 ? (
-          <p className="text-soft">Les premiers témoignages seront publiés très prochainement.</p>
+          <p className="text-soft">{t('testimonialsEmpty')}</p>
         ) : (
           <div
             style={{
@@ -84,16 +90,19 @@ export default async function EspaceApprenantsPage() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             }}
           >
-            {testimonials.map((t) => {
-              const photo = mediaUrl(t.authorPhotoKey);
+            {testimonials.map((tm) => {
+              const photo = mediaUrl(tm.authorPhotoKey);
               return (
-                <article key={t.id} className="card" style={{ padding: 20 }}>
-                  <div className="row" style={{ alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <article key={tm.id} className="card" style={{ padding: 20 }}>
+                  <div
+                    className="row"
+                    style={{ alignItems: 'center', gap: 12, marginBottom: 12 }}
+                  >
                     {photo ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={photo}
-                        alt={t.authorName}
+                        alt={tm.authorName}
                         style={{
                           width: 48,
                           height: 48,
@@ -104,16 +113,16 @@ export default async function EspaceApprenantsPage() {
                     ) : null}
                     <div>
                       <div className="fs-15" style={{ fontWeight: 600 }}>
-                        {t.authorName}
+                        {tm.authorName}
                       </div>
                       <div className="fs-13 text-soft">
-                        {SCOPE_LABEL[t.scope]}
-                        {t.authorRole ? ` · ${t.authorRole}` : ''}
+                        {SCOPE_LABEL[tm.scope]}
+                        {tm.authorRole ? ` · ${tm.authorRole}` : ''}
                       </div>
                     </div>
                   </div>
                   <blockquote style={{ fontStyle: 'italic', lineHeight: 1.55 }}>
-                    « {t.quote} »
+                    « {tm.quote} »
                   </blockquote>
                 </article>
               );
@@ -124,9 +133,7 @@ export default async function EspaceApprenantsPage() {
 
       {/* Blog Recrutement */}
       <section>
-        <h2 style={{ marginBottom: 24 }}>
-          <em className="italic-emph">Recrutement</em> — entreprises &amp; talents.
-        </h2>
+        <h2 style={{ marginBottom: 24 }}>{t.rich('recruitmentHeading', richTags)}</h2>
 
         <div
           style={{
@@ -147,17 +154,19 @@ export default async function EspaceApprenantsPage() {
               background: 'var(--bg-soft, #f8fafc)',
             }}
           >
-            <span className="eyebrow">Espace Recruteur</span>
+            <span className="eyebrow">{t('recruiterEyebrow')}</span>
             <h3 style={{ fontSize: 20, lineHeight: 1.3 }}>
-              Vous recrutez ? <em className="italic-emph">Publiez votre offre.</em>
+              {t.rich('recruiterHeading', richTags)}
             </h3>
             <p className="fs-14 text-mid" style={{ lineHeight: 1.5 }}>
-              Vous êtes une entreprise à la recherche de talents qualifiés dans les métiers de
-              l&apos;assurance ? Le CPFA vous offre la possibilité de publier vos offres et de
-              recevoir directement des candidatures ciblées.
+              {t('recruiterDesc')}
             </p>
-            <Link href="/emplois/recruteur" className="btn btn-primary" style={{ marginTop: 'auto' }}>
-              Déposer une offre →
+            <Link
+              href="/emplois/recruteur"
+              className="btn btn-primary"
+              style={{ marginTop: 'auto' }}
+            >
+              {t('recruiterCta')} →
             </Link>
           </article>
 
@@ -172,23 +181,22 @@ export default async function EspaceApprenantsPage() {
               background: 'linear-gradient(135deg, var(--orange-soft, #fff7ed), white)',
             }}
           >
-            <span className="eyebrow">Offres d&apos;emploi</span>
+            <span className="eyebrow">{t('jobsEyebrow')}</span>
             <h3 style={{ fontSize: 20, lineHeight: 1.3 }}>
-              {jobsCount} <em className="italic-emph">opportunités</em> en ligne.
+              {t.rich('jobsHeading', { ...richTags, count: jobsCount })}
             </h3>
             <p className="fs-14 text-mid" style={{ lineHeight: 1.5 }}>
-              Consultez les opportunités proposées par nos entreprises partenaires et postulez
-              directement en ligne — CV joint, motivation, suivi par email.
+              {t('jobsDesc')}
             </p>
             <Link href="/emplois" className="btn btn-primary" style={{ marginTop: 'auto' }}>
-              Voir les offres →
+              {t('jobsCta')} →
             </Link>
           </article>
         </div>
 
         {recentJobs.length > 0 ? (
           <div>
-            <h3 style={{ fontSize: 16, marginBottom: 12 }}>Annonces récentes</h3>
+            <h3 style={{ fontSize: 16, marginBottom: 12 }}>{t('recentHeading')}</h3>
             <ul style={{ display: 'grid', gap: 8, listStyle: 'none', padding: 0 }}>
               {recentJobs.map((j) => (
                 <li key={j.id}>
@@ -213,7 +221,7 @@ export default async function EspaceApprenantsPage() {
                           color: 'var(--orange-deep, #c2410c)',
                         }}
                       >
-                        Urgent
+                        {t('urgent')}
                       </span>
                     ) : null}
                     <span className="fs-15" style={{ fontWeight: 500, flex: 1 }}>

@@ -1,75 +1,77 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
 import { fmtXof } from '@/lib/cpfa-mappers';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Séminaires — CPFA' };
 export const dynamic = 'force-dynamic';
 
-const MONTH_LABEL = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+export async function generateMetadata() {
+  const t = await getTranslations('seminars');
+  return { title: t('metaTitle') };
+}
 
-function dayParts(d: Date): { day: string; month: string } {
+function dayParts(d: Date, monthsShort: string[]): { day: string; month: string } {
   return {
     day: String(d.getDate()).padStart(2, '0'),
-    month: `${MONTH_LABEL[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
+    month: `${monthsShort[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
   };
 }
 
-function durationLabel(start: Date, end: Date): string {
-  const ms = end.getTime() - start.getTime();
-  const days = Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
-  return days === 1 ? '1 journée' : `${days} jours`;
-}
-
 export default async function SeminarsIndexPage() {
-  const seminars = await prisma.seminar.findMany({
-    where: { published: true, startsAt: { gte: new Date() } },
-    orderBy: { startsAt: 'asc' },
-    take: 50,
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      startsAt: true,
-      endsAt: true,
-      location: true,
-      priceXof: true,
-      capacity: true,
-      description: true,
-      _count: { select: { registrations: true } },
-    },
-  });
+  const [seminars, t] = await Promise.all([
+    prisma.seminar.findMany({
+      where: { published: true, startsAt: { gte: new Date() } },
+      orderBy: { startsAt: 'asc' },
+      take: 50,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        startsAt: true,
+        endsAt: true,
+        location: true,
+        priceXof: true,
+        capacity: true,
+        description: true,
+        _count: { select: { registrations: true } },
+      },
+    }),
+    getTranslations('seminars'),
+  ]);
+
+  const monthsShort = t('monthsShort').split(',');
+
+  const durationLabel = (start: Date, end: Date): string => {
+    const ms = end.getTime() - start.getTime();
+    const days = Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+    return days === 1 ? t('dayOne') : t('daysOther', { count: days });
+  };
 
   return (
     <div>
       <div className="container page-head">
         <div className="breadcrumb">
-          CPFA · <span>Séminaires</span>
+          CPFA · <span>{t('title')}</span>
         </div>
         <div className="page-head-split">
-          <h1>
-            Séminaires &amp;
-            <br />
-            <em className="italic-emph">masterclass</em>.
-          </h1>
-          <p className="page-head-copy">
-            Formats courts et intensifs pour cadres en exercice. Animés par des praticiens et
-            universitaires de premier plan.
-          </p>
+          <h1>{t.rich('h1', richTags)}</h1>
+          <p className="page-head-copy">{t('intro')}</p>
         </div>
       </div>
 
       <div className="container page-body">
         {seminars.length === 0 ? (
-          <p className="text-soft">Aucun séminaire programmé prochainement.</p>
+          <p className="text-soft">{t('empty')}</p>
         ) : (
           <div className="event-list">
             {seminars.map((s) => {
-              const dp = dayParts(s.startsAt);
+              const dp = dayParts(s.startsAt, monthsShort);
               const seatsLeft = Math.max(0, s.capacity - s._count.registrations);
               const seatsLabel =
                 seatsLeft === 0
-                  ? `${s.capacity} places · COMPLET`
-                  : `${s.capacity} places · ${seatsLeft} restantes`;
+                  ? t('seatsFull', { capacity: s.capacity })
+                  : t('seatsLeft', { capacity: s.capacity, seatsLeft });
               return (
                 <Link key={s.id} href={`/seminaires/${s.slug}`} className="event">
                   <div className="event-date">
@@ -79,16 +81,13 @@ export default async function SeminarsIndexPage() {
                   <div>
                     <h4>{s.title}</h4>
                     {s.description ? (
-                      <p className="event-desc fs-14 text-mid">
-                        {s.description}
-                      </p>
+                      <p className="event-desc fs-14 text-mid">{s.description}</p>
                     ) : null}
                     <div className="event-pills">
                       <span className="pill">{durationLabel(s.startsAt, s.endsAt)}</span>
                       <span
                         className={
-                          'pill ' +
-                          (seatsLeft === 0 ? 'pill-warning' : 'pill-orange')
+                          'pill ' + (seatsLeft === 0 ? 'pill-warning' : 'pill-orange')
                         }
                       >
                         {seatsLabel}
@@ -99,7 +98,7 @@ export default async function SeminarsIndexPage() {
                     <span>{fmtXof(s.priceXof)}</span>
                   </div>
                   <span className="btn btn-ghost btn-sm">
-                    Détails <span className="arrow">→</span>
+                    {t('details')} <span className="arrow">→</span>
                   </span>
                 </Link>
               );

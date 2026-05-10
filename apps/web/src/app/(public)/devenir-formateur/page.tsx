@@ -1,12 +1,18 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
 import { TrainerApplyForm } from './apply-form';
 import { resolveLocale } from '@/i18n/request';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Devenir formateur — CPFA' };
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata() {
+  const t = await getTranslations('becomeTrainer');
+  return { title: t('metaTitle') };
+}
 
 export default async function BecomeTrainerPage() {
   const session = await auth();
@@ -15,7 +21,7 @@ export default async function BecomeTrainerPage() {
   }
 
   const locale = await resolveLocale();
-  const [profile, approvedCount, teacherTestimonials] = await Promise.all([
+  const [profile, approvedCount, teacherTestimonials, t] = await Promise.all([
     prisma.trainerProfile.findUnique({ where: { userId: session.user.id } }),
     prisma.trainerProfile.count({ where: { status: 'APPROVED' } }),
     prisma.testimonial.findMany({
@@ -23,31 +29,27 @@ export default async function BecomeTrainerPage() {
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
       take: 4,
     }),
+    getTranslations('becomeTrainer'),
   ]);
 
   return (
     <div className="container" style={{ padding: '64px 0', maxWidth: 760 }}>
       <div className="breadcrumb">
-        CPFA · <span>Devenir formateur</span>
+        CPFA · <span>{t('breadcrumb')}</span>
       </div>
-      <h1>
-        Rejoindre <em className="italic-emph">l&apos;équipe pédagogique</em>
-      </h1>
-      <p style={{ color: 'var(--cpfa-muted, #475569)' }}>
-        Le CPFA s&apos;appuie sur un réseau de praticiens et d&apos;universitaires pour ses formations
-        diplômantes, ses séminaires et ses concours blancs. Déposez votre candidature ci-dessous —
-        nous reviendrons vers vous dès qu&apos;elle aura été examinée.
-      </p>
+      <h1>{t.rich('h1', richTags)}</h1>
+      <p style={{ color: 'var(--cpfa-muted, #475569)' }}>{t('intro')}</p>
       <p style={{ fontSize: 13, color: 'var(--cpfa-muted, #64748b)' }}>
-        {approvedCount} formateur(s) déjà approuvé(s) sur la plateforme.
+        {t('approvedCount', { count: approvedCount })}
       </p>
 
       {profile?.status === 'APPROVED' ? (
         <div className="card" style={{ padding: 24, marginTop: 24 }}>
-          <h3>Vous êtes déjà formateur</h3>
+          <h3>{t('alreadyApprovedHeading')}</h3>
           <p>
-            Votre candidature a été approuvée. Rendez-vous sur votre{' '}
-            <Link href="/me/formateur">espace formateur</Link> pour mettre à jour votre fiche.
+            {t('alreadyApprovedDesc')}{' '}
+            <Link href="/me/formateur">{t('alreadyApprovedLink')}</Link>{' '}
+            {t('alreadyApprovedTail')}
           </p>
         </div>
       ) : (
@@ -71,12 +73,12 @@ export default async function BecomeTrainerPage() {
       {teacherTestimonials.length > 0 ? (
         <section style={{ marginTop: 64 }}>
           <h2 style={{ marginBottom: 16, fontSize: 20 }}>
-            Témoignages d&apos;<em className="italic-emph">enseignants</em>
+            {t.rich('testimonialsHeading', richTags)}
           </h2>
           <div className="col gap-3">
-            {teacherTestimonials.map((t) => (
+            {teacherTestimonials.map((tm) => (
               <blockquote
-                key={t.id}
+                key={tm.id}
                 className="card"
                 style={{
                   padding: 20,
@@ -84,13 +86,13 @@ export default async function BecomeTrainerPage() {
                   fontStyle: 'italic',
                 }}
               >
-                <p style={{ marginBottom: 8 }}>« {t.quote} »</p>
+                <p style={{ marginBottom: 8 }}>« {tm.quote} »</p>
                 <footer
                   className="fs-13"
                   style={{ color: 'var(--cpfa-muted, #64748b)', fontStyle: 'normal' }}
                 >
-                  <strong>{t.authorName}</strong>
-                  {t.authorRole ? ` · ${t.authorRole}` : ''}
+                  <strong>{tm.authorName}</strong>
+                  {tm.authorRole ? ` · ${tm.authorRole}` : ''}
                 </footer>
               </blockquote>
             ))}

@@ -1,9 +1,9 @@
 // Single mailer module — every outbound email goes through this. The worker
 // calls `sendEmail` with a job payload; routes that need to send synchronously
-// can call directly. When RESEND_API_KEY isn't set we log to stdout so dev
-// without Resend credentials still reaches green-path code.
+// can call directly. When SMTP credentials aren't set we log to stdout so dev
+// without a mail server still reaches green-path code.
 
-import { Resend } from 'resend';
+import nodemailer, { type Transporter } from 'nodemailer';
 import {
   ContactFormEmail,
   ConvocationEmail,
@@ -18,13 +18,37 @@ import {
   render,
 } from '@cpfa/emails';
 
-let _client: Resend | null | undefined;
+let _transporter: Transporter | null | undefined;
 
-function getResend(): Resend | null {
-  if (_client !== undefined) return _client;
-  const key = process.env.RESEND_API_KEY;
-  _client = key ? new Resend(key) : null;
-  return _client;
+function getTransporter(): Transporter | null {
+  if (_transporter !== undefined) return _transporter;
+
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+
+  if (!host || !user || !pass) {
+    _transporter = null;
+    return _transporter;
+  }
+
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  // Port 465 = implicit TLS (SMTPS); port 587 = STARTTLS upgrade after greeting.
+  const secure = port === 465;
+  // Shared/mutualised mail hosts often present a cert for the underlying
+  // hostname (e.g. attwood.dnshostnetwork.com) instead of mail.<your-domain>.
+  // Set SMTP_TLS_INSECURE=true to skip cert hostname validation in that case.
+  // The connection stays encrypted via STARTTLS — we just don't verify the cert.
+  const rejectUnauthorized = process.env.SMTP_TLS_INSECURE !== 'true';
+
+  _transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: { rejectUnauthorized },
+  });
+  return _transporter;
 }
 
 export type EmailTemplate =
@@ -46,8 +70,8 @@ export type EmailTemplate =
   | { kind: 'receipt'; data: import('@cpfa/emails').ReceiptEmailProps };
 
 // Optional attachments. Use either `path` (server-side fetched URL — practical
-// for our presigned S3 download URLs) or `content` (raw base64). Resend
-// downloads `path` server-side so the URL must remain reachable for ~30 s.
+// for our presigned S3 download URLs) or `content` (raw base64). Nodemailer
+// fetches `path` server-side so the URL must remain reachable for ~30 s.
 export type EmailAttachment = {
   filename: string;
   path?: string;
@@ -70,9 +94,9 @@ export async function sendEmail({
 }): Promise<{ id: string | null; mocked: boolean }> {
   const html = await render(componentFor(template));
   const from = process.env.EMAIL_FROM ?? 'CPFA <noreply@cpfa.local>';
-  const client = getResend();
+  const transporter = getTransporter();
 
-  if (!client) {
+  if (!transporter) {
     // eslint-disable-next-line no-console
     console.log(
       `[mailer:mock] to=${to} subject=${JSON.stringify(subject)} kind=${template.kind}` +
@@ -81,7 +105,7 @@ export async function sendEmail({
     return { id: null, mocked: true };
   }
 
-  const result = await client.emails.send({
+  const result = await transporter.sendMail({
     from,
     to,
     subject,
@@ -91,18 +115,15 @@ export async function sendEmail({
       ? {
           attachments: attachments.map((a) => ({
             filename: a.filename,
-            ...(a.content !== undefined ? { content: a.content } : {}),
+            ...(a.content !== undefined ? { content: a.content, encoding: 'base64' as const } : {}),
             ...(a.path !== undefined ? { path: a.path } : {}),
-            ...(a.contentType !== undefined ? { content_type: a.contentType } : {}),
+            ...(a.contentType !== undefined ? { contentType: a.contentType } : {}),
           })),
         }
       : {}),
   });
 
-  if (result.error) {
-    throw new Error(`Resend error: ${result.error.message}`);
-  }
-  return { id: result.data?.id ?? null, mocked: false };
+  return { id: result.messageId ?? null, mocked: false };
 }
 
 function componentFor(template: EmailTemplate) {

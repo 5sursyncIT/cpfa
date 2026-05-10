@@ -35,12 +35,14 @@ export function UserAdminActions({
   const reset2FA = trpc.users.reset2FA.useMutation();
   const forcePwd = trpc.users.forcePasswordReset.useMutation();
   const revoke = trpc.users.revokeAccess.useMutation();
+  const remove = trpc.users.delete.useMutation();
 
   const pending =
     updateProfile.isPending ||
     reset2FA.isPending ||
     forcePwd.isPending ||
-    revoke.isPending;
+    revoke.isPending ||
+    remove.isPending;
 
   function set<K extends keyof Initial>(key: K, value: Initial[K]) {
     setForm((s) => ({ ...s, [key]: value }));
@@ -207,27 +209,70 @@ export function UserAdminActions({
 
       <div className="panel" style={{ padding: 24 }}>
         <h4 style={{ marginBottom: 16, color: 'var(--danger)' }}>Zone à risque</h4>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 500 }}>Révoquer l&apos;accès</div>
-            <div className="fs-13 text-soft">
-              Retire tous les rôles (sauf VISITEUR). Le membre garde son historique mais ne peut
-              plus accéder aux espaces protégés.
-              {!canRevokePrivileged ? ' Réservé aux Super-admins pour les comptes admin.' : ''}
+        <div className="col gap-4">
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>Révoquer l&apos;accès</div>
+              <div className="fs-13 text-soft">
+                Retire tous les rôles (sauf VISITEUR). Le membre garde son historique mais ne peut
+                plus accéder aux espaces protégés.
+                {!canRevokePrivileged ? ' Réservé aux Super-admins pour les comptes admin.' : ''}
+              </div>
             </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+              disabled={pending || isSelf}
+              onClick={() => {
+                if (!window.confirm("Révoquer l'accès de ce compte ?")) return;
+                run(() => revoke.mutateAsync({ id: userId }), 'Accès révoqué (rôle VISITEUR).');
+              }}
+            >
+              {revoke.isPending ? '…' : isSelf ? 'Toi-même : impossible' : 'Révoquer'}
+            </button>
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-            disabled={pending || isSelf}
-            onClick={() => {
-              if (!window.confirm("Révoquer l'accès de ce compte ?")) return;
-              run(() => revoke.mutateAsync({ id: userId }), 'Accès révoqué (rôle VISITEUR).');
-            }}
-          >
-            {revoke.isPending ? '…' : isSelf ? 'Toi-même : impossible' : 'Révoquer'}
-          </button>
+
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 500 }}>Supprimer le compte</div>
+              <div className="fs-13 text-soft">
+                Suppression définitive. Refusée si le compte a des abonnements, prêts, inscriptions
+                ou paiements (utilise alors « Révoquer » pour préserver l&apos;historique).
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{
+                color: 'white',
+                backgroundColor: 'var(--danger)',
+                borderColor: 'var(--danger)',
+              }}
+              disabled={pending || isSelf}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    'Supprimer définitivement ce compte ? Cette action est irréversible.',
+                  )
+                )
+                  return;
+                setError(null);
+                setSuccess(null);
+                remove
+                  .mutateAsync({ id: userId })
+                  .then(() => {
+                    router.replace('/admin/users');
+                    router.refresh();
+                  })
+                  .catch((err) => {
+                    setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+                  });
+              }}
+            >
+              {remove.isPending ? '…' : isSelf ? 'Toi-même : impossible' : 'Supprimer'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

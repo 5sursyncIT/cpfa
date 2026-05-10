@@ -1,36 +1,43 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { searchSite } from '@/lib/site-search';
 import { resolveLocale } from '@/i18n/request';
+import { richTags } from '@/lib/i18n-tags';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Recherche — CPFA' };
 
-const KIND_LABEL: Record<string, string> = {
-  page: 'Page',
-  article: 'Actualité',
-  course: 'Formation',
-  resource: 'Ouvrage',
-};
+export async function generateMetadata() {
+  const t = await getTranslations('search');
+  return { title: t('metaTitle') };
+}
 
 export default async function SearchPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { q } = await searchParams;
-  const locale = await resolveLocale();
+  const [{ q }, locale, t] = await Promise.all([
+    searchParams,
+    resolveLocale(),
+    getTranslations('search'),
+  ]);
   const hits = q ? await searchSite(q, locale) : [];
+
+  const KIND_LABEL: Record<string, string> = {
+    page: t('kindPage'),
+    article: t('kindArticle'),
+    course: t('kindCourse'),
+    resource: t('kindResource'),
+  };
 
   return (
     <div className="container" style={{ padding: '64px 0', maxWidth: 880 }}>
       <div className="breadcrumb">
-        CPFA · <span>Recherche</span>
+        CPFA · <span>{t('title')}</span>
       </div>
-      <h1 style={{ marginBottom: 8 }}>
-        Que <em className="italic-emph">cherchez-vous</em> ?
-      </h1>
+      <h1 style={{ marginBottom: 8 }}>{t.rich('h1', richTags)}</h1>
       <p className="fs-15 text-mid" style={{ marginBottom: 24 }}>
-        Pages institutionnelles, formations, actualités, livres de la bibliothèque.
+        {t('intro')}
       </p>
 
       <form
@@ -42,41 +49,36 @@ export default async function SearchPage({
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Tapez un mot-clé (ex: CIMA, BTS, actuariat)…"
+          placeholder={t('placeholder')}
           className="input"
           style={{ flex: 1 }}
           autoFocus
         />
         <button type="submit" className="btn btn-primary">
-          Rechercher
+          {t('submitCta')}
         </button>
       </form>
 
       {!q ? null : hits.length === 0 ? (
         <p className="text-soft">
-          Aucun résultat pour <strong>« {q} »</strong>. Essayez un autre terme.
+          {t.rich('noResults', {
+            ...richTags,
+            strong: (chunks) => <strong>{chunks}</strong>,
+            q,
+          })}
         </p>
       ) : (
         <ol className="col gap-3" style={{ listStyle: 'none', padding: 0 }}>
           {hits.map((h, i) => (
-            <li
-              key={`${h.kind}-${i}`}
-              className="card"
-              style={{ padding: 16 }}
-            >
+            <li key={`${h.kind}-${i}`} className="card" style={{ padding: 16 }}>
               <div
                 className="row"
                 style={{ alignItems: 'baseline', gap: 8, marginBottom: 4 }}
               >
-                <span
-                  className="pill"
-                  style={{ fontSize: 11, padding: '2px 8px' }}
-                >
+                <span className="pill" style={{ fontSize: 11, padding: '2px 8px' }}>
                   {KIND_LABEL[h.kind] ?? h.kind}
                 </span>
-                {h.meta ? (
-                  <span className="fs-13 text-soft">{h.meta}</span>
-                ) : null}
+                {h.meta ? <span className="fs-13 text-soft">{h.meta}</span> : null}
               </div>
               <Link
                 href={h.href}
@@ -86,13 +88,8 @@ export default async function SearchPage({
                 {h.title}
               </Link>
               {h.snippet ? (
-                <p
-                  className="fs-14 text-mid"
-                  style={{ marginTop: 4, lineHeight: 1.5 }}
-                >
-                  {h.snippet.length > 220
-                    ? `${h.snippet.slice(0, 220)}…`
-                    : h.snippet}
+                <p className="fs-14 text-mid" style={{ marginTop: 4, lineHeight: 1.5 }}>
+                  {h.snippet.length > 220 ? `${h.snippet.slice(0, 220)}…` : h.snippet}
                 </p>
               ) : null}
             </li>

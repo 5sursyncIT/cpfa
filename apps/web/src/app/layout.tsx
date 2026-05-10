@@ -29,6 +29,10 @@ export const metadata: Metadata = {
   title: 'CPFA — Centre de Perfectionnement et de Formation en Assurance',
   description:
     "Premier centre de référence au Sénégal pour les métiers de l'assurance, de la réassurance et de l'actuariat. Trente ans à former la zone CIMA.",
+  icons: {
+    icon: [{ url: '/images/fav.ico', type: 'image/x-icon' }],
+    shortcut: '/images/fav.ico',
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

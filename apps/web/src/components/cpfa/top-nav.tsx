@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
-import { hasPermission } from '@/lib/auth/rbac';
 import { LogoMark } from './logo-mark';
 import { LocaleSwitcher } from './locale-switcher';
 import { MobileNav } from './mobile-nav';
+import { DesktopSearch } from './desktop-search';
 
 export async function TopNav({ active }: { active?: string }) {
   const [session, t, tCommon] = await Promise.all([
@@ -13,15 +13,10 @@ export async function TopNav({ active }: { active?: string }) {
     getTranslations('common'),
   ]);
   const isMember = !!session?.user;
-  const isStaff =
-    !!session?.user &&
-    (hasPermission(session.user.roles, 'admin:any') ||
-      hasPermission(session.user.roles, 'library:manage'));
 
   // Top-nav reflète les onglets demandés par le Directeur (§1.1) :
   // Formations · Séminaires · Bibliothèque · Concours · Espace Apprenants ·
-  // Actualités & médias. « Accueil » passe par le logo et « À propos » est
-  // dans le footer pour limiter l'encombrement.
+  // Actualités & médias · À propos. « Accueil » passe par le logo.
   const links = [
     { href: '/formations', label: t('courses') },
     { href: '/seminaires', label: t('seminars') },
@@ -29,12 +24,12 @@ export async function TopNav({ active }: { active?: string }) {
     { href: '/concours', label: t('exams') },
     { href: '/espace-apprenants', label: t('learners') },
     { href: '/blog', label: t('blog') },
+    { href: '/a-propos', label: t('about') },
   ];
-  // Mobile drawer keeps the longer list — there's room for it there.
+  // Mobile drawer ajoute juste « Accueil » en tête.
   const mobileLinks = [
     { href: '/', label: t('home') },
     ...links,
-    { href: '/a-propos', label: t('about') },
   ];
 
   return (
@@ -63,32 +58,19 @@ export async function TopNav({ active }: { active?: string }) {
         </div>
 
         <div className="nav-actions">
-          <form
-            method="get"
-            action="/recherche"
-            className="nav-search"
-          >
-            <input
-              type="search"
-              name="q"
-              placeholder={tCommon('search') + '…'}
-              aria-label={t('search')}
-              className="input"
-            />
-          </form>
+          <DesktopSearch
+            placeholder={tCommon('search') + '…'}
+            label={t('search')}
+          />
           <LocaleSwitcher />
-          {isStaff ? (
-            <Link href="/admin" className="btn btn-orange btn-sm desktop-only">
-              Backoffice <span className="arrow">→</span>
-            </Link>
-          ) : (
-            <Link
-              href={isMember ? '/me' : '/sign-in?callbackUrl=/me'}
-              className="btn btn-ghost btn-sm desktop-only"
-            >
-              {tCommon('memberSpace')}
-            </Link>
-          )}
+          {/* Staff gardent l'accès via l'URL directe /admin — pas de lien public,
+              pour ne pas révéler la présence d'un compte staff dans la nav. */}
+          <Link
+            href={isMember ? '/me' : '/sign-in?callbackUrl=/me'}
+            className="btn btn-ghost btn-sm desktop-only"
+          >
+            {tCommon('memberSpace')}
+          </Link>
           <MobileNav
             links={mobileLinks}
             memberHref={isMember ? '/me' : '/sign-in?callbackUrl=/me'}

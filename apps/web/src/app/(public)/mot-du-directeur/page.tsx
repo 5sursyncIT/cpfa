@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { fetchCmsPage } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
 import { resolveLocale } from '@/i18n/request';
@@ -7,22 +8,30 @@ export const dynamic = 'force-dynamic';
 const STATIC_SLUG = 'mot-du-directeur';
 
 export async function generateMetadata() {
-  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  const locale = await resolveLocale();
+  const [cms, t] = await Promise.all([
+    fetchCmsPage(STATIC_SLUG, locale),
+    getTranslations('directorPage'),
+  ]);
   return {
-    title: cms?.metaTitle ?? `${cms?.title ?? 'Mot du Directeur'} — CPFA`,
+    title: cms?.metaTitle ?? `${cms?.title ?? t('title')} — CPFA`,
     description: cms?.metaDescription ?? undefined,
   };
 }
 
 export default async function DirectorWordPage() {
-  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  const locale = await resolveLocale();
+  const [cms, t] = await Promise.all([
+    fetchCmsPage(STATIC_SLUG, locale),
+    getTranslations('directorPage'),
+  ]);
 
   if (cms) {
     return (
       <article className="container max-w-3xl py-16">
         <h1 className="text-4xl font-bold tracking-tight">{cms.title}</h1>
         <p className="mt-2 text-sm uppercase tracking-widest text-muted-foreground">
-          Centre Professionnel de Formation à l’Assurance
+          {t('subtitle')}
         </p>
         <div className="prose prose-slate mt-8 max-w-none">
           <BlockRenderer content={cms.content} />
@@ -31,32 +40,19 @@ export default async function DirectorWordPage() {
     );
   }
 
-  // Fallback: shipped copy. Editors override via /admin/cms with slug
-  // "mot-du-directeur" + locale "fr" + published.
+  // Fallback: shipped copy. Editors override via /admin/cms with the
+  // matching slug + locale + published flag.
   return (
     <article className="container max-w-3xl py-16">
-      <h1 className="text-4xl font-bold tracking-tight">Mot du Directeur</h1>
+      <h1 className="text-4xl font-bold tracking-tight">{t('title')}</h1>
       <p className="mt-2 text-sm uppercase tracking-widest text-muted-foreground">
-        Centre Professionnel de Formation en Assurance — Unité décentralisée de l’IIA Yaoundé
+        {t('subtitle')}
       </p>
       <div className="prose prose-slate mt-8 max-w-none">
-        <p>
-          Bienvenue au Centre Professionnel de Formation en Assurance, unité décentralisée de
-          l&apos;Institut International des Assurances (IIA) de Yaoundé. Notre mission : promouvoir
-          la formation aux métiers de l&apos;assurance à grande échelle, au Sénégal et dans toute
-          la zone CIMA.
-        </p>
-        <p>
-          Reconnu par la Direction des Assurances, le CPFA forme depuis sa création des
-          techniciens, cadres et dirigeants capables de répondre aux exigences techniques,
-          juridiques et commerciales d&apos;un secteur en transformation rapide.
-        </p>
-        <p>
-          Que vous soyez étudiant, professionnel en reconversion ou cadre confirmé, vous
-          trouverez ici le parcours adapté à votre projet : DTA, BTS Assurance, certifications
-          spécialisées, séminaires d&apos;actualité et accès à notre bibliothèque dédiée.
-        </p>
-        <p className="text-right">— El Hadji Cheikhou Oumar SECK, Directeur</p>
+        <p>{t('p1')}</p>
+        <p>{t('p2')}</p>
+        <p>{t('p3')}</p>
+        <p className="text-right">{t('signature')}</p>
       </div>
     </article>
   );

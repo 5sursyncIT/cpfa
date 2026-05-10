@@ -76,9 +76,14 @@ export default async function AdminUsersPage({
             Utilisateurs · {users.length}
           </h2>
         </div>
-        <a href="/api/admin/exports/users.csv" className="btn btn-ghost">
-          Export CSV
-        </a>
+        <div className="row gap-2">
+          <a href="/api/admin/exports/users.csv" className="btn btn-ghost">
+            Export CSV
+          </a>
+          <Link href="/admin/users/new" className="btn btn-primary">
+            Nouvel utilisateur
+          </Link>
+        </div>
       </div>
 
       <form className="panel" style={{ padding: 16, marginBottom: 24 }}>

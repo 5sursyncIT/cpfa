@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { fetchCmsPage } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
 import { resolveLocale } from '@/i18n/request';
@@ -6,31 +7,24 @@ export const dynamic = 'force-dynamic';
 
 const STATIC_SLUG = 'partenaires';
 
-const partnerCategories = [
-  {
-    title: 'Compagnies d’assurance',
-    items: ['Partenaire 1', 'Partenaire 2', 'Partenaire 3'],
-  },
-  {
-    title: 'Institutions académiques',
-    items: ['Partenaire 4', 'Partenaire 5'],
-  },
-  {
-    title: 'Régulateurs et fédérations',
-    items: ['Partenaire 6', 'Partenaire 7'],
-  },
-];
-
 export async function generateMetadata() {
-  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  const locale = await resolveLocale();
+  const [cms, t] = await Promise.all([
+    fetchCmsPage(STATIC_SLUG, locale),
+    getTranslations('partnersPage'),
+  ]);
   return {
-    title: cms?.metaTitle ?? `${cms?.title ?? 'Partenaires'} — CPFA`,
+    title: cms?.metaTitle ?? `${cms?.title ?? t('title')} — CPFA`,
     description: cms?.metaDescription ?? undefined,
   };
 }
 
 export default async function PartnersPage() {
-  const cms = await fetchCmsPage(STATIC_SLUG, await resolveLocale());
+  const locale = await resolveLocale();
+  const [cms, t] = await Promise.all([
+    fetchCmsPage(STATIC_SLUG, locale),
+    getTranslations('partnersPage'),
+  ]);
 
   if (cms) {
     return (
@@ -43,13 +37,25 @@ export default async function PartnersPage() {
     );
   }
 
+  const partnerCategories = [
+    {
+      title: t('categoryInsurers'),
+      items: ['Partenaire 1', 'Partenaire 2', 'Partenaire 3'],
+    },
+    {
+      title: t('categoryAcademic'),
+      items: ['Partenaire 4', 'Partenaire 5'],
+    },
+    {
+      title: t('categoryRegulators'),
+      items: ['Partenaire 6', 'Partenaire 7'],
+    },
+  ];
+
   return (
     <section className="container py-16">
-      <h1 className="text-4xl font-bold tracking-tight">Partenaires</h1>
-      <p className="mt-4 max-w-2xl text-muted-foreground">
-        Le CPFA s’appuie sur un réseau de partenaires nationaux et internationaux qui contribuent
-        au rayonnement de la formation en assurance.
-      </p>
+      <h1 className="text-4xl font-bold tracking-tight">{t('title')}</h1>
+      <p className="mt-4 max-w-2xl text-muted-foreground">{t('intro')}</p>
       <div className="mt-10 grid gap-8 md:grid-cols-3">
         {partnerCategories.map((cat) => (
           <div key={cat.title}>

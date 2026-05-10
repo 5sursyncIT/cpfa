@@ -1,25 +1,30 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { RecruiterOfferForm } from './offer-form';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Publier une offre — CPFA' };
+export async function generateMetadata() {
+  const t = await getTranslations('recruiterPage');
+  return { title: t('metaTitle') };
+}
 
-export default function RecruiterPage() {
+export default async function RecruiterPage() {
+  const [t, tLearners] = await Promise.all([
+    getTranslations('recruiterPage'),
+    getTranslations('learners'),
+  ]);
   return (
     <div className="container" style={{ padding: '64px 0', maxWidth: 800 }}>
       <div className="breadcrumb">
-        CPFA · Espaces Apprenants · <Link href="/emplois">Offres</Link> ·{' '}
-        <span>Espace Recruteur</span>
+        CPFA · {tLearners('title')} · <Link href="/emplois">{t('offersBreadcrumb')}</Link> ·{' '}
+        <span>{t('breadcrumb')}</span>
       </div>
 
       <h1 style={{ fontSize: 'clamp(36px, 4.5vw, 56px)', marginBottom: 12 }}>
-        Vous recrutez ? <em className="italic-emph">Publiez votre offre</em>.
+        {t.rich('h1', richTags)}
       </h1>
       <p className="fs-15 text-mid" style={{ marginBottom: 24, lineHeight: 1.5 }}>
-        Vous êtes une entreprise à la recherche de talents qualifiés dans les métiers de
-        l&apos;assurance ? Le CPFA vous offre la possibilité de publier vos offres et de recevoir
-        directement des candidatures ciblées. Chaque dépôt est revu par notre équipe avant
-        publication ; vous recevez un email dès que l&apos;offre est en ligne, puis à chaque
-        nouvelle candidature.
+        {t('intro')}
       </p>
 
       <RecruiterOfferForm />

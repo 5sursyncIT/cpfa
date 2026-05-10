@@ -2,13 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-
-const PRIMARY = [
-  { href: '/me', label: 'Tableau de bord' },
-  { href: '/me/abonnement', label: 'Ma carte' },
-  { href: '/me/bibliotheque', label: 'Mes prêts', countKey: 'loans' },
-  { href: '/me/inscriptions', label: 'Mes inscriptions', countKey: 'registrations' },
-] as const;
+import { useTranslations } from 'next-intl';
 
 export function MemberSideNav({
   counts,
@@ -18,10 +12,18 @@ export function MemberSideNav({
   isTrainer?: boolean;
 }) {
   const path = usePathname() ?? '/me';
+  const t = useTranslations('meSideNav');
+
+  const PRIMARY = [
+    { href: '/me', label: t('dashboard') },
+    { href: '/me/abonnement', label: t('card') },
+    { href: '/me/bibliotheque', label: t('loans'), countKey: 'loans' as const },
+    { href: '/me/inscriptions', label: t('registrations'), countKey: 'registrations' as const },
+  ];
 
   return (
     <>
-      <div className="side-nav-title">Mon espace</div>
+      <div className="side-nav-title">{t('myAreaTitle')}</div>
       {PRIMARY.map((item) => {
         const isActive =
           item.href === '/me' ? path === '/me' : path.startsWith(item.href);
@@ -32,7 +34,7 @@ export function MemberSideNav({
             className={'item' + (isActive ? ' active' : '')}
           >
             <span>{item.label}</span>
-            {'countKey' in item ? (
+            {'countKey' in item && item.countKey ? (
               <span className="count">{counts[item.countKey]}</span>
             ) : null}
           </Link>
@@ -41,26 +43,26 @@ export function MemberSideNav({
 
       {isTrainer ? (
         <>
-          <div className="side-nav-title">Espace formateur</div>
+          <div className="side-nav-title">{t('trainerTitle')}</div>
           <Link
             href="/me/formateur"
             className={'item' + (path.startsWith('/me/formateur') ? ' active' : '')}
           >
-            <span>Mon espace formateur</span>
+            <span>{t('trainerLink')}</span>
           </Link>
         </>
       ) : null}
 
-      <div className="side-nav-title">Réservations</div>
+      <div className="side-nav-title">{t('reservationsTitle')}</div>
       <span className="item">
-        <span>Files d&apos;attente</span>
+        <span>{t('queues')}</span>
         <span className="count">0</span>
       </span>
-      <span className="item">Réservations à venir</span>
+      <span className="item">{t('upcomingReservations')}</span>
 
-      <div className="side-nav-title">Compte</div>
-      <span className="item">Paramètres</span>
-      <span className="item">Facturation</span>
+      <div className="side-nav-title">{t('accountTitle')}</div>
+      <span className="item">{t('settings')}</span>
+      <span className="item">{t('billing')}</span>
     </>
   );
 }

@@ -1,30 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 
-const TYPE_OPTIONS = [
-  { value: 'CDI', label: 'CDI' },
-  { value: 'CDD', label: 'CDD' },
-  { value: 'STAGE', label: 'Stage' },
-  { value: 'FREELANCE', label: 'Freelance' },
-  { value: 'ALTERNANCE', label: 'Alternance' },
-] as const;
-const LEVEL_OPTIONS = [
-  { value: 'JUNIOR', label: 'Junior' },
-  { value: 'INTERMEDIAIRE', label: 'Intermédiaire' },
-  { value: 'SENIOR', label: 'Senior' },
-  { value: 'EXECUTIVE', label: 'Cadre dirigeant' },
-] as const;
+const TYPE_VALUES = ['CDI', 'CDD', 'STAGE', 'FREELANCE', 'ALTERNANCE'] as const;
+const LEVEL_VALUES = ['JUNIOR', 'INTERMEDIAIRE', 'SENIOR', 'EXECUTIVE'] as const;
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export function RecruiterOfferForm() {
+  const t = useTranslations('offerForm');
+  const tJobs = useTranslations('jobs');
   const [recruiterEmail, setRecruiterEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<(typeof TYPE_OPTIONS)[number]['value']>('CDI');
-  const [level, setLevel] = useState<(typeof LEVEL_OPTIONS)[number]['value']>('JUNIOR');
+  const [type, setType] = useState<(typeof TYPE_VALUES)[number]>('CDI');
+  const [level, setLevel] = useState<(typeof LEVEL_VALUES)[number]>('JUNIOR');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [profile, setProfile] = useState('');
@@ -42,7 +34,7 @@ export function RecruiterOfferForm() {
   async function uploadSheet(file: File) {
     setUploadError(undefined);
     if (file.size > MAX_BYTES) {
-      setUploadError('Fichier trop volumineux (max 10 Mo).');
+      setUploadError(t('errorTooLarge'));
       return;
     }
     setUploading(true);
@@ -70,12 +62,8 @@ export function RecruiterOfferForm() {
   if (submit.isSuccess) {
     return (
       <div className="card" style={{ padding: 24 }}>
-        <h3>Offre reçue</h3>
-        <p>
-          Merci. Notre équipe va examiner votre dépôt sous 48 heures ouvrées et publiera l&apos;offre
-          si elle remplit nos critères. Vous recevrez un email de confirmation à
-          l&apos;adresse renseignée.
-        </p>
+        <h3>{t('successHeading')}</h3>
+        <p>{t('successBody')}</p>
       </div>
     );
   }
@@ -110,7 +98,7 @@ export function RecruiterOfferForm() {
   return (
     <form className="col gap-3 card" style={{ padding: 24 }} onSubmit={onSubmit}>
       <div>
-        <label className="label">Email du recruteur (destinataire des candidatures)</label>
+        <label className="label">{t('recruiterEmailLabel')}</label>
         <input
           className="input"
           type="email"
@@ -121,7 +109,7 @@ export function RecruiterOfferForm() {
       </div>
       <div className="row gap-2">
         <div style={{ flex: 1 }}>
-          <label className="label">Nom de l&apos;entreprise</label>
+          <label className="label">{t('companyLabel')}</label>
           <input
             className="input"
             value={companyName}
@@ -130,73 +118,78 @@ export function RecruiterOfferForm() {
           />
         </div>
         <div style={{ flex: 1 }}>
-          <label className="label">Localisation (optionnel)</label>
+          <label className="label">{t('locationLabel')}</label>
           <input
             className="input"
-            placeholder="Dakar, télétravail…"
+            placeholder={t('locationPlaceholder')}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
         </div>
       </div>
       <div>
-        <label className="label">Intitulé du poste</label>
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <label className="label">{t('titleLabel')}</label>
+        <input
+          className="input"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+        />
       </div>
       <div className="row gap-2">
         <div style={{ flex: 1 }}>
-          <label className="label">Type de contrat</label>
+          <label className="label">{t('typeLabel')}</label>
           <select
             className="select"
             value={type}
             onChange={(e) => setType(e.target.value as typeof type)}
           >
-            {TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+            {TYPE_VALUES.map((v) => (
+              <option key={v} value={v}>
+                {tJobs(`type${v}` as 'typeCDI')}
               </option>
             ))}
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <label className="label">Niveau</label>
+          <label className="label">{t('levelLabel')}</label>
           <select
             className="select"
             value={level}
             onChange={(e) => setLevel(e.target.value as typeof level)}
           >
-            {LEVEL_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+            {LEVEL_VALUES.map((v) => (
+              <option key={v} value={v}>
+                {tJobs(`level${v}` as 'levelJUNIOR')}
               </option>
             ))}
           </select>
         </div>
       </div>
       <div>
-        <label className="label">Description du poste</label>
+        <label className="label">{t('descriptionLabel')}</label>
         <textarea
           className="input"
           rows={5}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Missions, contexte, équipe…"
+          placeholder={t('descriptionPlaceholder')}
           required
         />
       </div>
       <div>
-        <label className="label">Profil recherché</label>
+        <label className="label">{t('profileLabel')}</label>
         <textarea
           className="input"
           rows={4}
           value={profile}
           onChange={(e) => setProfile(e.target.value)}
-          placeholder="Compétences, années d'expérience, diplômes…"
+          placeholder={t('profilePlaceholder')}
           required
         />
       </div>
       <div>
-        <label className="label">Coordonnées de contact (téléphone / email côté entreprise)</label>
+        <label className="label">{t('contactLabel')}</label>
         <textarea
           className="input"
           rows={2}
@@ -207,7 +200,7 @@ export function RecruiterOfferForm() {
       </div>
       <div className="row gap-2">
         <div style={{ flex: 1 }}>
-          <label className="label">Date de clôture (optionnel)</label>
+          <label className="label">{t('closesAtLabel')}</label>
           <input
             type="date"
             className="input"
@@ -222,12 +215,12 @@ export function RecruiterOfferForm() {
               checked={urgent}
               onChange={(e) => setUrgent(e.target.checked)}
             />
-            Marquer comme « urgent »
+            {t('urgentLabel')}
           </label>
         </div>
       </div>
       <div>
-        <label className="label">Fiche de poste (PDF, optionnel — max 10 Mo)</label>
+        <label className="label">{t('sheetLabel')}</label>
         <input
           type="file"
           accept="application/pdf"
@@ -237,13 +230,15 @@ export function RecruiterOfferForm() {
             if (f) void uploadSheet(f);
           }}
         />
-        {uploading ? <p className="fs-13">Téléversement en cours…</p> : null}
+        {uploading ? <p className="fs-13">{t('uploadInProgress')}</p> : null}
         {uploadError ? (
-          <p className="fs-13" style={{ color: 'var(--danger)' }}>{uploadError}</p>
+          <p className="fs-13" style={{ color: 'var(--danger)' }}>
+            {uploadError}
+          </p>
         ) : null}
         {fileSheetKey ? (
           <p className="fs-13">
-            Fiche jointe : {fileSheetName ?? fileSheetKey.split('/').pop()}
+            {t('sheetAttached')} {fileSheetName ?? fileSheetKey.split('/').pop()}
           </p>
         ) : null}
       </div>
@@ -257,7 +252,7 @@ export function RecruiterOfferForm() {
         className="btn btn-primary"
         disabled={!valid || submit.isPending || uploading}
       >
-        {submit.isPending ? 'Envoi…' : 'Soumettre l’offre pour modération'}
+        {submit.isPending ? t('submitting') : t('submitCta')}
       </button>
     </form>
   );

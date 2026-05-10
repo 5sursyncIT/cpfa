@@ -1,0 +1,27 @@
+# /etc/systemd/system/cpfa.service
+#
+# Manages the CPFA prod docker compose stack (postgres + redis + web + worker).
+# Container-level `restart: always` handles per-container crashes; this unit
+# ensures the whole stack comes up at boot and can be controlled with
+# `systemctl {start,stop,restart,status} cpfa`.
+
+[Unit]
+Description=CPFA platform (docker compose prod stack)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/cpfa
+Environment=COMPOSE_PROJECT_NAME=cpfa-prod
+ExecStart=/usr/bin/docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production down
+ExecReload=/usr/bin/docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --remove-orphans
+TimeoutStartSec=600
+Restart=on-failure
+RestartSec=15s
+
+[Install]
+WantedBy=multi-user.target

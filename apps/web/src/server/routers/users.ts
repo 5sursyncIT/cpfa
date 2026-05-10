@@ -1,9 +1,11 @@
+import argon2 from 'argon2';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { Role } from '@cpfa/db';
+import { Prisma, Role } from '@cpfa/db';
 import { router, permissionProcedure } from '../trpc';
 
 const ROLE_VALUES = Object.values(Role) as [Role, ...Role[]];
+const PRIVILEGED: Role[] = [Role.ADMIN, Role.SUPER_ADMIN];
 
 export const usersRouter = router({
   list: permissionProcedure('admin:any')
@@ -219,6 +221,175 @@ export const usersRouter = router({
           entityId: input.id,
         },
       });
+      return { ok: true };
+    }),
+
+  // ── Create a new account from the admin UI ──────────────────────────────
+  // SUPER_ADMIN only when granting ADMIN/SUPER_ADMIN. Marks the email as
+  // verified (admin-vouched) so the user can sign in immediately. If a
+  // password is provided it's hashed with argon2id; otherwise the user
+  // signs in via magic link or Google.
+  create: permissionProcedure('admin:any')
+    .input(
+      z.object({
+        email: z.string().email().toLowerCase().trim(),
+        firstName: z.string().trim().max(120).optional(),
+        lastName: z.string().trim().max(120).optional(),
+        phone: z.string().trim().max(40).optional(),
+        locale: z.string().trim().min(2).max(8).default('fr'),
+        roles: z.array(z.enum(ROLE_VALUES)).min(1).max(9),
+        password: z.string().min(8).max(128).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const callerIsSuperAdmin = ctx.session.user.roles.includes(Role.SUPER_ADMIN);
+      const grantsPrivileged = input.roles.some((r) => PRIVILEGED.includes(r));
+      if (grantsPrivileged && !callerIsSuperAdmin) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Seul un Super-admin peut créer un compte ADMIN ou SUPER_ADMIN.',
+        });
+      }
+
+      const existing = await ctx.prisma.user.findUnique({
+        where: { email: input.email },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new TRPCError({ code: 'CONFLICT', message: 'Un compte existe déjà pour cet email.' });
+      }
+
+      const passwordHash = input.password
+        ? await argon2.hash(input.password, { type: argon2.argon2id })
+        : null;
+
+      const created = await ctx.prisma.user.create({
+        data: {
+          email: input.email,
+          firstName: input.firstName?.trim() || null,
+          lastName: input.lastName?.trim() || null,
+          phone: input.phone?.trim() || null,
+          locale: input.locale,
+          roles: input.roles,
+          passwordHash,
+          // Admin-created accounts skip email verification.
+          emailVerifiedAt: new Date(),
+        },
+        select: { id: true, email: true, roles: true },
+      });
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          actorId: ctx.session.user.id,
+          action: 'user.create',
+          entity: 'User',
+          entityId: created.id,
+          diff: {
+            email: created.email,
+            roles: created.roles,
+            hasPassword: passwordHash !== null,
+          },
+        },
+      });
+
+      return created;
+    }),
+
+  // ── Hard delete ──────────────────────────────────────────────────────────
+  // Refuses to delete a user that has business records (subscriptions, loans,
+  // registrations, payments, trainer profile). The admin should use
+  // revokeAccess instead in that case to preserve the audit trail.
+  // Auth Account/Session rows cascade automatically; AuditLog.actorId is
+  // optional so it nulls out (we keep the action history but lose the actor).
+  delete: permissionProcedure('admin:any')
+    .input(z.object({ id: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.id === ctx.session.user.id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Impossible de supprimer ton propre compte.',
+        });
+      }
+
+      const callerIsSuperAdmin = ctx.session.user.roles.includes(Role.SUPER_ADMIN);
+      const target = await ctx.prisma.user.findUnique({
+        where: { id: input.id },
+        select: {
+          id: true,
+          email: true,
+          roles: true,
+          _count: {
+            select: {
+              subscriptions: true,
+              loans: true,
+              registrations: true,
+              payments: true,
+            },
+          },
+          trainerProfile: { select: { id: true } },
+        },
+      });
+      if (!target) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      const hasPrivileged = target.roles.some((r) => PRIVILEGED.includes(r));
+      if (hasPrivileged && !callerIsSuperAdmin) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Seul un Super-admin peut supprimer un compte ADMIN ou SUPER_ADMIN.',
+        });
+      }
+
+      // Don't delete the last super-admin.
+      if (target.roles.includes(Role.SUPER_ADMIN)) {
+        const otherSuperAdmins = await ctx.prisma.user.count({
+          where: { id: { not: target.id }, roles: { has: Role.SUPER_ADMIN } },
+        });
+        if (otherSuperAdmins === 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Impossible de supprimer le dernier Super-admin.',
+          });
+        }
+      }
+
+      const dependents: string[] = [];
+      if (target._count.subscriptions > 0) dependents.push(`${target._count.subscriptions} abonnement(s)`);
+      if (target._count.loans > 0) dependents.push(`${target._count.loans} prêt(s)`);
+      if (target._count.registrations > 0) dependents.push(`${target._count.registrations} inscription(s)`);
+      if (target._count.payments > 0) dependents.push(`${target._count.payments} paiement(s)`);
+      if (target.trainerProfile) dependents.push('un profil formateur');
+      if (dependents.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message:
+            `Suppression refusée : ce compte est lié à ${dependents.join(', ')}. ` +
+            "Utilise plutôt « Révoquer l'accès » pour préserver l'historique.",
+        });
+      }
+
+      try {
+        await ctx.prisma.user.delete({ where: { id: target.id } });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message:
+              "Suppression refusée : il reste des enregistrements liés à ce compte. Utilise plutôt « Révoquer l'accès ».",
+          });
+        }
+        throw err;
+      }
+
+      await ctx.prisma.auditLog.create({
+        data: {
+          actorId: ctx.session.user.id,
+          action: 'user.delete',
+          entity: 'User',
+          entityId: target.id,
+          diff: { email: target.email, roles: target.roles },
+        },
+      });
+
       return { ok: true };
     }),
 

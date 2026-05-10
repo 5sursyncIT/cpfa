@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { CreatePageButton } from './create-page-button';
+import { ClonePageButton } from './clone-page-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Pages CMS — Admin CPFA' };
@@ -23,29 +24,44 @@ export default async function AdminCmsPage({
   const { locale: rawLocale, q } = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'fr';
 
-  const pages = await prisma.page.findMany({
-    where: {
-      locale,
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { slug: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 200,
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      locale: true,
-      published: true,
-      updatedAt: true,
-    },
-  });
+  const otherLocale = locale === 'fr' ? 'en' : 'fr';
+
+  const [pages, otherPages] = await Promise.all([
+    prisma.page.findMany({
+      where: {
+        locale,
+        ...(q
+          ? {
+              OR: [
+                { title: { contains: q, mode: 'insensitive' } },
+                { slug: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        locale: true,
+        published: true,
+        updatedAt: true,
+      },
+    }),
+    // For coverage panel: pages in the OTHER locale that have no twin in the
+    // current one. Editors can clone them in one click to bootstrap a translation.
+    prisma.page.findMany({
+      where: { locale: otherLocale },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+      select: { id: true, slug: true, title: true, locale: true, published: true },
+    }),
+  ]);
+
+  const ownSlugs = new Set(pages.map((p) => p.slug));
+  const missingFromCurrent = otherPages.filter((p) => !ownSlugs.has(p.slug));
 
   return (
     <>
@@ -95,6 +111,45 @@ export default async function AdminCmsPage({
           {q ? <Link href={`/admin/cms?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
         </div>
       </form>
+
+      {missingFromCurrent.length > 0 ? (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-head">
+            <h4>
+              Pages présentes en {otherLocale.toUpperCase()} mais manquantes en{' '}
+              {locale.toUpperCase()} · {missingFromCurrent.length}
+            </h4>
+          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Titre ({otherLocale.toUpperCase()})</th>
+                <th>Slug</th>
+                <th>Publication</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {missingFromCurrent.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.title}</td>
+                  <td className="mono fs-13 text-soft">/p/{p.slug}</td>
+                  <td>
+                    {p.published ? (
+                      <span className="pill pill-success">Publiée</span>
+                    ) : (
+                      <span className="pill">Brouillon</span>
+                    )}
+                  </td>
+                  <td>
+                    <ClonePageButton sourceId={p.id} targetLocale={locale} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div className="panel">
         {pages.length === 0 ? (

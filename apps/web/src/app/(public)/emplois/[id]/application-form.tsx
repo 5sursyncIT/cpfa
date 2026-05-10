@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { trpc } from '@/lib/trpc';
 
 const ALLOWED_CV = ['application/pdf'];
@@ -13,6 +14,7 @@ export function JobApplicationForm({
   jobId: string;
   jobTitle: string;
 }) {
+  const t = useTranslations('jobApplicationForm');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,11 +31,11 @@ export function JobApplicationForm({
   async function uploadCv(file: File) {
     setUploadError(undefined);
     if (!ALLOWED_CV.includes(file.type)) {
-      setUploadError('Format non autorisé : merci de fournir un PDF.');
+      setUploadError(t('errorBadFormat'));
       return;
     }
     if (file.size > MAX_BYTES) {
-      setUploadError('Fichier trop volumineux (max 8 Mo).');
+      setUploadError(t('errorTooLarge'));
       return;
     }
     setUploading(true);
@@ -61,9 +63,9 @@ export function JobApplicationForm({
   if (submit.isSuccess) {
     return (
       <div style={{ background: 'var(--bg-soft, #f1f5f9)', padding: 12, borderRadius: 6 }}>
-        <strong>Candidature transmise.</strong>
+        <strong>{t('successHeading')}</strong>
         <p className="fs-13 text-soft" style={{ marginTop: 4 }}>
-          Vous recevrez un email de confirmation. Le recruteur vous contactera directement.
+          {t('successBody')}
         </p>
       </div>
     );
@@ -95,7 +97,7 @@ export function JobApplicationForm({
       <div className="row gap-2">
         <input
           className="input"
-          placeholder="Prénom"
+          placeholder={t('firstNamePlaceholder')}
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           required
@@ -103,7 +105,7 @@ export function JobApplicationForm({
         />
         <input
           className="input"
-          placeholder="Nom"
+          placeholder={t('lastNamePlaceholder')}
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           required
@@ -113,7 +115,7 @@ export function JobApplicationForm({
       <input
         className="input"
         type="email"
-        placeholder="Email"
+        placeholder={t('emailPlaceholder')}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
@@ -121,20 +123,20 @@ export function JobApplicationForm({
       <input
         className="input"
         type="tel"
-        placeholder="Téléphone (optionnel)"
+        placeholder={t('phonePlaceholder')}
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
       />
       <textarea
         className="input"
         rows={4}
-        placeholder={`Pourquoi postulez-vous au poste de ${jobTitle} ? (≥ 20 caractères)`}
+        placeholder={t('motivationPlaceholder', { jobTitle })}
         value={motivation}
         onChange={(e) => setMotivation(e.target.value)}
         required
       />
       <div>
-        <label className="label">CV (PDF, max 8 Mo)</label>
+        <label className="label">{t('cvLabel')}</label>
         <input
           type="file"
           accept="application/pdf"
@@ -144,11 +146,17 @@ export function JobApplicationForm({
             if (f) void uploadCv(f);
           }}
         />
-        {uploading ? <p className="fs-13">Téléversement en cours…</p> : null}
+        {uploading ? <p className="fs-13">{t('uploadInProgress')}</p> : null}
         {uploadError ? (
-          <p className="fs-13" style={{ color: 'var(--danger)' }}>{uploadError}</p>
+          <p className="fs-13" style={{ color: 'var(--danger)' }}>
+            {uploadError}
+          </p>
         ) : null}
-        {cvKey ? <p className="fs-13">CV joint : {cvName ?? cvKey.split('/').pop()}</p> : null}
+        {cvKey ? (
+          <p className="fs-13">
+            {t('cvAttached')} {cvName ?? cvKey.split('/').pop()}
+          </p>
+        ) : null}
       </div>
       {submit.error ? (
         <p className="fs-13" style={{ color: 'var(--danger)' }}>
@@ -160,7 +168,7 @@ export function JobApplicationForm({
         className="btn btn-primary"
         disabled={!valid || submit.isPending || uploading}
       >
-        {submit.isPending ? 'Envoi…' : 'Envoyer ma candidature'}
+        {submit.isPending ? t('submitting') : t('submitCta')}
       </button>
     </form>
   );

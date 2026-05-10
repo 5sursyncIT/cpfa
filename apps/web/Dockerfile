@@ -15,6 +15,11 @@ WORKDIR /repo
 
 # ── Deps (cached on package files only) ──────────────────────────────────────
 FROM base AS deps
+# The host .npmrc uses node-linker=isolated (.pnpm/ store); the COPY --from=builder
+# paths below assume a flat npm-style layout. Force a hoisted (real-folder) layout
+# for the prod build only, so prisma generate writes node_modules/.prisma/client
+# at the project root and the COPY targets resolve.
+ENV NPM_CONFIG_NODE_LINKER=hoisted
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/db/package.json ./packages/db/
@@ -84,7 +89,8 @@ WORKDIR /app
 COPY --from=builder /repo/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /repo/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /repo/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /repo/node_modules/.bin/prisma ./node_modules/.bin/prisma
 COPY --from=builder /repo/packages/db/prisma ./prisma
+# Invoke the prisma CLI script directly. The .bin/prisma binstub is a symlink
+# whose __dirname-relative .wasm lookup breaks when Docker COPY dereferences it.
 ENTRYPOINT ["tini", "--"]
-CMD ["node_modules/.bin/prisma", "migrate", "deploy", "--schema=prisma/schema.prisma"]
+CMD ["node", "node_modules/prisma/build/index.js", "migrate", "deploy", "--schema=prisma/schema.prisma"]
