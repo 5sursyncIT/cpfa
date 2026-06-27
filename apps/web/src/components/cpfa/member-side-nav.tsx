@@ -8,7 +8,7 @@ export function MemberSideNav({
   counts,
   isTrainer,
 }: {
-  counts: { loans: number; registrations: number };
+  counts: { registrations: number };
   isTrainer?: boolean;
 }) {
   const path = usePathname() ?? '/me';
@@ -17,7 +17,7 @@ export function MemberSideNav({
   const PRIMARY = [
     { href: '/me', label: t('dashboard') },
     { href: '/me/abonnement', label: t('card') },
-    { href: '/me/bibliotheque', label: t('loans'), countKey: 'loans' as const },
+    { href: '/me/bibliotheque', label: t('library') },
     { href: '/me/inscriptions', label: t('registrations'), countKey: 'registrations' as const },
   ];
 

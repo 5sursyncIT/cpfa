@@ -19,10 +19,7 @@ export default async function EditResourcePage({
 
   const { id } = await params;
   const [resource, categories] = await Promise.all([
-    prisma.resource.findUnique({
-      where: { id },
-      include: { _count: { select: { loans: true } } },
-    }),
+    prisma.resource.findUnique({ where: { id } }),
     prisma.category.findMany({ orderBy: { name: 'asc' } }),
   ]);
   if (!resource) notFound();
@@ -36,7 +33,6 @@ export default async function EditResourcePage({
         </div>
         <h2 style={{ fontSize: 'clamp(28px, 3vw, 36px)', marginTop: 8 }}>{resource.title}</h2>
         <div className="fs-13 text-soft" style={{ marginTop: 4 }}>
-          {resource._count.loans} prêt{resource._count.loans > 1 ? 's' : ''} historique{resource._count.loans > 1 ? 's' : ''} ·
           QR : <code className="mono">{resource.qrPayload}</code>
         </div>
       </div>
@@ -50,6 +46,7 @@ export default async function EditResourcePage({
           title: resource.title,
           subtitle: resource.subtitle,
           authors: resource.authors,
+          cote: resource.cote,
           isbn: resource.isbn,
           publisher: resource.publisher,
           publishedYear: resource.publishedYear,

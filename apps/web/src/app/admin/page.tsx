@@ -1,9 +1,22 @@
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
-import { AdminSparkline } from '@/components/cpfa/admin-sparkline';
+import { getRedis } from '@cpfa/lib/queues';
 
 export const dynamic = 'force-dynamic';
+
+async function probeHealth(): Promise<{ ok: boolean; label: string }> {
+  const [db, redis] = await Promise.all([
+    prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+    getRedis()
+      .ping()
+      .then((r) => r === 'PONG')
+      .catch(() => false),
+  ]);
+  if (db && redis) return { ok: true, label: 'Services OK' };
+  if (!db) return { ok: false, label: 'Base de données indisponible' };
+  return { ok: false, label: 'File d’attente indisponible' };
+}
 
 const fmtXof = (n: number) => `${n.toLocaleString('fr-FR')} FCFA`;
 const fmtDateTime = new Intl.DateTimeFormat('fr-FR', {
@@ -20,37 +33,56 @@ const STATUS_PILL: Record<string, { label: string; className: string }> = {
   CANCELLED: { label: 'Annulée', className: '' },
 };
 
-export default async function AdminHomePage() {
+export default async function AdminHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
   const session = (await auth())!;
   const now = new Date();
   const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const last7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // ── Year filter ───────────────────────────────────────────────────────────
+  // Scopes the headline figures (active registrations, revenue, programme
+  // breakdown) to a calendar year. The list of years is derived from the data.
+  const currentYear = now.getFullYear();
+  const firstRecord = await prisma.registration.findFirst({
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  const minYear = firstRecord ? firstRecord.createdAt.getFullYear() : currentYear;
+  const availableYears: number[] = [];
+  for (let y = currentYear; y >= minYear; y--) availableYears.push(y);
+
+  const requestedYear = Number((await searchParams).year);
+  const selectedYear = availableYears.includes(requestedYear) ? requestedYear : currentYear;
+  const yearStart = new Date(selectedYear, 0, 1);
+  const yearEnd = new Date(selectedYear + 1, 0, 1);
+  const yearRange = { gte: yearStart, lt: yearEnd };
 
   const [
+    health,
     activeRegs,
     pendingApplicants,
-    revenue30,
-    insertion,
+    revenueYear,
+    activeSubscribers,
     last30Regs,
     courseStats,
     payments,
-    recentLoans,
-    returnedLoans,
-    reservations,
     revenueRows,
-    weekLoanCounts,
   ] = await Promise.all([
+    probeHealth(),
     prisma.registration.count({
-      where: { status: { in: ['PAID', 'VALIDATED'] } },
+      where: { status: { in: ['PAID', 'VALIDATED'] }, createdAt: yearRange },
     }),
     prisma.registration.count({
       where: { status: 'SUBMITTED', examId: { not: null } },
     }),
     prisma.payment.aggregate({
       _sum: { amountXof: true },
-      where: { status: 'CONFIRMED', receivedAt: { gte: last30 } },
+      where: { status: 'CONFIRMED', receivedAt: yearRange },
     }),
-    Promise.resolve(96),
+    prisma.subscription.count({ where: { status: 'ACTIVE' } }),
     prisma.registration.findMany({
       where: { createdAt: { gte: last30 } },
       orderBy: { createdAt: 'desc' },
@@ -69,7 +101,9 @@ export default async function AdminHomePage() {
       include: {
         _count: {
           select: {
-            registrations: { where: { status: { in: ['PAID', 'VALIDATED'] } } },
+            registrations: {
+              where: { status: { in: ['PAID', 'VALIDATED'] }, createdAt: yearRange },
+            },
           },
         },
       },
@@ -88,33 +122,16 @@ export default async function AdminHomePage() {
         },
       },
     }),
-    prisma.loan.count({ where: { borrowedAt: { gte: last7 } } }),
-    prisma.loan.count({ where: { returnedAt: { gte: last7 } } }),
-    prisma.loan.count({
-      where: { status: 'ACTIVE', borrowedAt: { gte: last7 } },
-    }),
     prisma.payment.findMany({
       where: { status: 'CONFIRMED', receivedAt: { gte: last30 } },
       select: { receivedAt: true, amountXof: true },
       orderBy: { receivedAt: 'asc' },
     }),
-    prisma.loan.findMany({
-      where: { borrowedAt: { gte: last7 } },
-      select: { borrowedAt: true },
-    }),
   ]);
 
-  // Daily loan counts for sparkline
-  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-  const dayBuckets = new Array(7).fill(0) as number[];
-  for (const l of weekLoanCounts) {
-    const diffDays = Math.min(
-      6,
-      Math.floor((now.getTime() - l.borrowedAt.getTime()) / (24 * 60 * 60 * 1000)),
-    );
-    const idx = 6 - diffDays;
-    if (idx >= 0) dayBuckets[idx]! += 1;
-  }
+  // Scale the programme bars to the busiest programme so they stay meaningful
+  // whatever the cohort size (Course has no fixed capacity).
+  const programMax = Math.max(1, ...courseStats.map((c) => c._count.registrations));
 
   // Revenue series for header
   const buckets = new Map<string, number>();
@@ -141,10 +158,23 @@ export default async function AdminHomePage() {
           </h2>
         </div>
         <div className="row gap-2">
-          <select className="select" defaultValue="2026" style={{ width: 200 }}>
-            <option value="2026">Année 2026</option>
-            <option value="2025">Année 2025</option>
-          </select>
+          <form method="get" className="row gap-2">
+            <select
+              name="year"
+              className="select"
+              defaultValue={String(selectedYear)}
+              style={{ width: 160 }}
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  Année {y}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="btn btn-ghost">
+              Afficher
+            </button>
+          </form>
           <Link href="/api/admin/exports/registrations.csv" className="btn btn-primary">
             Exporter CSV
           </Link>
@@ -155,7 +185,7 @@ export default async function AdminHomePage() {
         <div className="kpi">
           <div className="label">Inscriptions actives</div>
           <div className="value">{activeRegs}</div>
-          <div className="delta up">↑ {last30Regs.length} ces 30 derniers jours</div>
+          <div className="delta up">Réglées / validées · {selectedYear}</div>
         </div>
         <div className="kpi">
           <div className="label">Candidatures concours</div>
@@ -163,16 +193,16 @@ export default async function AdminHomePage() {
           <div className="delta up">À examiner</div>
         </div>
         <div className="kpi">
-          <div className="label">Recettes 30j</div>
+          <div className="label">Recettes {selectedYear}</div>
           <div className="value">
-            {((revenue30._sum.amountXof ?? 0) / 1_000_000).toFixed(1)}M
+            {((revenueYear._sum.amountXof ?? 0) / 1_000_000).toFixed(1)}M
           </div>
-          <div className="delta up">FCFA · {fmtXof(revenue30._sum.amountXof ?? 0)}</div>
+          <div className="delta up">FCFA · {fmtXof(revenueYear._sum.amountXof ?? 0)}</div>
         </div>
         <div className="kpi">
-          <div className="label">Taux d&apos;insertion</div>
-          <div className="value">{insertion}%</div>
-          <div className="delta up">12 mois après diplôme</div>
+          <div className="label">Abonnés bibliothèque actifs</div>
+          <div className="value">{activeSubscribers}</div>
+          <div className="delta up">Abonnements en cours</div>
         </div>
       </div>
 
@@ -231,14 +261,14 @@ export default async function AdminHomePage() {
         <div className="panel">
           <div className="panel-head">
             <h4>Inscriptions par programme</h4>
-            <span className="text-soft fs-13 mono">Promo en cours</span>
+            <span className="text-soft fs-13 mono">Année {selectedYear}</span>
           </div>
           <div style={{ padding: 24 }} className="col gap-4">
             {courseStats.length === 0 ? (
               <p className="text-soft">Aucune formation publiée.</p>
             ) : (
               courseStats.map((c) => {
-                const max = 30; // visual cap
+                const max = programMax;
                 const val = c._count.registrations;
                 const pct = Math.min(100, Math.round((val / max) * 100));
                 return (
@@ -278,29 +308,13 @@ export default async function AdminHomePage() {
 
       <div style={{ height: 24 }}></div>
 
-      <div className="admin-grid-2">
-        <div className="panel">
-          <div className="panel-head">
-            <h4>Activité bibliothèque · 7 derniers jours</h4>
-          </div>
-          <div style={{ padding: 24 }}>
-            <AdminSparkline
-              days={days}
-              data={dayBuckets}
-              kpis={[
-                { label: 'Prêts émis', value: recentLoans },
-                { label: 'Retours', value: returnedLoans },
-                { label: 'Réservations', value: reservations },
-              ]}
-            />
-          </div>
-        </div>
-
+      <div>
         <div className="panel">
           <div className="panel-head">
             <h4>Paiements récents</h4>
-            <span className="pill pill-success">
-              <span className="dot"></span>API up
+            <span className={'pill ' + (health.ok ? 'pill-success' : 'pill-warning')}>
+              <span className="dot"></span>
+              {health.label}
             </span>
           </div>
           {payments.length === 0 ? (

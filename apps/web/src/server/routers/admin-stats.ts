@@ -9,16 +9,12 @@ export const adminStatsRouter = router({
 
     const [
       activeSubscribers,
-      activeLoans,
-      overdueLoans,
       pendingRegistrations,
       pendingPayments,
       revenueLast30Sum,
       newRegistrationsLast30,
     ] = await Promise.all([
       ctx.prisma.subscription.count({ where: { status: 'ACTIVE' } }),
-      ctx.prisma.loan.count({ where: { status: 'ACTIVE' } }),
-      ctx.prisma.loan.count({ where: { status: 'ACTIVE', dueAt: { lt: now } } }),
       ctx.prisma.registration.count({ where: { status: { in: ['SUBMITTED', 'PAID'] } } }),
       ctx.prisma.payment.count({ where: { status: 'PENDING' } }),
       ctx.prisma.payment.aggregate({
@@ -30,8 +26,6 @@ export const adminStatsRouter = router({
 
     return {
       activeSubscribers,
-      activeLoans,
-      overdueLoans,
       pendingRegistrations,
       pendingPayments,
       revenueLast30Xof: revenueLast30Sum._sum.amountXof ?? 0,

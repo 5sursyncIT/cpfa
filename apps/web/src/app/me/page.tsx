@@ -4,8 +4,6 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { MemberCard } from '@/components/cpfa/member-card';
-import { LoanList } from '@/components/cpfa/loan-list';
-import { pickCover } from '@/lib/cpfa-mappers';
 import { resolveLocale } from '@/i18n/request';
 
 export const dynamic = 'force-dynamic';
@@ -26,14 +24,8 @@ export default async function MeDashboardPage() {
     hasPermission(session.user.roles, 'admin:any') ||
     hasPermission(session.user.roles, 'library:manage');
 
-  const [activeLoans, subscription, registrations, nextSeminar, t, tStatus, locale] =
+  const [subscription, registrations, nextSeminar, t, tStatus, locale] =
     await Promise.all([
-      prisma.loan.findMany({
-        where: { userId, status: 'ACTIVE' },
-        orderBy: { dueAt: 'asc' },
-        take: 3,
-        include: { resource: { select: { id: true, title: true, authors: true } } },
-      }),
       prisma.subscription.findFirst({
         where: { userId, status: 'ACTIVE' },
         select: { cardNumber: true, expiresAt: true, startedAt: true },
@@ -81,21 +73,6 @@ export default async function MeDashboardPage() {
     ? t('promotion', { year: subscription.startedAt.getFullYear() })
     : '—';
   const validUntil = subscription?.expiresAt ? fmtFull.format(subscription.expiresAt) : '—';
-
-  const loanItems = activeLoans.map((l) => ({
-    id: l.id,
-    title: l.resource.title,
-    author: (l.resource.authors[0] ?? '').toUpperCase(),
-    due: fmtMonth.format(l.dueAt),
-    late: l.dueAt.getTime() < Date.now(),
-    cover: pickCover<'navy' | 'orange' | 'ink' | 'cream' | 'olive'>(l.resource.id, [
-      'navy',
-      'orange',
-      'ink',
-      'cream',
-      'olive',
-    ]),
-  }));
 
   return (
     <div className="col gap-6">
@@ -153,20 +130,6 @@ export default async function MeDashboardPage() {
             </>
           )}
         </div>
-      </div>
-
-      <div>
-        <div className="section-title-row">
-          <h3>{t('activeLoansHeading')}</h3>
-          <Link href="/me/bibliotheque" className="btn-link fs-13">
-            {t('viewAll')} →
-          </Link>
-        </div>
-        {loanItems.length === 0 ? (
-          <p className="text-soft">{t('noActiveLoans')}</p>
-        ) : (
-          <LoanList items={loanItems} />
-        )}
       </div>
 
       <div>

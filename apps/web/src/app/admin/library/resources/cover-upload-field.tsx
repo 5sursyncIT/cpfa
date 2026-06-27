@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { mediaUrl } from '@/lib/media';
+import { useConfirm } from '@/components/cpfa/admin-ui';
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/avif,image/gif';
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -22,6 +23,7 @@ export function CoverUploadField({
   helperText?: string;
   previewVariant?: 'portrait' | 'landscape';
 }) {
+  const askConfirm = useConfirm();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<
     'idle' | 'signing' | 'uploading' | 'confirming' | 'error'
@@ -130,9 +132,14 @@ export function CoverUploadField({
                 className="btn-link fs-13"
                 style={{ color: 'var(--danger)' }}
                 disabled={busy}
-                onClick={() => {
-                  if (!window.confirm('Retirer la couverture ?')) return;
-                  onChange(null);
+                onClick={async () => {
+                  const { confirmed } = await askConfirm({
+                    title: 'Retirer cette image ?',
+                    message: 'L’image sera détachée. Vous pourrez en choisir une autre ensuite.',
+                    confirmLabel: 'Retirer',
+                    danger: true,
+                  });
+                  if (confirmed) onChange(null);
                 }}
               >
                 Retirer
@@ -143,8 +150,8 @@ export function CoverUploadField({
             {helperText}
           </p>
           {value ? (
-            <p className="fs-13 text-soft mono" style={{ wordBreak: 'break-all' }}>
-              {value}
+            <p className="fs-13 text-soft">
+              Fichier : {value.split('/').pop()}
             </p>
           ) : null}
           {error ? (

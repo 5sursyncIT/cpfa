@@ -53,6 +53,7 @@ export default async function EditCoursePage({
           durationHours: course.durationHours,
           priceXof: course.priceXof,
           description: course.description,
+          admissionCriteria: course.admissionCriteria,
           brochureKey: course.brochureKey,
           coverImageKey: course.coverImageKey,
           published: course.published,

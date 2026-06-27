@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
+import { useConfirm } from '@/components/cpfa/admin-ui';
 
 type Cat = {
   id: string;
@@ -24,10 +25,10 @@ function slugify(s: string) {
 
 export function CategoriesEditor({ initial }: { initial: Cat[] }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [cats] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
-  const [draftSlug, setDraftSlug] = useState('');
   const [draftParent, setDraftParent] = useState<string>('');
 
   const create = trpc.library.categoryCreate.useMutation();
@@ -40,11 +41,10 @@ export function CategoriesEditor({ initial }: { initial: Cat[] }) {
     try {
       await create.mutateAsync({
         name: draftName.trim(),
-        slug: (draftSlug || slugify(draftName)).trim(),
+        slug: slugify(draftName).trim(),
         parentId: draftParent || null,
       });
       setDraftName('');
-      setDraftSlug('');
       setDraftParent('');
       router.refresh();
     } catch (err) {
@@ -53,11 +53,19 @@ export function CategoriesEditor({ initial }: { initial: Cat[] }) {
   }
 
   async function onRename(id: string, current: string) {
-    const next = window.prompt('Nouveau nom', current);
-    if (!next || next === current) return;
+    const { confirmed, reason } = await confirm({
+      title: 'Renommer la catégorie',
+      confirmLabel: 'Renommer',
+      reasonLabel: 'Nouveau nom',
+      reasonDefault: current,
+      reasonSingleLine: true,
+      reasonMinLength: 1,
+    });
+    const next = reason.trim();
+    if (!confirmed || !next || next === current) return;
     setError(null);
     try {
-      await update.mutateAsync({ id, name: next.trim() });
+      await update.mutateAsync({ id, name: next });
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue.');
@@ -65,15 +73,24 @@ export function CategoriesEditor({ initial }: { initial: Cat[] }) {
   }
 
   async function onChangeParent(id: string, currentParentId: string | null) {
-    const options = ['(racine)']
-      .concat(cats.filter((c) => c.id !== id).map((c) => c.name))
-      .join('\n  - ');
-    const choice = window.prompt(
-      `Nouveau parent (entrez le nom exact ou laissez vide pour racine) :\n  - ${options}`,
-      currentParentId ? cats.find((c) => c.id === currentParentId)?.name ?? '' : '',
-    );
-    if (choice === null) return;
-    const trimmed = choice.trim();
+    const available = cats
+      .filter((c) => c.id !== id)
+      .map((c) => c.name)
+      .join(', ');
+    const { confirmed, reason } = await confirm({
+      title: 'Changer la catégorie parente',
+      message: `Laissez vide pour mettre à la racine. Catégories disponibles : ${available || 'aucune'}.`,
+      confirmLabel: 'Déplacer',
+      reasonLabel: 'Nom exact de la catégorie parente',
+      reasonPlaceholder: 'Vide = racine',
+      reasonSingleLine: true,
+      reasonMinLength: 0,
+      reasonDefault: currentParentId
+        ? cats.find((c) => c.id === currentParentId)?.name ?? ''
+        : '',
+    });
+    if (!confirmed) return;
+    const trimmed = reason.trim();
     const target = trimmed === '' ? null : cats.find((c) => c.name === trimmed)?.id ?? null;
     if (trimmed && !target) {
       setError(`Catégorie introuvable : ${trimmed}`);
@@ -89,7 +106,13 @@ export function CategoriesEditor({ initial }: { initial: Cat[] }) {
   }
 
   async function onDelete(c: Cat) {
-    if (!window.confirm(`Supprimer la catégorie "${c.name}" ?`)) return;
+    const { confirmed } = await confirm({
+      title: 'Supprimer cette catégorie ?',
+      message: `« ${c.name} » sera supprimée. Les ressources rattachées ne seront pas supprimées.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!confirmed) return;
     setError(null);
     try {
       await del.mutateAsync({ id: c.id });
@@ -124,21 +147,8 @@ export function CategoriesEditor({ initial }: { initial: Cat[] }) {
               id="cat-name"
               className="input"
               value={draftName}
-              onChange={(e) => {
-                setDraftName(e.target.value);
-                if (!draftSlug) setDraftSlug(slugify(e.target.value));
-              }}
+              onChange={(e) => setDraftName(e.target.value)}
               required
-            />
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <label className="label" htmlFor="cat-slug">Slug</label>
-            <input
-              id="cat-slug"
-              className="input"
-              value={draftSlug}
-              onChange={(e) => setDraftSlug(slugify(e.target.value))}
-              placeholder="auto"
             />
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
@@ -171,7 +181,6 @@ export function CategoriesEditor({ initial }: { initial: Cat[] }) {
             <thead>
               <tr>
                 <th>Catégorie</th>
-                <th>Slug</th>
                 <th>Ressources</th>
                 <th>Sous-catégories</th>
                 <th></th>
@@ -223,7 +232,6 @@ function CategoryRows({
           {depth > 0 ? <span aria-hidden="true">↳ </span> : null}
           <span style={{ fontWeight: depth === 0 ? 500 : 400 }}>{cat.name}</span>
         </td>
-        <td className="mono fs-13 text-soft">{cat.slug}</td>
         <td className="mono fs-13">{cat.resourceCount}</td>
         <td className="mono fs-13">{cat.childCount}</td>
         <td>

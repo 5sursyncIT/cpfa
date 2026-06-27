@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
+import { slugify } from '@/lib/slugify';
 
 export function CreateArticleButton({ locale = 'fr' }: { locale?: 'fr' | 'en' }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [slug, setSlug] = useState('');
   const [title, setTitle] = useState('');
   const create = trpc.cms.articles.create.useMutation({
     onSuccess: ({ id }) => router.push(`/admin/articles/${id}`),
@@ -22,27 +22,27 @@ export function CreateArticleButton({ locale = 'fr' }: { locale?: 'fr' | 'en' })
     );
   }
 
+  const slug = slugify(title);
+
   return (
     <div className="flex flex-wrap items-end gap-2">
       <label className="text-sm">
-        <span className="mb-1 block text-xs text-muted-foreground">Slug</span>
-        <input
-          value={slug}
-          onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-          placeholder="reforme-cima-2026"
-          className="rounded-md border bg-background px-3 py-1.5 text-sm"
-        />
-      </label>
-      <label className="text-sm">
-        <span className="mb-1 block text-xs text-muted-foreground">Titre</span>
+        <span className="mb-1 block text-xs text-muted-foreground">Titre de l’article</span>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          placeholder="Réforme CIMA 2026"
           className="rounded-md border bg-background px-3 py-1.5 text-sm"
+          autoFocus
         />
+        {slug ? (
+          <span className="mt-1 block text-[11px] text-muted-foreground">
+            Adresse web : /blog/{slug}
+          </span>
+        ) : null}
       </label>
       <Button
-        disabled={!slug || !title || create.isPending}
+        disabled={!slug || create.isPending}
         onClick={() =>
           create.mutate({ slug, title, locale, content: [], tags: [], published: false })
         }

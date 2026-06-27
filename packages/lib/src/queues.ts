@@ -1,7 +1,7 @@
 import { Queue, type ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
 
-export type QueueName = 'email' | 'pdf' | 'loan-reminders' | 'payment-webhook';
+export type QueueName = 'email' | 'pdf' | 'payment-webhook';
 
 let _connection: IORedis | undefined;
 
@@ -31,7 +31,6 @@ export type EmailJob = {
   to: string;
   // Magic-link is sent inline by Auth.js (Resend provider) — never enqueued here.
   template:
-    | 'loan-reminder'
     | 'contact'
     | 'convocation'
     | 'trainer-approved'
@@ -56,8 +55,6 @@ export type PdfJob =
   | { kind: 'subscriber-card'; subscriptionId: string }
   | { kind: 'invoice'; paymentId: string }
   | { kind: 'convocation'; registrationId: string };
-
-export type LoanReminderJob = { loanId: string };
 
 export type PaymentWebhookJob = {
   provider: 'wave' | 'orange-money';

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
+import { useToast, useConfirm } from '@/components/cpfa/admin-ui';
 import { CoverUploadField } from './cover-upload-field';
 
 type Category = { id: string; name: string };
@@ -14,6 +15,7 @@ type Initial = {
   title: string;
   subtitle: string | null;
   authors: string[];
+  cote: string | null;
   isbn: string | null;
   publisher: string | null;
   publishedYear: number | null;
@@ -45,6 +47,8 @@ export function ResourceForm({
   mode: 'create' | 'edit';
 }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [form, setForm] = useState(initial);
   const [authorsRaw, setAuthorsRaw] = useState(initial.authors.join(', '));
   const [keywordsRaw, setKeywordsRaw] = useState(initial.keywords.join(', '));
@@ -68,6 +72,7 @@ export function ResourceForm({
       title: form.title.trim(),
       subtitle: form.subtitle?.trim() || null,
       authors: authorsRaw.split(',').map((s) => s.trim()).filter(Boolean),
+      cote: form.cote?.trim() || null,
       isbn: form.isbn?.trim() || null,
       publisher: form.publisher?.trim() || null,
       publishedYear: form.publishedYear || null,
@@ -81,9 +86,11 @@ export function ResourceForm({
     try {
       if (mode === 'create') {
         const res = await create.mutateAsync(payload);
+        toast('Ressource créée.');
         router.push(`/admin/library/resources/${res.id}/edit`);
       } else if (initial.id) {
         await update.mutateAsync({ id: initial.id, ...payload });
+        toast('Modifications enregistrées.');
         router.refresh();
       }
     } catch (err: unknown) {
@@ -93,13 +100,22 @@ export function ResourceForm({
 
   async function onDelete() {
     if (!initial.id) return;
-    if (!window.confirm('Supprimer définitivement cette ressource ?')) return;
+    const { confirmed } = await confirm({
+      title: 'Supprimer cette ressource ?',
+      message: `« ${form.title} » sera retirée définitivement du catalogue. Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!confirmed) return;
     setError(null);
     try {
       await del.mutateAsync({ id: initial.id });
+      toast('Ressource supprimée.');
       router.push('/admin/library/resources');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue.';
+      setError(msg);
+      toast(msg, 'error');
     }
   }
 
@@ -209,6 +225,16 @@ export function ResourceForm({
                 onChange={(e) =>
                   set('publishedYear', e.target.value ? Number(e.target.value) : null)
                 }
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="label" htmlFor="r-cote">Cote</label>
+              <input
+                id="r-cote"
+                className="input mono"
+                value={form.cote ?? ''}
+                onChange={(e) => set('cote', e.target.value)}
+                placeholder="OUG 9.1"
               />
             </div>
             <div style={{ flex: 1 }}>

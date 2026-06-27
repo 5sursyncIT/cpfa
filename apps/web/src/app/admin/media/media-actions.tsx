@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
+import { useToast, useConfirm } from '@/components/cpfa/admin-ui';
 
 export function MediaActions({
   id,
@@ -14,6 +15,8 @@ export function MediaActions({
   altText: string;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const updateAlt = trpc.cms.media.updateAlt.useMutation();
   const del = trpc.cms.media.delete.useMutation();
   const [editing, setEditing] = useState(false);
@@ -27,15 +30,32 @@ export function MediaActions({
   }
 
   async function onSaveAlt() {
-    await updateAlt.mutateAsync({ id, altText: draft });
-    setEditing(false);
-    router.refresh();
+    try {
+      await updateAlt.mutateAsync({ id, altText: draft });
+      setEditing(false);
+      router.refresh();
+      toast('Description enregistrée.');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur.', 'error');
+    }
   }
 
   async function onDelete() {
-    if (!confirm('Supprimer ce média ?')) return;
-    await del.mutateAsync({ id });
-    router.refresh();
+    const fileName = storageKey.split('/').pop();
+    const { confirmed } = await confirm({
+      title: 'Supprimer ce média ?',
+      message: `« ${fileName} » sera supprimé définitivement. Les pages qui l’utilisent ne l’afficheront plus.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await del.mutateAsync({ id });
+      router.refresh();
+      toast('Média supprimé.');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur.', 'error');
+    }
   }
 
   if (editing) {
@@ -45,7 +65,7 @@ export function MediaActions({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           className="w-full rounded-md border bg-background px-2 py-1 text-xs"
-          placeholder="Texte alternatif"
+          placeholder="Description de l’image (accessibilité)"
         />
         <div className="flex gap-1">
           <button
@@ -74,10 +94,10 @@ export function MediaActions({
   return (
     <div className="mt-2 flex flex-wrap gap-1 text-xs">
       <button type="button" onClick={copyKey} className="rounded-md border px-2 py-1">
-        {copied ? 'Copié' : 'Copier la clé'}
+        {copied ? 'Copié' : 'Copier l’identifiant'}
       </button>
       <button type="button" onClick={() => setEditing(true)} className="rounded-md border px-2 py-1">
-        Alt
+        Description
       </button>
       <button
         type="button"

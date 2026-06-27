@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
+import { roleLabel } from '@/lib/labels';
 import { UserAdminActions } from './user-admin-actions';
 
 export const dynamic = 'force-dynamic';
@@ -61,11 +62,6 @@ export default async function AdminUserDetailPage({
         },
       },
       payments: { orderBy: { createdAt: 'desc' }, take: 10 },
-      loans: {
-        orderBy: { borrowedAt: 'desc' },
-        take: 10,
-        include: { resource: { select: { title: true } } },
-      },
     },
   });
   if (!user) notFound();
@@ -89,7 +85,7 @@ export default async function AdminUserDetailPage({
         </div>
         <div className="row gap-2" style={{ marginTop: 12, flexWrap: 'wrap' }}>
           {user.roles.map((r) => (
-            <span key={r} className="pill mono fs-13">{r}</span>
+            <span key={r} className="pill fs-13">{roleLabel(r)}</span>
           ))}
           {user.twoFactorEnabled ? (
             <span className="pill pill-success">2FA activé</span>
@@ -181,41 +177,6 @@ export default async function AdminUserDetailPage({
                     <td className="fs-13 text-soft">{kind}</td>
                     <td><span className={'pill ' + pill.className}>{pill.label}</span></td>
                     <td className="mono fs-13 text-soft">{fmtDate.format(r.createdAt)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {user.loans.length > 0 ? (
-        <div className="panel" style={{ marginTop: 32 }}>
-          <div className="panel-head">
-            <h4>Prêts</h4>
-          </div>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Ouvrage</th>
-                <th>Emprunt</th>
-                <th>Échéance</th>
-                <th>Statut</th>
-                <th>Pénalité</th>
-              </tr>
-            </thead>
-            <tbody>
-              {user.loans.map((l) => {
-                const pill = STATUS_PILL[l.status] ?? { label: l.status, className: '' };
-                return (
-                  <tr key={l.id}>
-                    <td>{l.resource.title}</td>
-                    <td className="mono fs-13 text-soft">{fmtDate.format(l.borrowedAt)}</td>
-                    <td className="mono fs-13">{fmtDate.format(l.dueAt)}</td>
-                    <td><span className={'pill ' + pill.className}>{pill.label}</span></td>
-                    <td className="mono fs-13">
-                      {l.penaltyAmount > 0 ? fmtXof(l.penaltyAmount) : '—'}
-                    </td>
                   </tr>
                 );
               })}

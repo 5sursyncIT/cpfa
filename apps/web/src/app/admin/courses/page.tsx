@@ -87,7 +87,6 @@ export default async function AdminCoursesPage() {
                       >
                         {c.title}
                       </Link>
-                      <div className="mono fs-13 text-soft">{c.slug}</div>
                     </td>
                     <td className="fs-13 text-soft">
                       {KIND_LABEL[c.kind] ?? c.kind}

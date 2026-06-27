@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { settingsRegistry, SETTING_KEYS } from '@/lib/site-settings/registry';
+import { settingsUi } from '@/lib/site-settings/ui';
 import { SettingEditor } from './setting-editor';
 
 export const dynamic = 'force-dynamic';
@@ -66,8 +67,9 @@ export default async function AdminSettingsPage({
       </header>
 
       <div className="space-y-4">
-        {SETTING_KEYS.map((key) => {
+        {SETTING_KEYS.filter((key) => settingsUi[key]).map((key) => {
           const entry = settingsRegistry[key];
+          const ui = settingsUi[key]!;
           const own = ownRows.get(key);
           const fallback = locale === 'fr' ? null : frRows.get(key) ?? null;
           const value = own?.value ?? fallback?.value ?? entry.default;
@@ -104,7 +106,7 @@ export default async function AdminSettingsPage({
               <SettingEditor
                 settingKey={key}
                 locale={locale}
-                kind={entry.kind}
+                ui={ui}
                 initialValue={value}
                 hasCustomisation={source === 'locale'}
               />

@@ -63,7 +63,7 @@ export default async function AdminTestimonialsPage({
               className="rounded-md border bg-background px-2 py-1.5 text-sm"
               defaultValue={scope ?? ''}
             >
-              <option value="">Tous les scopes</option>
+              <option value="">Tous les profils</option>
               <option value="STUDENT">Étudiants</option>
               <option value="TEACHER">Enseignants</option>
               <option value="PROFESSIONAL">Professionnels</option>
@@ -112,7 +112,7 @@ export default async function AdminTestimonialsPage({
               <blockquote className="italic text-sm">« {t.quote} »</blockquote>
               <footer className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span>
-                  Ordre : {t.displayOrder} · maj {fmt.format(t.updatedAt)}
+                  Ordre d’affichage : {t.displayOrder} · maj {fmt.format(t.updatedAt)}
                 </span>
                 <TestimonialActions
                   id={t.id}

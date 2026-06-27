@@ -18,8 +18,6 @@
     "build": "echo 'no-op'"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.687.0",
-    "@aws-sdk/s3-request-presigner": "^3.687.0",
     "bullmq": "^5.30.1",
     "ioredis": "^5.4.1",
     "qrcode": "^1.5.4",

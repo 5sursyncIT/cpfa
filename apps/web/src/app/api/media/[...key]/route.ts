@@ -1,16 +1,14 @@
 import { prisma } from '@cpfa/db';
-import { presignDownload } from '@cpfa/lib/storage';
+import { contentTypeForKey, readObject } from '@cpfa/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Public read-through proxy for the Media library. Editors store storage keys
-// in CMS content blocks (Page / Article); browsers fetch them through this
-// endpoint so the bucket can stay private. We verify that the key exists in
-// the Media table to avoid turning this into an open redirect to the bucket
-// (which would let anyone request presigned URLs for any key they could
-// guess). The 302 carries a 4-min cache-control so consecutive requests for
-// the same image stay cheap, and the presigned URL itself is valid for 5 min.
+// Public read-through for the Media library. Editors store storage keys in CMS
+// content blocks (Page / Article); browsers fetch them through this endpoint.
+// We verify the key exists in the Media table (defence-in-depth: this endpoint
+// is unauthenticated, so it must only ever serve managed media), then stream
+// the bytes straight from local disk.
 
 export async function GET(
   _req: Request,
@@ -20,25 +18,23 @@ export async function GET(
   if (!parts || parts.length === 0) return new Response('Not found', { status: 404 });
   const storageKey = parts.map(decodeURIComponent).join('/');
 
-  // Defence-in-depth: only resolve keys that have a Media row.
-  const exists = await prisma.media.findUnique({
+  const media = await prisma.media.findUnique({
     where: { storageKey },
-    select: { id: true },
+    select: { mimeType: true },
   });
-  if (!exists) return new Response('Not found', { status: 404 });
+  if (!media) return new Response('Not found', { status: 404 });
 
-  let url: string;
+  let bytes: Buffer;
   try {
-    url = await presignDownload(storageKey, 300);
+    bytes = await readObject(storageKey);
   } catch {
-    return new Response('Storage unavailable', { status: 503 });
+    return new Response('Not found', { status: 404 });
   }
 
-  return new Response(null, {
-    status: 302,
+  return new Response(new Uint8Array(bytes), {
     headers: {
-      Location: url,
-      'Cache-Control': 'public, max-age=240, stale-while-revalidate=120',
+      'Content-Type': media.mimeType || contentTypeForKey(storageKey),
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=120',
     },
   });
 }

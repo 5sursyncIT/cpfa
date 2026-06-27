@@ -60,6 +60,11 @@ COPY --from=builder --chown=nextjs:nodejs /repo/apps/web/public ./apps/web/publi
 COPY --from=builder --chown=nextjs:nodejs /repo/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /repo/node_modules/@prisma/client ./node_modules/@prisma/client
 
+# Create the storage mountpoint and hand it to the runtime user. Docker copies
+# this ownership onto a freshly-created (empty) named volume mounted here, so
+# the app can write uploads instead of hitting EACCES on a root-owned volume.
+RUN mkdir -p /data/storage && chown -R nextjs:nodejs /data
+
 USER nextjs
 EXPOSE 3000
 ENTRYPOINT ["tini", "--"]
@@ -75,6 +80,8 @@ WORKDIR /app
 COPY --from=builder --chown=nodejs:nodejs /repo/apps/web/dist-worker/index.cjs ./worker.cjs
 COPY --from=builder --chown=nodejs:nodejs /repo/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nodejs:nodejs /repo/node_modules/@prisma/client ./node_modules/@prisma/client
+# Same storage mountpoint as the web tier (shared volume) — own it before dropping privileges.
+RUN mkdir -p /data/storage && chown -R nodejs:nodejs /data
 USER nodejs
 ENTRYPOINT ["tini", "--"]
 CMD ["node", "worker.cjs"]

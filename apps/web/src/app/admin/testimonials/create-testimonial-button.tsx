@@ -69,7 +69,7 @@ export function CreateTestimonialButton({ locale }: { locale: 'fr' | 'en' }) {
       <textarea
         value={quote}
         onChange={(e) => setQuote(e.target.value)}
-        placeholder="Citation (≥ 10 caractères)"
+        placeholder="Témoignage (10 caractères minimum)"
         rows={3}
         className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
       />

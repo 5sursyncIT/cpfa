@@ -7,7 +7,6 @@ import nodemailer, { type Transporter } from 'nodemailer';
 import {
   ContactFormEmail,
   ConvocationEmail,
-  LoanReminderEmail,
   MagicLinkEmail,
   TrainerApprovedEmail,
   TrainerRejectedEmail,
@@ -53,7 +52,6 @@ function getTransporter(): Transporter | null {
 
 export type EmailTemplate =
   | { kind: 'magic-link'; data: { url: string; expiresInMinutes?: number } }
-  | { kind: 'loan-reminder'; data: import('@cpfa/emails').LoanReminderEmailProps }
   | { kind: 'contact'; data: import('@cpfa/emails').ContactFormEmailProps }
   | { kind: 'convocation'; data: import('@cpfa/emails').ConvocationEmailProps }
   | { kind: 'trainer-approved'; data: import('@cpfa/emails').TrainerApprovedEmailProps }
@@ -130,8 +128,6 @@ function componentFor(template: EmailTemplate) {
   switch (template.kind) {
     case 'magic-link':
       return MagicLinkEmail(template.data);
-    case 'loan-reminder':
-      return LoanReminderEmail(template.data);
     case 'contact':
       return ContactFormEmail(template.data);
     case 'convocation':
@@ -155,10 +151,6 @@ export function subjectFor(template: EmailTemplate): string {
   switch (template.kind) {
     case 'magic-link':
       return 'Votre lien de connexion CPFA';
-    case 'loan-reminder':
-      return template.data.daysOverdue && template.data.daysOverdue > 0
-        ? 'Retour en retard — Bibliothèque CPFA'
-        : "Rappel d'échéance — Bibliothèque CPFA";
     case 'contact':
       return `[Contact CPFA] ${template.data.subject}`;
     case 'convocation':

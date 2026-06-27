@@ -3,11 +3,6 @@ import { randomBytes } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { buildKey, presignUpload } from '@cpfa/lib/storage';
-import {
-  LIBRARY_LOAN_DAYS,
-  dueDateFromNow,
-  evaluateBorrowEligibility,
-} from '@/lib/library-rules';
 import { router, publicProcedure, permissionProcedure } from '../trpc';
 
 const RESOURCE_KINDS = [
@@ -25,6 +20,7 @@ const resourceInputSchema = z.object({
   title: z.string().trim().min(1).max(300),
   subtitle: z.string().trim().max(300).optional().nullable(),
   authors: z.array(z.string().trim().min(1)).default([]),
+  cote: z.string().trim().max(40).optional().nullable(),
   isbn: z.string().trim().max(32).optional().nullable(),
   publisher: z.string().trim().max(200).optional().nullable(),
   publishedYear: z.number().int().min(1500).max(3000).optional().nullable(),
@@ -62,6 +58,7 @@ export const libraryRouter = router({
                 { subtitle: { contains: q, mode: 'insensitive' } },
                 { authors: { hasSome: [q] } },
                 { keywords: { hasSome: [q] } },
+                { cote: { contains: q, mode: 'insensitive' } },
                 { isbn: q.length >= 10 ? { equals: q } : undefined },
               ].filter(Boolean) as Prisma.ResourceWhereInput[],
             }
@@ -96,110 +93,8 @@ export const libraryRouter = router({
       include: { category: true },
     });
     if (!resource) throw new TRPCError({ code: 'NOT_FOUND' });
-
-    const activeLoans = await ctx.prisma.loan.count({
-      where: { resourceId: input.id, status: 'ACTIVE' },
-    });
-    return { ...resource, available: Math.max(0, resource.totalCopies - activeLoans) };
+    return resource;
   }),
-
-  // Borrow flow — librarian only.
-  // Library rules per docs/projet.md §4.3:
-  //  - 14-day default duration
-  //  - max 3 concurrent active loans per subscriber
-  borrow: permissionProcedure('library:manage')
-    .input(
-      z.object({
-        resourceId: z.string().cuid(),
-        subscriptionId: z.string().cuid(),
-        durationDays: z.number().int().min(1).max(30).default(LIBRARY_LOAN_DAYS),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const [subscription, resource, activeLoans, copiesOnLoan] = await Promise.all([
-        ctx.prisma.subscription.findUnique({
-          where: { id: input.subscriptionId },
-          select: { userId: true, status: true, expiresAt: true, tier: true },
-        }),
-        ctx.prisma.resource.findUnique({
-          where: { id: input.resourceId },
-          select: { totalCopies: true },
-        }),
-        ctx.prisma.loan.count({
-          where: { subscriptionId: input.subscriptionId, status: 'ACTIVE' },
-        }),
-        ctx.prisma.loan.count({
-          where: { resourceId: input.resourceId, status: 'ACTIVE' },
-        }),
-      ]);
-      if (!subscription) throw new TRPCError({ code: 'NOT_FOUND', message: 'Abonnement introuvable.' });
-      if (!resource) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ressource introuvable.' });
-
-      const eligibility = evaluateBorrowEligibility({
-        subscription,
-        activeLoansForSubscription: activeLoans,
-        totalCopies: resource.totalCopies,
-        copiesOnLoan,
-      });
-      if (!eligibility.ok) {
-        const message =
-          eligibility.reason === 'subscription-not-usable'
-            ? "L'abonnement n'est pas actif ou a expiré."
-            : eligibility.reason === 'quota-reached'
-              ? `Quota de prêts simultanés atteint pour la formule ${subscription.tier}.`
-              : 'Aucun exemplaire disponible.';
-        throw new TRPCError({ code: 'BAD_REQUEST', message });
-      }
-
-      const dueAt = dueDateFromNow(new Date(), input.durationDays);
-      const loan = await ctx.prisma.loan.create({
-        data: {
-          resourceId: input.resourceId,
-          userId: subscription.userId,
-          subscriptionId: input.subscriptionId,
-          dueAt,
-        },
-      });
-
-      await ctx.prisma.auditLog.create({
-        data: {
-          actorId: ctx.session?.user.id,
-          action: 'loan.borrow',
-          entity: 'Loan',
-          entityId: loan.id,
-          diff: { resourceId: input.resourceId, subscriptionId: input.subscriptionId, dueAt },
-        },
-      });
-
-      return loan;
-    }),
-
-  // Borrow flow keyed by QR — what the librarian's scanner posts.
-  borrowByQr: permissionProcedure('library:manage')
-    .input(
-      z.object({
-        resourceQr: z.string().min(8),
-        subscriptionQr: z.string().min(8),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const [resource, subscription] = await Promise.all([
-        ctx.prisma.resource.findUnique({
-          where: { qrPayload: input.resourceQr },
-          select: { id: true },
-        }),
-        ctx.prisma.subscription.findUnique({
-          where: { qrPayload: input.subscriptionQr },
-          select: { id: true },
-        }),
-      ]);
-      if (!resource || !subscription) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'QR code inconnu.' });
-      }
-      // Reuse the regular borrow procedure's logic via a direct call would be ideal,
-      // but tRPC doesn't expose internal call without a caller. Inline-trigger:
-      return libraryBorrow({ ctx, resourceId: resource.id, subscriptionId: subscription.id });
-    }),
 
   // ── Admin CRUD on resources ─────────────────────────────────────────────
   adminList: permissionProcedure('library:manage')
@@ -223,6 +118,7 @@ export const libraryRouter = router({
                 { title: { contains: q, mode: 'insensitive' } },
                 { subtitle: { contains: q, mode: 'insensitive' } },
                 { authors: { hasSome: [q] } },
+                { cote: { contains: q, mode: 'insensitive' } },
                 { isbn: q.length >= 10 ? { equals: q } : undefined },
               ].filter(Boolean) as Prisma.ResourceWhereInput[],
             }
@@ -236,7 +132,6 @@ export const libraryRouter = router({
         orderBy: [{ createdAt: 'desc' }],
         include: {
           category: { select: { id: true, name: true, slug: true } },
-          _count: { select: { loans: { where: { status: 'ACTIVE' } } } },
         },
       });
       let nextCursor: string | undefined;
@@ -262,6 +157,7 @@ export const libraryRouter = router({
         data: {
           ...input,
           subtitle: input.subtitle ?? null,
+          cote: input.cote ?? null,
           isbn: input.isbn ?? null,
           publisher: input.publisher ?? null,
           publishedYear: input.publishedYear ?? null,
@@ -292,6 +188,7 @@ export const libraryRouter = router({
         data: {
           ...data,
           subtitle: data.subtitle === undefined ? undefined : (data.subtitle ?? null),
+          cote: data.cote === undefined ? undefined : (data.cote ?? null),
           isbn: data.isbn === undefined ? undefined : (data.isbn ?? null),
           publisher: data.publisher === undefined ? undefined : (data.publisher ?? null),
           publishedYear:
@@ -316,25 +213,6 @@ export const libraryRouter = router({
   adminDelete: permissionProcedure('library:manage')
     .input(z.object({ id: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
-      // Refuse if any active loan exists on this resource — protects loan history.
-      const activeCount = await ctx.prisma.loan.count({
-        where: { resourceId: input.id, status: 'ACTIVE' },
-      });
-      if (activeCount > 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Impossible de supprimer : ${activeCount} prêt(s) actif(s) en cours.`,
-        });
-      }
-      // Past loans (RETURNED/LOST) keep their FK — block delete and prompt the
-      // user to archive instead. We don't implement archive yet; refuse cleanly.
-      const anyLoan = await ctx.prisma.loan.count({ where: { resourceId: input.id } });
-      if (anyLoan > 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Impossible : ${anyLoan} prêt(s) historique(s). Conservez la fiche pour la traçabilité.`,
-        });
-      }
       await ctx.prisma.resource.delete({ where: { id: input.id } });
       await ctx.prisma.auditLog.create({
         data: {
@@ -465,24 +343,3 @@ export const libraryRouter = router({
       });
     }),
 });
-
-async function libraryBorrow({
-  ctx,
-  resourceId,
-  subscriptionId,
-}: {
-  ctx: { prisma: import('@cpfa/db').PrismaClient; session: { user: { id: string } } | null };
-  resourceId: string;
-  subscriptionId: string;
-}) {
-  const dueAt = dueDateFromNow(new Date(), LIBRARY_LOAN_DAYS);
-  const subscription = await ctx.prisma.subscription.findUnique({
-    where: { id: subscriptionId },
-    select: { userId: true },
-  });
-  if (!subscription) throw new TRPCError({ code: 'NOT_FOUND' });
-
-  return ctx.prisma.loan.create({
-    data: { resourceId, userId: subscription.userId, subscriptionId, dueAt },
-  });
-}

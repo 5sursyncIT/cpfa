@@ -19,8 +19,7 @@ export default async function MeLayout({ children }: { children: ReactNode }) {
   const fallbackName = session.user.name ?? session.user.email ?? t('fallbackName');
   const email = session.user.email ?? '';
 
-  const [activeLoansCount, registrationsCount, subscription, locale] = await Promise.all([
-    prisma.loan.count({ where: { userId, status: 'ACTIVE' } }),
+  const [registrationsCount, subscription, locale] = await Promise.all([
     prisma.registration.count({ where: { userId } }),
     prisma.subscription.findFirst({
       where: { userId, status: 'ACTIVE' },
@@ -69,7 +68,7 @@ export default async function MeLayout({ children }: { children: ReactNode }) {
         <div className="member-shell">
           <aside className="side-nav">
             <MemberSideNav
-              counts={{ loans: activeLoansCount, registrations: registrationsCount }}
+              counts={{ registrations: registrationsCount }}
               isTrainer={isTrainer}
             />
             <form

@@ -5,6 +5,8 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { CreatePageButton } from './create-page-button';
 import { ClonePageButton } from './clone-page-button';
+import { PagePublishToggle } from './page-publish-toggle';
+import { PageDeleteButton } from './page-delete-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Pages CMS — Admin CPFA' };
@@ -15,14 +17,15 @@ const ALLOWED_LOCALES = ['fr', 'en'] as const;
 export default async function AdminCmsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ locale?: string; q?: string }>;
+  searchParams: Promise<{ locale?: string; q?: string; status?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect('/sign-in?callbackUrl=/admin/cms');
   if (!hasPermission(session.user.roles, 'cms:write')) redirect('/admin');
 
-  const { locale: rawLocale, q } = await searchParams;
+  const { locale: rawLocale, q, status: rawStatus } = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'fr';
+  const status = rawStatus === 'published' || rawStatus === 'draft' ? rawStatus : 'all';
 
   const otherLocale = locale === 'fr' ? 'en' : 'fr';
 
@@ -30,6 +33,7 @@ export default async function AdminCmsPage({
     prisma.page.findMany({
       where: {
         locale,
+        ...(status === 'all' ? {} : { published: status === 'published' }),
         ...(q
           ? {
               OR: [
@@ -106,9 +110,17 @@ export default async function AdminCmsPage({
               className="input"
             />
           </div>
+          <div>
+            <label className="label" htmlFor="filter-status">Statut</label>
+            <select id="filter-status" name="status" defaultValue={status} className="input">
+              <option value="all">Tous</option>
+              <option value="published">Publiées</option>
+              <option value="draft">Brouillons</option>
+            </select>
+          </div>
           {locale ? <input type="hidden" name="locale" value={locale} /> : null}
           <button type="submit" className="btn btn-ghost btn-sm">Filtrer</button>
-          {q ? <Link href={`/admin/cms?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
+          {q || status !== 'all' ? <Link href={`/admin/cms?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
         </div>
       </form>
 
@@ -124,7 +136,7 @@ export default async function AdminCmsPage({
             <thead>
               <tr>
                 <th>Titre ({otherLocale.toUpperCase()})</th>
-                <th>Slug</th>
+                <th>Adresse</th>
                 <th>Publication</th>
                 <th></th>
               </tr>
@@ -162,7 +174,7 @@ export default async function AdminCmsPage({
             <thead>
               <tr>
                 <th>Titre</th>
-                <th>Slug</th>
+                <th>Adresse</th>
                 <th>Locale</th>
                 <th>Mis à jour</th>
                 <th>Publication</th>
@@ -191,7 +203,8 @@ export default async function AdminCmsPage({
                     )}
                   </td>
                   <td>
-                    <div className="row gap-2">
+                    <div className="row gap-2" style={{ alignItems: 'center' }}>
+                      <PagePublishToggle id={p.id} published={p.published} />
                       <Link href={`/admin/cms/${p.id}`} className="btn-link fs-13">
                         Éditer →
                       </Link>
@@ -204,7 +217,17 @@ export default async function AdminCmsPage({
                         >
                           ↗ voir
                         </Link>
-                      ) : null}
+                      ) : (
+                        <Link
+                          href={`/p/${p.slug}?preview=1`}
+                          className="btn-link fs-13"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          ↗ aperçu
+                        </Link>
+                      )}
+                      <PageDeleteButton id={p.id} title={p.title} />
                     </div>
                   </td>
                 </tr>

@@ -1,6 +1,8 @@
 import { getTranslations } from 'next-intl/server';
 import { fetchCmsPage } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
+import { getPartners } from '@/lib/content-blocks';
+import { mediaUrl } from '@/lib/media';
 import { resolveLocale } from '@/i18n/request';
 
 export const dynamic = 'force-dynamic';
@@ -37,37 +39,52 @@ export default async function PartnersPage() {
     );
   }
 
-  const partnerCategories = [
-    {
-      title: t('categoryInsurers'),
-      items: ['Partenaire 1', 'Partenaire 2', 'Partenaire 3'],
-    },
-    {
-      title: t('categoryAcademic'),
-      items: ['Partenaire 4', 'Partenaire 5'],
-    },
-    {
-      title: t('categoryRegulators'),
-      items: ['Partenaire 6', 'Partenaire 7'],
-    },
-  ];
+  // Managed partners (admin → Contenu → Partenaires). No fake placeholders.
+  const partners = await getPartners(locale);
 
   return (
     <section className="container py-16">
       <h1 className="text-4xl font-bold tracking-tight">{t('title')}</h1>
       <p className="mt-4 max-w-2xl text-muted-foreground">{t('intro')}</p>
-      <div className="mt-10 grid gap-8 md:grid-cols-3">
-        {partnerCategories.map((cat) => (
-          <div key={cat.title}>
-            <h2 className="text-lg font-semibold">{cat.title}</h2>
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              {cat.items.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      {partners.length === 0 ? (
+        <p className="mt-10 text-sm text-muted-foreground">{t('empty')}</p>
+      ) : (
+        <div className="mt-10 grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4">
+          {partners.map((p) => {
+            const logo = mediaUrl(p.logoKey);
+            const card = (
+              <div className="flex h-28 items-center justify-center rounded-lg border bg-card p-4 text-center">
+                {logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logo}
+                    alt={p.name}
+                    className="max-h-16 max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-sm font-medium">{p.name}</span>
+                )}
+              </div>
+            );
+            return p.url ? (
+              <a
+                key={p.name}
+                href={p.url}
+                target="_blank"
+                rel="noreferrer"
+                title={p.name}
+                className="transition hover:opacity-80"
+              >
+                {card}
+              </a>
+            ) : (
+              <div key={p.name} title={p.name}>
+                {card}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

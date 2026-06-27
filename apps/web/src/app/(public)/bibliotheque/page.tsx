@@ -2,6 +2,8 @@ import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
 import { LibraryCatalog } from '@/components/cpfa/library-catalog';
 import { resourceToBook } from '@/lib/cpfa-mappers';
+import { getSetting } from '@/lib/site-settings/get';
+import { mediaUrl } from '@/lib/media';
 import { richTags } from '@/lib/i18n-tags';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +14,7 @@ export async function generateMetadata() {
 }
 
 export default async function LibraryIndexPage() {
-  const [resources, t] = await Promise.all([
+  const [resources, t, documents] = await Promise.all([
     prisma.resource.findMany({
       orderBy: { createdAt: 'desc' },
       take: 60,
@@ -26,22 +28,15 @@ export default async function LibraryIndexPage() {
       },
     }),
     getTranslations('library'),
+    getSetting('library.documents'),
   ]);
 
-  // Tag each resource with its current loan count for availability badges.
-  const ids = resources.map((r) => r.id);
-  const counts =
-    ids.length === 0
-      ? new Map<string, number>()
-      : await prisma.loan
-          .groupBy({
-            by: ['resourceId'],
-            where: { resourceId: { in: ids }, status: 'ACTIVE' },
-            _count: { _all: true },
-          })
-          .then(
-            (rows) => new Map(rows.map((r) => [r.resourceId, r._count._all])),
-          );
+  // Official documents (Directeur §4.1) — only the PDFs the admin has set.
+  const officialDocs = [
+    { label: 'Règlement intérieur', key: documents.regulationKey },
+    { label: "Procédure d'abonnement", key: documents.procedureKey },
+    { label: "Fiche d'abonnement", key: documents.subscriptionFormKey },
+  ].filter((d) => d.key);
 
   const items = resources.map((r) => ({
     id: r.id,
@@ -51,8 +46,6 @@ export default async function LibraryIndexPage() {
       id: r.id,
       title: r.title,
       authors: r.authors,
-      totalCopies: r.totalCopies,
-      activeLoans: counts.get(r.id) ?? 0,
     }),
   }));
 
@@ -69,6 +62,27 @@ export default async function LibraryIndexPage() {
           </p>
         </div>
       </div>
+
+      {officialDocs.length > 0 ? (
+        <div className="container" style={{ marginBottom: 32 }}>
+          <div className="panel" style={{ padding: 24 }}>
+            <h4 style={{ marginBottom: 12 }}>Documents officiels</h4>
+            <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
+              {officialDocs.map((d) => (
+                <a
+                  key={d.label}
+                  href={mediaUrl(d.key) ?? '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-ghost"
+                >
+                  📄 {d.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="container">
         <LibraryCatalog items={items} />

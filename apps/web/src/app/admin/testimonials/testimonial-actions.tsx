@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
+import { useConfirm } from '@/components/cpfa/admin-ui';
 
 const SCOPES = [
   { value: 'STUDENT', label: 'Étudiant' },
@@ -31,6 +32,7 @@ export function TestimonialActions({
   initial: Initial;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(initial);
   const update = trpc.testimonials.update.useMutation({
@@ -83,7 +85,7 @@ export function TestimonialActions({
         />
         <div className="flex items-center gap-2 text-xs">
           <label>
-            Ordre :{' '}
+            Ordre d’affichage (1 = en premier) :{' '}
             <input
               type="number"
               min={0}
@@ -140,8 +142,13 @@ export function TestimonialActions({
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => {
-          if (confirm('Supprimer ce témoignage ?')) del.mutate({ id });
+        onClick={async () => {
+          const { confirmed } = await confirm({
+            title: 'Supprimer ce témoignage ?',
+            confirmLabel: 'Supprimer',
+            danger: true,
+          });
+          if (confirmed) del.mutate({ id });
         }}
         disabled={del.isPending}
       >

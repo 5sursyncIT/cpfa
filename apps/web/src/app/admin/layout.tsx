@@ -5,6 +5,7 @@ import { auth, signOut } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { AdminSideNav } from '@/components/cpfa/admin-side-nav';
+import { AdminUiProvider } from '@/components/cpfa/admin-ui';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -21,8 +22,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     pendingApplicants,
     pendingTrainers,
     pendingJobOffers,
-    activeLoansCount,
-    overdueLoansCount,
     catalogCount,
     activeSubsCount,
   ] = await Promise.all([
@@ -37,8 +36,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     }),
     prisma.trainerProfile.count({ where: { status: 'PENDING' } }),
     prisma.jobPosting.count({ where: { status: 'DRAFT' } }),
-    prisma.loan.count({ where: { status: 'ACTIVE' } }),
-    prisma.loan.count({ where: { status: 'ACTIVE', dueAt: { lt: new Date() } } }),
     prisma.resource.count(),
     prisma.subscription.count({ where: { status: 'ACTIVE' } }),
   ]);
@@ -67,6 +64,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       items: [
         { href: '/admin/articles', label: 'Actualités' },
         { href: '/admin/testimonials', label: 'Témoignages' },
+        { href: '/admin/key-figures', label: 'Chiffres-clés' },
+        { href: '/admin/partners', label: 'Partenaires' },
+        { href: '/admin/governance', label: 'Gouvernance' },
         { href: '/admin/cms', label: 'Pages CMS' },
         { href: '/admin/media', label: 'Médias' },
         { href: '/admin/settings', label: 'Paramètres du site' },
@@ -79,9 +79,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         { href: '/admin/library/resources', label: 'Catalogue', count: catalogCount },
         { href: '/admin/library/categories', label: 'Catégories' },
         { href: '/admin/library/subscribers', label: 'Abonnés', count: activeSubsCount },
-        { href: '/admin/library/borrow', label: 'Prêter un ouvrage' },
-        { href: '/admin/loans', label: 'Prêts en cours', count: activeLoansCount },
-        { href: '/admin/loans?overdue=1', label: 'Retards', count: overdueLoansCount },
       ],
     },
     {
@@ -123,7 +120,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       </div>
       <div className="admin-shell">
         <AdminSideNav sections={sections} />
-        <main id="main-content" tabIndex={-1} className="admin-main">{children}</main>
+        <main id="main-content" tabIndex={-1} className="admin-main">
+          <AdminUiProvider>{children}</AdminUiProvider>
+        </main>
       </div>
     </div>
   );

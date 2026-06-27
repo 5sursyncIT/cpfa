@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
-import { mediaUrl } from '@/lib/media';
+import { mediaUrl, fileTypeLabel } from '@/lib/media';
 import { MediaUploader } from './uploader';
 import { MediaActions } from './media-actions';
 
@@ -54,13 +54,11 @@ export default async function AdminMediaPage() {
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={url} alt={m.altText ?? ''} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="font-mono">{m.mimeType}</span>
+                    <span className="font-medium">{fileTypeLabel(m.mimeType)}</span>
                   )}
                 </div>
                 <div className="space-y-1 text-xs">
-                  <div className="font-mono break-all text-[10px] text-muted-foreground">
-                    {m.storageKey.split('/').pop()}
-                  </div>
+                  <div className="font-medium">{fileTypeLabel(m.mimeType)}</div>
                   <div className="text-muted-foreground">
                     {Math.round(m.sizeBytes / 1024)} Ko · {fmt.format(m.uploadedAt)}
                   </div>

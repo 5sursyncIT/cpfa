@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
+import { labelFor, PAYMENT_STATUS_LABEL } from '@/lib/labels';
+import { useToast } from '@/components/cpfa/admin-ui';
 
 type Row = {
   id: string;
@@ -29,6 +31,7 @@ const STATUS_PILL: Record<string, { label: string; className: string }> = {
 
 export function RegistrationsTable({ registrations }: { registrations: Row[] }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
@@ -37,15 +40,23 @@ export function RegistrationsTable({ registrations }: { registrations: Row[] }) 
     onSuccess: () => {
       router.refresh();
       setActionId(null);
+      toast('Inscription validée.');
     },
-    onError: (e) => setError(e.message),
+    onError: (e) => {
+      setError(e.message);
+      toast(e.message, 'error');
+    },
   });
   const reject = trpc.registrations.reject.useMutation({
     onSuccess: () => {
       router.refresh();
       setActionId(null);
+      toast('Inscription refusée.');
     },
-    onError: (e) => setError(e.message),
+    onError: (e) => {
+      setError(e.message);
+      toast(e.message, 'error');
+    },
   });
 
   if (registrations.length === 0) {
@@ -113,7 +124,9 @@ export function RegistrationsTable({ registrations }: { registrations: Row[] }) 
                     {r.payment ? (
                       <>
                         {r.payment.amountXof.toLocaleString('fr-FR')} FCFA
-                        <div className="fs-13 text-soft">{r.payment.status}</div>
+                        <div className="fs-13 text-soft">
+                          {labelFor(PAYMENT_STATUS_LABEL, r.payment.status)}
+                        </div>
                       </>
                     ) : (
                       <span className="text-soft">—</span>

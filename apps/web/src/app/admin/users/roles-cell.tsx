@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Role } from '@cpfa/db';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
+import { roleLabel } from '@/lib/labels';
+import { useToast } from '@/components/cpfa/admin-ui';
 
 const ALL_ROLES: Role[] = [
   'VISITEUR',
@@ -20,6 +22,7 @@ const ALL_ROLES: Role[] = [
 export function RolesCell({ userId, roles: initial }: { userId: string; roles: Role[] }) {
   const [roles, setRoles] = useState<Role[]>(initial);
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
   const update = trpc.users.updateRoles.useMutation();
 
   const toggle = (r: Role) => {
@@ -34,7 +37,7 @@ export function RolesCell({ userId, roles: initial }: { userId: string; roles: R
       >
         {roles.map((r) => (
           <span key={r} className="rounded-full bg-muted px-2 py-0.5">
-            {r}
+            {roleLabel(r)}
           </span>
         ))}
       </button>
@@ -51,11 +54,11 @@ export function RolesCell({ userId, roles: initial }: { userId: string; roles: R
               key={r}
               type="button"
               onClick={() => toggle(r)}
-              className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+              className={`rounded-full px-2 py-0.5 text-xs ${
                 active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}
             >
-              {r}
+              {roleLabel(r)}
             </button>
           );
         })}
@@ -65,7 +68,16 @@ export function RolesCell({ userId, roles: initial }: { userId: string; roles: R
           size="sm"
           disabled={update.isPending}
           onClick={() =>
-            update.mutate({ id: userId, roles }, { onSuccess: () => setOpen(false) })
+            update.mutate(
+              { id: userId, roles },
+              {
+                onSuccess: () => {
+                  setOpen(false);
+                  toast('Rôles mis à jour.');
+                },
+                onError: (e) => toast(e.message, 'error'),
+              },
+            )
           }
         >
           {update.isPending ? 'Enregistrement…' : 'Enregistrer'}

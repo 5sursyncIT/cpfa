@@ -32,3 +32,23 @@ export async function fetchCmsPage(
     select: { title: true, metaTitle: true, metaDescription: true, content: true },
   });
 }
+
+// Preview variant: returns the page row regardless of its `published` flag, so
+// editors can review a draft before publishing. Callers MUST gate this behind
+// a `cms:write` permission check — it intentionally bypasses publication state.
+// Tries the requested locale first, then falls back to FR.
+export async function fetchCmsPagePreview(
+  slug: string,
+  locale: Locale = defaultLocale,
+): Promise<CmsOverride | null> {
+  const own = await prisma.page.findFirst({
+    where: { slug, locale },
+    select: { title: true, metaTitle: true, metaDescription: true, content: true },
+  });
+  if (own) return own;
+  if (locale === defaultLocale) return null;
+  return prisma.page.findFirst({
+    where: { slug, locale: defaultLocale },
+    select: { title: true, metaTitle: true, metaDescription: true, content: true },
+  });
+}

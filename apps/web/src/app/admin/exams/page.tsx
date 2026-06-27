@@ -80,7 +80,6 @@ export default async function AdminExamsPage() {
                       >
                         {e.title}
                       </Link>
-                      <div className="mono fs-13 text-soft">{e.slug}</div>
                     </td>
                     <td className="fs-13">{KIND_LABEL[e.kind] ?? e.kind}</td>
                     <td className="fs-13">

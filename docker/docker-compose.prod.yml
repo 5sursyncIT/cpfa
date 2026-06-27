@@ -45,6 +45,11 @@ services:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
     env_file: ../.env.production
+    volumes:
+      # Shared file storage — must be the same volume as the worker so cards/
+      # invoices written by the worker are served by the web tier. STORAGE_DIR
+      # in .env.production points here.
+      - cpfa-storage-data:/data/storage
     ports:
       # Bound to 127.0.0.1 only — host nginx (cpfa-sn.com vhost) proxies to this.
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
@@ -65,6 +70,8 @@ services:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
     env_file: ../.env.production
+    volumes:
+      - cpfa-storage-data:/data/storage
 
   migrate:
     build:
@@ -81,3 +88,4 @@ services:
 volumes:
   cpfa-postgres-data:
   cpfa-redis-data:
+  cpfa-storage-data:

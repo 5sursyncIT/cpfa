@@ -22,8 +22,6 @@ export default async function ResourcePage({ params }: { params: Promise<{ id: s
   });
   if (!resource) notFound();
 
-  const onLoan = await prisma.loan.count({ where: { resourceId: id, status: 'ACTIVE' } });
-  const available = Math.max(0, resource.totalCopies - onLoan);
   const cover = pickCover<Cover>(resource.id, COVER_PALETTE);
   const author = (resource.authors[0] ?? 'Anonyme').toUpperCase();
 
@@ -48,15 +46,9 @@ export default async function ResourcePage({ params }: { params: Promise<{ id: s
               </div>
             </div>
             <div style={{ marginTop: 24 }}>
-              <span
-                className={
-                  'pill ' + (available > 0 ? 'pill-success' : 'pill-warning')
-                }
-              >
+              <span className="pill pill-success">
                 <span className="dot"></span>
-                {available > 0
-                  ? `${available} / ${resource.totalCopies} disponible(s)`
-                  : 'Indisponible'}
+                Consultable sur place
               </span>
             </div>
           </div>

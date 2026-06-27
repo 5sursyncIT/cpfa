@@ -35,6 +35,7 @@ export default async function NewResourcePage() {
           title: '',
           subtitle: null,
           authors: [],
+          cote: null,
           isbn: null,
           publisher: null,
           publishedYear: null,

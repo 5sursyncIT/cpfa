@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
 import { TrainerApplyForm } from './apply-form';
 import { resolveLocale } from '@/i18n/request';
+import { getSetting } from '@/lib/site-settings/get';
+import { mediaUrl } from '@/lib/media';
 import { richTags } from '@/lib/i18n-tags';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +23,7 @@ export default async function BecomeTrainerPage() {
   }
 
   const locale = await resolveLocale();
-  const [profile, approvedCount, teacherTestimonials, t] = await Promise.all([
+  const [profile, approvedCount, teacherTestimonials, charter, t] = await Promise.all([
     prisma.trainerProfile.findUnique({ where: { userId: session.user.id } }),
     prisma.trainerProfile.count({ where: { status: 'APPROVED' } }),
     prisma.testimonial.findMany({
@@ -29,8 +31,10 @@ export default async function BecomeTrainerPage() {
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
       take: 4,
     }),
+    getSetting('teaching.charterKey'),
     getTranslations('becomeTrainer'),
   ]);
+  const charterHref = charter.key ? mediaUrl(charter.key) : null;
 
   return (
     <div className="container" style={{ padding: '64px 0', maxWidth: 760 }}>
@@ -42,6 +46,18 @@ export default async function BecomeTrainerPage() {
       <p style={{ fontSize: 13, color: 'var(--cpfa-muted, #64748b)' }}>
         {t('approvedCount', { count: approvedCount })}
       </p>
+
+      {charterHref ? (
+        <a
+          href={charterHref}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-ghost"
+          style={{ marginTop: 16 }}
+        >
+          📄 Télécharger la charte de l&apos;enseignant
+        </a>
+      ) : null}
 
       {profile?.status === 'APPROVED' ? (
         <div className="card" style={{ padding: 24, marginTop: 24 }}>

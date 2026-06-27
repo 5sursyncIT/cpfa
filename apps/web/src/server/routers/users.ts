@@ -135,16 +135,10 @@ export const usersRouter = router({
             orderBy: { createdAt: 'desc' },
             take: 10,
           },
-          loans: {
-            orderBy: { borrowedAt: 'desc' },
-            take: 10,
-            include: { resource: { select: { title: true } } },
-          },
           _count: {
             select: {
               subscriptions: true,
               registrations: true,
-              loans: true,
               payments: true,
             },
           },
@@ -321,7 +315,6 @@ export const usersRouter = router({
           _count: {
             select: {
               subscriptions: true,
-              loans: true,
               registrations: true,
               payments: true,
             },
@@ -354,7 +347,6 @@ export const usersRouter = router({
 
       const dependents: string[] = [];
       if (target._count.subscriptions > 0) dependents.push(`${target._count.subscriptions} abonnement(s)`);
-      if (target._count.loans > 0) dependents.push(`${target._count.loans} prêt(s)`);
       if (target._count.registrations > 0) dependents.push(`${target._count.registrations} inscription(s)`);
       if (target._count.payments > 0) dependents.push(`${target._count.payments} paiement(s)`);
       if (target.trainerProfile) dependents.push('un profil formateur');

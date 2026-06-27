@@ -33,10 +33,15 @@ export function MobileNav({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
+    const onResize = () => {
+      if (window.innerWidth > 1100) setOpen(false);
+    };
     window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
     };
   }, [open]);
 

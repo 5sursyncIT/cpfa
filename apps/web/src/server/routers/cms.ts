@@ -83,13 +83,23 @@ export const cmsRouter = router({
     create: permissionProcedure('cms:write')
       .input(pageInput)
       .mutation(async ({ ctx, input }) => {
-        const page = await ctx.prisma.page.create({
-          data: {
-            ...input,
-            content: input.content as Prisma.InputJsonValue,
-            publishedAt: input.published ? new Date() : null,
-          },
-        });
+        const page = await ctx.prisma.page
+          .create({
+            data: {
+              ...input,
+              content: input.content as Prisma.InputJsonValue,
+              publishedAt: input.published ? new Date() : null,
+            },
+          })
+          .catch((e) => {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+              throw new TRPCError({
+                code: 'CONFLICT',
+                message: 'Une page avec ce titre existe déjà. Modifiez légèrement le titre.',
+              });
+            }
+            throw e;
+          });
         await ctx.prisma.auditLog.create({
           data: {
             actorId: ctx.session.user.id,
@@ -108,14 +118,24 @@ export const cmsRouter = router({
         const before = await ctx.prisma.page.findUnique({ where: { id } });
         if (!before) throw new TRPCError({ code: 'NOT_FOUND' });
 
-        const next = await ctx.prisma.page.update({
-          where: { id },
-          data: {
-            ...rest,
-            ...(content ? { content: content as Prisma.InputJsonValue } : {}),
-            ...(rest.published === true && !before.publishedAt ? { publishedAt: new Date() } : {}),
-          },
-        });
+        const next = await ctx.prisma.page
+          .update({
+            where: { id },
+            data: {
+              ...rest,
+              ...(content ? { content: content as Prisma.InputJsonValue } : {}),
+              ...(rest.published === true && !before.publishedAt ? { publishedAt: new Date() } : {}),
+            },
+          })
+          .catch((e) => {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+              throw new TRPCError({
+                code: 'CONFLICT',
+                message: 'Ce slug est déjà utilisé par une autre page.',
+              });
+            }
+            throw e;
+          });
 
         await ctx.prisma.auditLog.create({
           data: {
@@ -128,6 +148,46 @@ export const cmsRouter = router({
         });
 
         return next;
+      }),
+
+    togglePublished: permissionProcedure('cms:write')
+      .input(z.object({ id: z.string().cuid(), published: z.boolean() }))
+      .mutation(async ({ ctx, input }) => {
+        const before = await ctx.prisma.page.findUnique({
+          where: { id: input.id },
+          select: { publishedAt: true },
+        });
+        if (!before) throw new TRPCError({ code: 'NOT_FOUND' });
+        await ctx.prisma.auditLog.create({
+          data: {
+            actorId: ctx.session.user.id,
+            action: input.published ? 'page.publish' : 'page.unpublish',
+            entity: 'Page',
+            entityId: input.id,
+          },
+        });
+        return ctx.prisma.page.update({
+          where: { id: input.id },
+          data: {
+            published: input.published,
+            ...(input.published && !before.publishedAt ? { publishedAt: new Date() } : {}),
+          },
+        });
+      }),
+
+    delete: permissionProcedure('cms:write')
+      .input(z.object({ id: z.string().cuid() }))
+      .mutation(async ({ ctx, input }) => {
+        await ctx.prisma.page.delete({ where: { id: input.id } });
+        await ctx.prisma.auditLog.create({
+          data: {
+            actorId: ctx.session.user.id,
+            action: 'page.delete',
+            entity: 'Page',
+            entityId: input.id,
+          },
+        });
+        return { ok: true };
       }),
 
     // Bootstrap a translation: copy the source page's slug + content into a
@@ -211,20 +271,30 @@ export const cmsRouter = router({
     create: permissionProcedure('cms:write')
       .input(articleInput)
       .mutation(async ({ ctx, input }) => {
-        const article = await ctx.prisma.article.create({
-          data: {
-            slug: input.slug,
-            title: input.title,
-            excerpt: input.excerpt ?? null,
-            locale: input.locale,
-            tags: input.tags,
-            content: input.content as Prisma.InputJsonValue,
-            coverKey: input.coverKey ?? null,
-            published: input.published,
-            publishedAt: input.published ? new Date() : null,
-            authorId: ctx.session.user.id,
-          },
-        });
+        const article = await ctx.prisma.article
+          .create({
+            data: {
+              slug: input.slug,
+              title: input.title,
+              excerpt: input.excerpt ?? null,
+              locale: input.locale,
+              tags: input.tags,
+              content: input.content as Prisma.InputJsonValue,
+              coverKey: input.coverKey ?? null,
+              published: input.published,
+              publishedAt: input.published ? new Date() : null,
+              authorId: ctx.session.user.id,
+            },
+          })
+          .catch((e) => {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+              throw new TRPCError({
+                code: 'CONFLICT',
+                message: 'Un article avec ce titre existe déjà. Modifiez légèrement le titre.',
+              });
+            }
+            throw e;
+          });
         await ctx.prisma.auditLog.create({
           data: {
             actorId: ctx.session.user.id,

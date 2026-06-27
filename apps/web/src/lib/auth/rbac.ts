@@ -3,7 +3,6 @@ import type { Role } from '@cpfa/db';
 export type Permission =
   | 'cms:write'
   | 'library:manage'
-  | 'library:borrow'
   | 'training:register'
   | 'payment:validate'
   | 'audit:read'
@@ -13,7 +12,7 @@ export type Permission =
 const grants: Record<Role, Permission[]> = {
   VISITEUR: [],
   CANDIDAT: ['training:register'],
-  ABONNE_BIBLIOTHEQUE: ['library:borrow'],
+  ABONNE_BIBLIOTHEQUE: [],
   FORMATEUR: [],
   EDITEUR: ['cms:write'],
   BIBLIOTHECAIRE: ['library:manage'],
@@ -29,7 +28,6 @@ const grants: Record<Role, Permission[]> = {
   SUPER_ADMIN: [
     'cms:write',
     'library:manage',
-    'library:borrow',
     'training:register',
     'payment:validate',
     'audit:read',

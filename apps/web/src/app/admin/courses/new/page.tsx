@@ -33,6 +33,7 @@ export default async function NewCoursePage() {
           durationHours: 1,
           priceXof: 0,
           description: null,
+          admissionCriteria: [],
           brochureKey: null,
           coverImageKey: null,
           published: false,

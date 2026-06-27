@@ -6,11 +6,36 @@ import { mediaUrl } from '@/lib/media';
 import { MediaPicker } from './media-picker';
 
 export type Block =
-  | { kind: 'heading'; level: 2 | 3; text: string }
+  | { kind: 'heading'; level: 2 | 3 | 4; text: string }
   | { kind: 'paragraph'; text: string }
   | { kind: 'image'; storageKey: string; alt?: string; caption?: string }
   | { kind: 'quote'; text: string; cite?: string }
   | { kind: 'list'; ordered?: boolean; items: string[] };
+
+export type BlockKind = Block['kind'];
+
+const BLOCK_LABELS: Record<BlockKind, string> = {
+  heading: 'Titre',
+  paragraph: 'Paragraphe',
+  image: 'Image',
+  quote: 'Citation',
+  list: 'Liste',
+};
+
+export function emptyBlock(kind: BlockKind): Block {
+  switch (kind) {
+    case 'heading':
+      return { kind: 'heading', level: 2, text: '' };
+    case 'paragraph':
+      return { kind: 'paragraph', text: '' };
+    case 'image':
+      return { kind: 'image', storageKey: '' };
+    case 'quote':
+      return { kind: 'quote', text: '' };
+    case 'list':
+      return { kind: 'list', ordered: false, items: [''] };
+  }
+}
 
 export function coerceBlocks(content: unknown): Block[] {
   if (!Array.isArray(content)) return [];
@@ -23,8 +48,9 @@ export function coerceBlocks(content: unknown): Block[] {
 function coerceBlock(b: Record<string, unknown>): Block | null {
   switch (b.kind) {
     case 'heading': {
-      const level = (b.level as number) === 3 ? 3 : 2;
-      return { kind: 'heading', level: level as 2 | 3, text: String(b.text ?? '') };
+      const raw = Number(b.level);
+      const level = (raw === 3 || raw === 4 ? raw : 2) as 2 | 3 | 4;
+      return { kind: 'heading', level, text: String(b.text ?? '') };
     }
     case 'paragraph':
       return { kind: 'paragraph', text: String(b.text ?? '') };
@@ -74,39 +100,28 @@ export function BlockEditor({
     onChange(copy);
   };
   const add = (block: Block) => onChange([...blocks, block]);
+  // Insert a fresh block right after index `i` (i = -1 inserts at the top).
+  const insertAfter = (i: number, kind: BlockKind) => {
+    const copy = [...blocks];
+    copy.splice(i + 1, 0, emptyBlock(kind));
+    onChange(copy);
+  };
+  const duplicate = (i: number) => {
+    const copy = [...blocks];
+    copy.splice(i + 1, 0, structuredClone(blocks[i]!));
+    onChange(copy);
+  };
 
   return (
     <section className="rounded-lg border bg-card p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Contenu</h2>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => add({ kind: 'heading', level: 2, text: '' })}>
-            + Titre
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => add({ kind: 'paragraph', text: '' })}>
-            + Paragraphe
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => add({ kind: 'image', storageKey: '' })}
-          >
-            + Image
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => add({ kind: 'quote', text: '' })}
-          >
-            + Citation
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => add({ kind: 'list', ordered: false, items: [''] })}
-          >
-            + Liste
-          </Button>
+          {(Object.keys(BLOCK_LABELS) as BlockKind[]).map((kind) => (
+            <Button key={kind} size="sm" variant="outline" onClick={() => add(emptyBlock(kind))}>
+              + {BLOCK_LABELS[kind]}
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -117,7 +132,7 @@ export function BlockEditor({
           {blocks.map((block, i) => (
             <li key={i} className="rounded-md border bg-background p-3">
               <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-mono">{block.kind}</span>
+                <span className="font-medium">{BLOCK_LABELS[block.kind]}</span>
                 <div className="flex gap-1">
                   <button onClick={() => move(i, -1)} className="px-2" aria-label="Monter">↑</button>
                   <button onClick={() => move(i, 1)} className="px-2" aria-label="Descendre">↓</button>
@@ -142,11 +157,12 @@ export function BlockEditor({
                 <div className="flex gap-2">
                   <select
                     value={block.level}
-                    onChange={(e) => update(i, { level: Number(e.target.value) as 2 | 3 })}
+                    onChange={(e) => update(i, { level: Number(e.target.value) as 2 | 3 | 4 })}
                     className="rounded-md border bg-background px-2 py-2 text-sm"
                   >
-                    <option value={2}>H2</option>
-                    <option value={3}>H3</option>
+                    <option value={2}>Grand titre</option>
+                    <option value={3}>Sous-titre</option>
+                    <option value={4}>Petit sous-titre</option>
                   </select>
                   <input
                     value={block.text}
@@ -176,7 +192,7 @@ export function BlockEditor({
                   <input
                     value={block.alt ?? ''}
                     onChange={(e) => update(i, { alt: e.target.value })}
-                    placeholder="Texte alternatif (alt)"
+                    placeholder="Description de l’image (pour l’accessibilité)"
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   />
                   <input
@@ -247,6 +263,33 @@ export function BlockEditor({
                   </Button>
                 </div>
               ) : null}
+
+              <div className="mt-3 flex items-center gap-3 border-t pt-2 text-xs text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => duplicate(i)}
+                  className="hover:text-foreground"
+                >
+                  Dupliquer
+                </button>
+                <label className="flex items-center gap-1">
+                  Insérer en dessous
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) insertAfter(i, e.target.value as BlockKind);
+                    }}
+                    className="rounded-md border bg-background px-1 py-1"
+                  >
+                    <option value="">choisir…</option>
+                    {(Object.keys(BLOCK_LABELS) as BlockKind[]).map((kind) => (
+                      <option key={kind} value={kind}>
+                        {BLOCK_LABELS[kind]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </li>
           ))}
         </ol>

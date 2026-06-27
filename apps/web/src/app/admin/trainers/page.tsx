@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { presignDownload } from '@cpfa/lib/storage';
+import { labelFor, TRAINER_STATUS_LABEL } from '@/lib/labels';
 import { TrainerReviewActions } from './review-actions';
 
 export const dynamic = 'force-dynamic';
@@ -85,7 +86,7 @@ export default async function AdminTrainersPage({
                       {fmtDate.format(p.submittedAt)}
                     </div>
                   </div>
-                  <span className="pill">{p.status}</span>
+                  <span className="pill">{labelFor(TRAINER_STATUS_LABEL, p.status)}</span>
                 </header>
 
                 <dl style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '120px 1fr', gap: '6px 16px' }}>

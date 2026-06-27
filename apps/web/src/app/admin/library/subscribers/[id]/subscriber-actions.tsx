@@ -3,17 +3,17 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
+import { useConfirm } from '@/components/cpfa/admin-ui';
 
 export function SubscriberActions({
   subscriptionId,
   status,
-  activeLoansCount,
 }: {
   subscriptionId: string;
   status: string;
-  activeLoansCount: number;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
   const [extendDays, setExtendDays] = useState(365);
 
@@ -96,14 +96,15 @@ export function SubscriberActions({
             className="btn btn-ghost btn-sm"
             style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
             disabled={pending}
-            onClick={() => {
-              if (activeLoansCount > 0) {
-                setError(
-                  `Impossible : ${activeLoansCount} prêt(s) actif(s). Marquez-les rendus ou perdus avant.`,
-                );
-                return;
-              }
-              if (!window.confirm("Annuler cet abonnement ?")) return;
+            onClick={async () => {
+              const { confirmed } = await confirm({
+                title: 'Annuler cet abonnement ?',
+                message: 'L’abonné perdra l’accès à la salle de consultation jusqu’à un renouvellement.',
+                confirmLabel: 'Annuler l’abonnement',
+                cancelLabel: 'Retour',
+                danger: true,
+              });
+              if (!confirmed) return;
               run(() => cancel.mutateAsync({ id: subscriptionId }));
             }}
           >

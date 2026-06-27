@@ -2,8 +2,15 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@cpfa/db';
 import { BlockRenderer } from '@/components/cms/block-renderer';
 import { mediaUrl } from '@/lib/media';
+import { auth } from '@/lib/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 
 export const dynamic = 'force-dynamic';
+
+async function canPreview() {
+  const session = await auth();
+  return Boolean(session?.user && hasPermission(session.user.roles, 'cms:write'));
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -18,10 +25,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ArticlePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ preview?: string }>;
+}) {
   const { slug } = await params;
+  const { preview } = await searchParams;
+  const isPreview = preview === '1' && (await canPreview());
+
   const article = await prisma.article.findFirst({
-    where: { slug, published: true },
+    where: { slug, ...(isPreview ? {} : { published: true }) },
     include: { author: { select: { firstName: true, lastName: true } } },
   });
   if (!article) notFound();
@@ -31,6 +47,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   return (
     <article className="container max-w-3xl py-16">
+      {isPreview && !article.published ? (
+        <div className="mb-8 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Aperçu — brouillon non publié. Visible uniquement par les éditeurs.
+        </div>
+      ) : null}
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
         {article.publishedAt
           ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(article.publishedAt)

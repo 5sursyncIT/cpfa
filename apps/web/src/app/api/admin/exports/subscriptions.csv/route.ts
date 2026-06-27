@@ -17,7 +17,6 @@ export async function GET() {
     take: 10_000,
     include: {
       user: { select: { firstName: true, lastName: true, email: true } },
-      _count: { select: { loans: true } },
     },
   });
 
@@ -30,7 +29,6 @@ export async function GET() {
     status: s.status,
     startedAt: s.startedAt ?? '',
     expiresAt: s.expiresAt ?? '',
-    totalLoans: s._count.loans,
     createdAt: s.createdAt,
   }));
 
@@ -44,7 +42,6 @@ export async function GET() {
       'status',
       'startedAt',
       'expiresAt',
-      'totalLoans',
       'createdAt',
     ],
     rows,

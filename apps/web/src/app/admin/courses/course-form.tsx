@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
 import { CoverUploadField } from '../library/resources/cover-upload-field';
+import { MediaPicker } from '@/components/cms/media-picker';
+import { useToast, useConfirm } from '@/components/cpfa/admin-ui';
 
 const KIND_OPTIONS: Array<[string, string]> = [
   ['DIPLOMANT', 'Diplômant'],
@@ -27,6 +29,7 @@ type Initial = {
   durationHours: number;
   priceXof: number;
   description: string | null;
+  admissionCriteria: string[];
   brochureKey: string | null;
   coverImageKey: string | null;
   published: boolean;
@@ -56,8 +59,11 @@ export function CourseForm({
   mode: 'create' | 'edit';
 }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [form, setForm] = useState(initial);
   const [error, setError] = useState<string | null>(null);
+  const [brochurePickerOpen, setBrochurePickerOpen] = useState(false);
 
   const create = trpc.courses.adminCreate.useMutation();
   const update = trpc.courses.adminUpdate.useMutation();
@@ -79,6 +85,7 @@ export function CourseForm({
       durationHours: Math.max(1, Number(form.durationHours) || 1),
       priceXof: Math.max(0, Number(form.priceXof) || 0),
       description: form.description?.trim() || null,
+      admissionCriteria: form.admissionCriteria.map((c) => c.trim()).filter(Boolean),
       brochureKey: form.brochureKey?.trim() || null,
       coverImageKey: form.coverImageKey?.trim() || null,
       published: form.published,
@@ -88,25 +95,38 @@ export function CourseForm({
     try {
       if (mode === 'create') {
         const res = await create.mutateAsync(payload);
+        toast('Formation créée.');
         router.push(`/admin/courses/${res.id}/edit`);
       } else if (initial.id) {
         await update.mutateAsync({ id: initial.id, ...payload });
+        toast('Modifications enregistrées.');
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue.';
+      setError(msg);
+      toast(msg, 'error');
     }
   }
 
   async function onDelete() {
     if (!initial.id) return;
-    if (!window.confirm('Supprimer cette formation ?')) return;
+    const { confirmed } = await confirm({
+      title: 'Supprimer cette formation ?',
+      message: `« ${form.title} » sera retirée définitivement du site. Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!confirmed) return;
     setError(null);
     try {
       await del.mutateAsync({ id: initial.id });
+      toast('Formation supprimée.');
       router.push('/admin/courses');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue.';
+      setError(msg);
+      toast(msg, 'error');
     }
   }
 
@@ -125,34 +145,45 @@ export function CourseForm({
       <div className="panel" style={{ padding: 24 }}>
         <h4 style={{ marginBottom: 16 }}>Identité</h4>
         <div className="col gap-3">
-          <div className="row gap-3">
-            <div style={{ flex: 2 }}>
-              <label className="label" htmlFor="c-title">Titre *</label>
-              <input
-                id="c-title"
-                className="input"
-                value={form.title}
-                onChange={(e) => {
-                  set('title', e.target.value);
-                  if (mode === 'create' && !form.slug) {
-                    set('slug', slugify(e.target.value));
-                  }
-                }}
-                required
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="label" htmlFor="c-slug">Slug *</label>
-              <input
-                id="c-slug"
-                className="input mono"
-                value={form.slug}
-                onChange={(e) => set('slug', slugify(e.target.value))}
-                required
-                pattern="[a-z0-9-]+"
-              />
-            </div>
+          <div>
+            <label className="label" htmlFor="c-title">Titre *</label>
+            <input
+              id="c-title"
+              className="input"
+              value={form.title}
+              onChange={(e) => {
+                set('title', e.target.value);
+                // In create mode the public address is derived from the title
+                // automatically — the admin never has to think about it.
+                if (mode === 'create') {
+                  set('slug', slugify(e.target.value));
+                }
+              }}
+              required
+            />
           </div>
+          <details>
+            <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-soft, #64748b)' }}>
+              Adresse de la page (avancé)
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <label className="label" htmlFor="c-slug">Adresse sur le site</label>
+              <div className="row gap-1" style={{ alignItems: 'center' }}>
+                <span className="fs-13 text-soft mono">/formations/</span>
+                <input
+                  id="c-slug"
+                  className="input mono"
+                  value={form.slug}
+                  onChange={(e) => set('slug', slugify(e.target.value))}
+                  required
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <p className="fs-13 text-soft" style={{ marginTop: 4 }}>
+                Générée automatiquement depuis le titre. Ne la modifiez que si nécessaire.
+              </p>
+            </div>
+          </details>
           <div className="row gap-3">
             <div style={{ flex: 1 }}>
               <label className="label" htmlFor="c-kind">Type *</label>
@@ -224,13 +255,89 @@ export function CourseForm({
             />
           </div>
           <div>
-            <label className="label" htmlFor="c-brochure">Brochure (clé storage)</label>
-            <input
-              id="c-brochure"
-              className="input"
-              value={form.brochureKey ?? ''}
-              onChange={(e) => set('brochureKey', e.target.value)}
-              placeholder="media/brochure-dta.pdf (uploadez via /admin/media)"
+            <label className="label">Conditions d&apos;admission</label>
+            <p className="fs-13 text-soft" style={{ marginBottom: 8 }}>
+              Une condition par ligne. Laissez vide pour afficher les conditions générales du CPFA.
+            </p>
+            <div className="col gap-2">
+              {form.admissionCriteria.map((c, i) => (
+                <div key={i} className="row gap-2" style={{ alignItems: 'center' }}>
+                  <input
+                    className="input"
+                    value={c}
+                    placeholder={`Condition ${i + 1}`}
+                    onChange={(e) =>
+                      set(
+                        'admissionCriteria',
+                        form.admissionCriteria.map((x, j) => (j === i ? e.target.value : x)),
+                      )
+                    }
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-link fs-13"
+                    style={{ color: 'var(--danger)' }}
+                    aria-label={`Retirer la condition ${i + 1}`}
+                    onClick={() =>
+                      set(
+                        'admissionCriteria',
+                        form.admissionCriteria.filter((_, j) => j !== i),
+                      )
+                    }
+                  >
+                    Retirer
+                  </button>
+                </div>
+              ))}
+              <div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => set('admissionCriteria', [...form.admissionCriteria, ''])}
+                >
+                  + Ajouter une condition
+                </button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="label">Brochure (PDF)</label>
+            {form.brochureKey ? (
+              <div className="row gap-2" style={{ alignItems: 'center' }}>
+                <span className="pill">📄 {form.brochureKey.split('/').pop()}</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setBrochurePickerOpen(true)}
+                >
+                  Remplacer
+                </button>
+                <button
+                  type="button"
+                  className="btn-link fs-13"
+                  style={{ color: 'var(--danger)' }}
+                  onClick={() => set('brochureKey', null)}
+                >
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setBrochurePickerOpen(true)}
+              >
+                Choisir un fichier
+              </button>
+            )}
+            <p className="fs-13 text-soft" style={{ marginTop: 4 }}>
+              Choisissez un document dans la médiathèque, ou ajoutez-en un depuis la page Médias.
+            </p>
+            <MediaPicker
+              open={brochurePickerOpen}
+              onClose={() => setBrochurePickerOpen(false)}
+              onPick={(m) => set('brochureKey', m.storageKey)}
             />
           </div>
         </div>
@@ -239,7 +346,8 @@ export function CourseForm({
       <div className="panel" style={{ padding: 24 }}>
         <h4 style={{ marginBottom: 16 }}>Fenêtre d&apos;inscription</h4>
         <p className="fs-13 text-soft" style={{ marginBottom: 12 }}>
-          Vide = toujours ouvert. Pour les diplômantes (DTA, BTS), gate via les dates de concours.
+          Laissez vide pour des inscriptions toujours ouvertes. Pour les formations diplômantes
+          (DTA, BTS), définissez les dates pour limiter la période d&apos;inscription.
         </p>
         <div className="row gap-3">
           <div style={{ flex: 1 }}>

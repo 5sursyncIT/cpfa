@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
 import { fetchCmsPage } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
-import { getSetting } from '@/lib/site-settings/get';
+import { getKeyFigures, getPartners, getGovernance } from '@/lib/content-blocks';
 import { resolveLocale } from '@/i18n/request';
 import { Breadcrumb } from '@/components/cpfa/breadcrumb';
 import { richTags } from '@/lib/i18n-tags';
@@ -29,9 +29,9 @@ export default async function AboutPage() {
   const locale = await resolveLocale();
   const [cms, governance, partners, stats, t] = await Promise.all([
     fetchCmsPage(STATIC_SLUG, locale),
-    getSetting('about.governance', locale),
-    getSetting('about.partners', locale),
-    getSetting('about.stats', locale),
+    getGovernance(locale),
+    getPartners(locale),
+    getKeyFigures('ABOUT', locale),
     getTranslations('about'),
   ]);
 
@@ -157,7 +157,7 @@ export default async function AboutPage() {
         >
           {partners.map((p, i) => (
             <div
-              key={p}
+              key={`${p.name}-${i}`}
               style={{
                 padding: '32px 24px',
                 borderRight: (i + 1) % 6 ? '1px solid var(--line)' : 'none',
@@ -166,7 +166,7 @@ export default async function AboutPage() {
               }}
             >
               <div className="serif" style={{ fontSize: 24, lineHeight: 1.1 }}>
-                {p}
+                {p.name}
               </div>
             </div>
           ))}

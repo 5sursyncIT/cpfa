@@ -3,13 +3,16 @@ import { getTranslations } from 'next-intl/server';
 import { LogoMark } from './logo-mark';
 import { LocaleSwitcher } from './locale-switcher';
 import { getSetting } from '@/lib/site-settings/get';
+import { getPartners } from '@/lib/content-blocks';
+import { resolveLocale } from '@/i18n/request';
 import { mediaUrl } from '@/lib/media';
 
 export async function CpfaFooter() {
+  const locale = await resolveLocale();
   const [contact, socials, partnerLogos, t, tFooter] = await Promise.all([
     getSetting('footer.contact'),
     getSetting('footer.socials'),
-    getSetting('footer.partnerLogos'),
+    getPartners(locale),
     getTranslations('common'),
     getTranslations('footer'),
   ]);

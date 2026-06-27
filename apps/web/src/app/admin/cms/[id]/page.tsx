@@ -28,6 +28,7 @@ export default async function AdminCmsPageEdit({
         initial={{
           title: page.title,
           slug: page.slug,
+          locale: page.locale,
           metaTitle: page.metaTitle ?? '',
           metaDescription: page.metaDescription ?? '',
           published: page.published,

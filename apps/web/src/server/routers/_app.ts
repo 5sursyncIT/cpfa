@@ -5,13 +5,13 @@ import { attachmentsRouter } from './attachments';
 import { auditRouter } from './audit';
 import { cmsRouter } from './cms';
 import { contactRouter } from './contact';
+import { keyFiguresRouter, partnersRouter, governanceRouter } from './content-blocks';
 import { coursesRouter } from './courses';
 import { examsRouter } from './exams';
 import { examPapersRouter } from './exam-papers';
 import { healthRouter } from './health';
 import { jobsRouter } from './jobs';
 import { libraryRouter } from './library';
-import { loansRouter } from './loans';
 import { pagesRouter } from './pages';
 import { paymentsRouter } from './payments';
 import { registrationsRouter } from './registrations';
@@ -24,7 +24,6 @@ import { usersRouter } from './users';
 export const appRouter = router({
   health: healthRouter,
   library: libraryRouter,
-  loans: loansRouter,
   subscriptions: subscriptionsRouter,
   courses: coursesRouter,
   seminars: seminarsRouter,
@@ -44,6 +43,9 @@ export const appRouter = router({
   audit: auditRouter,
   users: usersRouter,
   cms: cmsRouter,
+  keyFigures: keyFiguresRouter,
+  partners: partnersRouter,
+  governance: governanceRouter,
 });
 
 export type AppRouter = typeof appRouter;

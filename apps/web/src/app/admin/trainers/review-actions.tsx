@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
+import { useToast } from '@/components/cpfa/admin-ui';
 
 export function TrainerReviewActions({ profileId }: { profileId: string }) {
   const router = useRouter();
+  const { toast } = useToast();
   const approve = trpc.trainers.approve.useMutation();
   const reject = trpc.trainers.reject.useMutation();
   const [showReject, setShowReject] = useState(false);
@@ -13,16 +15,26 @@ export function TrainerReviewActions({ profileId }: { profileId: string }) {
   const busy = approve.isPending || reject.isPending;
 
   async function onApprove() {
-    await approve.mutateAsync({ profileId });
-    router.refresh();
+    try {
+      await approve.mutateAsync({ profileId });
+      router.refresh();
+      toast('Candidature approuvée.');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur.', 'error');
+    }
   }
 
   async function onReject() {
     if (reason.trim().length < 5) return;
-    await reject.mutateAsync({ profileId, reason: reason.trim() });
-    router.refresh();
-    setShowReject(false);
-    setReason('');
+    try {
+      await reject.mutateAsync({ profileId, reason: reason.trim() });
+      router.refresh();
+      setShowReject(false);
+      setReason('');
+      toast('Candidature refusée.');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erreur.', 'error');
+    }
   }
 
   if (showReject) {

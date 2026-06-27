@@ -186,6 +186,29 @@ export const settingsRegistry = {
     default: { key: '' },
   },
 
+  // Library official documents (Directeur §4.1) — downloadable PDFs on the
+  // public bibliothèque page. Empty = the corresponding link is hidden.
+  'library.documents': {
+    label: 'Bibliothèque — documents officiels (PDF)',
+    kind: 'object' as const,
+    schema: z.object({
+      regulationKey: z.string().max(400).default(''),
+      procedureKey: z.string().max(400).default(''),
+      subscriptionFormKey: z.string().max(400).default(''),
+    }),
+    default: { regulationKey: '', procedureKey: '', subscriptionFormKey: '' },
+  },
+
+  // Teacher charter (Directeur §6.1) — downloadable on /devenir-formateur.
+  'teaching.charterKey': {
+    label: "Enseigner au CPFA — charte de l'enseignant (PDF)",
+    kind: 'object' as const,
+    schema: z.object({
+      key: z.string().max(400).default(''),
+    }),
+    default: { key: '' },
+  },
+
   'footer.partnerLogos': {
     label: 'Pied de page — bandeau logos partenaires',
     kind: 'array' as const,

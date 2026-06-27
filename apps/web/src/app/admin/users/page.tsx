@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
+import { roleLabel } from '@/lib/labels';
 import { RolesCell } from './roles-cell';
 
 export const dynamic = 'force-dynamic';
@@ -103,7 +104,7 @@ export default async function AdminUsersPage({
             <select id="filter-role" name="role" defaultValue={role ?? ''} className="select">
               <option value="">Tous</option>
               {ROLES.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>{roleLabel(r)}</option>
               ))}
             </select>
           </div>

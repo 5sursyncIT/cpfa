@@ -27,9 +27,11 @@
     "directorWord": "Director's address",
     "partners": "Partners",
     "becomeTrainer": "Become a trainer",
+    "teach": "Teach at CPFA",
     "search": "Search",
     "learners": "Learners' area",
-    "jobs": "Job board"
+    "jobs": "Job board",
+    "more": "More"
   },
   "footer": {
     "tagline": "Senegal's leading reference for training across the insurance professions.",
@@ -199,7 +201,8 @@
     "intro": "CPFA relies on a network of national and international partners that support the reach and standing of insurance training.",
     "categoryInsurers": "Insurance companies",
     "categoryAcademic": "Academic institutions",
-    "categoryRegulators": "Regulators and federations"
+    "categoryRegulators": "Regulators and federations",
+    "empty": "Our partners will be featured here soon."
   },
   "learners": {
     "title": "Learners' area",
@@ -328,6 +331,7 @@
     "dashboard": "Dashboard",
     "card": "My card",
     "loans": "My loans",
+    "library": "My library",
     "registrations": "My registrations",
     "trainerTitle": "Trainer area",
     "trainerLink": "My trainer area",

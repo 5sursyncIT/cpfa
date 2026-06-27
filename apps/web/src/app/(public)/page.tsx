@@ -10,6 +10,7 @@ import { Marquee } from '@/components/cpfa/marquee';
 import { EmptyState } from '@/components/cpfa/empty-state';
 import { courseToCard, resourceToBook } from '@/lib/cpfa-mappers';
 import { getSetting } from '@/lib/site-settings/get';
+import { getKeyFigures, getHomeTestimonials } from '@/lib/content-blocks';
 import { resolveLocale, type Locale } from '@/i18n/request';
 import { HomeBlocksSection } from '@/components/cpfa/home-blocks-section';
 import { renderEmph } from '@/lib/render-emph';
@@ -17,8 +18,6 @@ import { richTags } from '@/lib/i18n-tags';
 import heroPhoto from './hero/hero_cpafa_v2.jpg';
 
 export const dynamic = 'force-dynamic';
-
-const concoursDeadline = new Date('2026-08-30T23:59:59.000Z');
 
 export default async function HomePage() {
   const locale = await resolveLocale();
@@ -106,7 +105,14 @@ export default async function HomePage() {
 }
 
 async function ConcoursSection() {
-  const t = await getTranslations('home');
+  const [t, nextExam] = await Promise.all([
+    getTranslations('home'),
+    prisma.exam.findFirst({
+      where: { published: true, closeAt: { gt: new Date() } },
+      orderBy: { closeAt: 'asc' },
+      select: { closeAt: true },
+    }),
+  ]);
   return (
     <section className="section" style={{ paddingBottom: 0, borderTop: 'none' }}>
       <div className="container">
@@ -116,7 +122,7 @@ async function ConcoursSection() {
               {t('concoursEyebrow')}
             </span>
             <div className="concours-headline">{t.rich('concoursHeadline', richTags)}</div>
-            <Countdown deadline={concoursDeadline} />
+            {nextExam ? <Countdown deadline={nextExam.closeAt} /> : null}
             <div className="row gap-3">
               <Link href="/concours" className="btn btn-orange btn-lg">
                 {t('concoursCtaPrimary')} <span className="arrow">→</span>
@@ -152,7 +158,7 @@ async function ConcoursSection() {
 }
 
 async function StatsSection({ locale }: { locale: Locale }) {
-  const homeStats = await getSetting('home.stats', locale);
+  const homeStats = await getKeyFigures('HOME', locale);
   return (
     <div className="container">
       <div className="stat-row">
@@ -318,19 +324,10 @@ function BooksSkeleton() {
 }
 
 async function TestimonialsSection({ locale }: { locale: Locale }) {
-  const [rows, fallback, t] = await Promise.all([
-    prisma.testimonial.findMany({
-      where: { published: true, locale },
-      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
-      take: 6,
-    }),
-    getSetting('home.testimonials', locale),
+  const [testimonials, t] = await Promise.all([
+    getHomeTestimonials(locale),
     getTranslations('home'),
   ]);
-  const testimonials =
-    rows.length > 0
-      ? rows.map((t) => ({ quote: t.quote, name: t.authorName, role: t.authorRole ?? '' }))
-      : fallback;
 
   return (
     <section className="section">

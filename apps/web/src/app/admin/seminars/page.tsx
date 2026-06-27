@@ -74,7 +74,6 @@ export default async function AdminSeminarsPage() {
                       >
                         {s.title}
                       </Link>
-                      <div className="mono fs-13 text-soft">{s.slug}</div>
                     </td>
                     <td className="fs-13">
                       <span className={'pill ' + (past ? '' : 'pill-success')}>

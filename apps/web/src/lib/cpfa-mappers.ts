@@ -89,17 +89,15 @@ export function resourceKindLabel(kind: ResourceKind): string {
 }
 
 export function resourceToBook(
-  r: Pick<Resource, 'id' | 'title' | 'authors' | 'totalCopies'> & {
-    activeLoans?: number;
-  },
+  r: Pick<Resource, 'id' | 'title' | 'authors'>,
 ): BookData {
-  const onLoan = r.activeLoans ?? 0;
-  const status: 'dispo' | 'emprunte' = onLoan >= r.totalCopies ? 'emprunte' : 'dispo';
+  // The library is a consultation-on-site catalogue — every catalogued title
+  // is available to consult in the reading room.
   return {
     id: r.id,
     title: r.title,
     author: (r.authors[0] ?? 'Anonyme').toUpperCase(),
-    status,
+    status: 'dispo',
     cover: pickCover<BookCover>(r.id, BOOK_PALETTE),
   };
 }

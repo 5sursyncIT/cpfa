@@ -108,7 +108,8 @@ export const subscriptionsRouter = router({
     }),
 
   // Comptable confirms a static-QR payment manually, which activates the subscription.
-  confirmPayment: protectedProcedure
+  // Gated by payment:validate — confirming a payment must never be self-serve.
+  confirmPayment: permissionProcedure('payment:validate')
     .input(z.object({ paymentId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
       const payment = await ctx.prisma.payment.findUnique({
@@ -179,9 +180,6 @@ export const subscriptionsRouter = router({
           user: {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
-          _count: {
-            select: { loans: { where: { status: 'ACTIVE' } } },
-          },
         },
       });
       let nextCursor: string | undefined;
@@ -196,13 +194,6 @@ export const subscriptionsRouter = router({
         where: { id: input.id },
         include: {
           user: true,
-          loans: {
-            orderBy: { borrowedAt: 'desc' },
-            take: 50,
-            include: {
-              resource: { select: { id: true, title: true, authors: true } },
-            },
-          },
           payments: { orderBy: { createdAt: 'desc' }, take: 20 },
         },
       });
@@ -319,15 +310,6 @@ export const subscriptionsRouter = router({
   adminCancel: permissionProcedure('library:manage')
     .input(z.object({ id: z.string().cuid(), reason: z.string().trim().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
-      const activeLoans = await ctx.prisma.loan.count({
-        where: { subscriptionId: input.id, status: 'ACTIVE' },
-      });
-      if (activeLoans > 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Refusé : ${activeLoans} prêt(s) actif(s). Marquez-les rendus ou perdus avant.`,
-        });
-      }
       const updated = await ctx.prisma.subscription.update({
         where: { id: input.id },
         data: { status: 'CANCELLED' },

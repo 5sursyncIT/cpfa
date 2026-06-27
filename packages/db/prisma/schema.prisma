@@ -50,7 +50,6 @@ model User {
   accounts        Account[]
   sessions        Session[]
   subscriptions   Subscription[]
-  loans           Loan[]
   registrations   Registration[]
   payments        Payment[]
   invoices        Invoice[]
@@ -135,7 +134,6 @@ model Subscription {
   updatedAt   DateTime           @updatedAt
 
   user        User               @relation(fields: [userId], references: [id])
-  loans       Loan[]
   payments    Payment[]
 
   @@index([userId])
@@ -174,6 +172,9 @@ model Resource {
   title         String
   subtitle      String?
   authors       String[]
+  // Internal documentary reference from the CPFA catalogue (e.g. "OUG 9.1",
+  // "ART 19.3"). Preserves the existing physical classification.
+  cote          String?
   isbn          String?
   publisher     String?
   publishedYear Int?
@@ -185,40 +186,11 @@ model Resource {
   keywords      String[]
   categoryId    String?
   category      Category?    @relation(fields: [categoryId], references: [id])
-  loans         Loan[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   @@index([title])
   @@index([categoryId])
-}
-
-enum LoanStatus {
-  ACTIVE
-  RETURNED
-  OVERDUE
-  LOST
-}
-
-model Loan {
-  id              String       @id @default(cuid())
-  resourceId      String
-  userId          String
-  subscriptionId  String
-  status          LoanStatus   @default(ACTIVE)
-  borrowedAt      DateTime     @default(now())
-  dueAt           DateTime
-  returnedAt      DateTime?
-  penaltyAmount   Int          @default(0) // FCFA
-  notes           String?
-
-  resource        Resource     @relation(fields: [resourceId], references: [id])
-  user            User         @relation(fields: [userId], references: [id])
-  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
-
-  @@index([userId])
-  @@index([resourceId])
-  @@index([status, dueAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -249,6 +221,9 @@ model Course {
   brochureKey String?
   coverImageKey String?
   description String?     @db.Text
+  // Per-course admission criteria shown on the public detail page. Empty =
+  // the page falls back to the generic CPFA criteria.
+  admissionCriteria String[] @default([])
   published   Boolean     @default(false)
   // Application window — `registrations.create` rejects new applications
   // outside [applicationsOpenAt, applicationsCloseAt]. Both NULL means the
@@ -611,6 +586,56 @@ enum TestimonialScope {
   TEACHER
   PROFESSIONAL
   PARTNER
+}
+
+// Editable homepage / about-page content blocks, managed as first-class
+// entities (admin CRUD) rather than JSON in SiteSetting. Each is locale-aware
+// and ordered by `displayOrder`. Public pages read the locale rows, falling
+// back to FR then to seeded defaults.
+
+// Chiffres-clés (key figures). `section` is "HOME" or "ABOUT" — the same shape
+// feeds both the homepage stat band and the about-page stats.
+model KeyFigure {
+  id           String   @id @default(cuid())
+  section      String   @default("HOME")
+  locale       String   @default("fr")
+  value        String
+  sup          String   @default("")
+  label        String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([section, locale, displayOrder])
+}
+
+// Partenaires. Unifies the about-page partner grid (name only) and the footer
+// logo band (name + optional logo + optional link).
+model Partner {
+  id           String   @id @default(cuid())
+  locale       String   @default("fr")
+  name         String
+  logoKey      String?
+  url          String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([locale, displayOrder])
+}
+
+// Membres de la gouvernance (about page).
+model GovernanceMember {
+  id           String   @id @default(cuid())
+  locale       String   @default("fr")
+  role         String
+  name         String
+  note         String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([locale, displayOrder])
 }
 
 // Key-value site-wide settings. Each known key has a typed schema enforced

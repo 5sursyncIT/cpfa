@@ -27,9 +27,11 @@
     "directorWord": "Mot du Directeur",
     "partners": "Partenaires",
     "becomeTrainer": "Devenir formateur",
+    "teach": "Enseigner au CPFA",
     "search": "Recherche",
     "learners": "Espaces Apprenants",
-    "jobs": "Offres d’emploi"
+    "jobs": "Offres d’emploi",
+    "more": "Plus"
   },
   "footer": {
     "tagline": "Premier centre de référence au Sénégal en matière de formation dans les métiers de l'assurance.",
@@ -106,7 +108,7 @@
   },
   "about": {
     "title": "À propos",
-    "h1": "Trente ans à former l'<em>orbite</em> de l'assurance ouest-africaine.",
+    "h1": "Trente ans à former l’<em>orbite</em> de l’assurance ouest-africaine.",
     "directorEyebrow": "Mot du directeur",
     "directorQuote": "Promouvoir la formation aux métiers de l'assurance à grande échelle, au Sénégal et dans toute la zone CIMA — telle est la mission qui nous a été confiée. <em>Trois décennies plus tard</em>, le CPFA forme techniciens, cadres et dirigeants capables de répondre aux exigences d'un secteur en transformation rapide.",
     "directorName": "El Hadji Cheikhou Oumar SECK",
@@ -199,12 +201,13 @@
     "intro": "Le CPFA s'appuie sur un réseau de partenaires nationaux et internationaux qui contribuent au rayonnement de la formation en assurance.",
     "categoryInsurers": "Compagnies d'assurance",
     "categoryAcademic": "Institutions académiques",
-    "categoryRegulators": "Régulateurs et fédérations"
+    "categoryRegulators": "Régulateurs et fédérations",
+    "empty": "Nos partenaires seront présentés ici prochainement."
   },
   "learners": {
     "title": "Espaces Apprenants",
     "metaTitle": "Espaces Apprenants — CPFA",
-    "h1": "L'<em>espace</em> des apprenants.",
+    "h1": "L’<em>espace</em> des apprenants.",
     "intro": "Témoignages des parties prenantes du CPFA — étudiants, enseignants, professionnels en exercice et partenaires — et opportunités d'emploi proposées par notre réseau d'entreprises.",
     "testimonialsHeading": "Témoignages <em>multi-voix</em>",
     "contributionsCount": "{count} contribution(s)",
@@ -261,7 +264,7 @@
     "alreadyApprovedDesc": "Votre candidature a été approuvée. Rendez-vous sur votre",
     "alreadyApprovedLink": "espace formateur",
     "alreadyApprovedTail": "pour mettre à jour votre fiche.",
-    "testimonialsHeading": "Témoignages d'<em>enseignants</em>"
+    "testimonialsHeading": "Témoignages d’<em>enseignants</em>"
   },
   "search": {
     "title": "Recherche",
@@ -328,6 +331,7 @@
     "dashboard": "Tableau de bord",
     "card": "Ma carte",
     "loans": "Mes prêts",
+    "library": "Ma bibliothèque",
     "registrations": "Mes inscriptions",
     "trainerTitle": "Espace formateur",
     "trainerLink": "Mon espace formateur",

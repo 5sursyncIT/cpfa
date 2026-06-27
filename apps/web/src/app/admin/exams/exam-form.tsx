@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { trpc } from '@/lib/trpc';
+import { MediaPicker } from '@/components/cms/media-picker';
+import { useToast, useConfirm } from '@/components/cpfa/admin-ui';
 
 const KIND_OPTIONS: Array<[string, string]> = [
   ['CONCOURS', 'Concours'],
@@ -41,8 +43,11 @@ function toInputDate(d: Date | null): string {
 
 export function ExamForm({ initial, mode }: { initial: Initial; mode: 'create' | 'edit' }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [form, setForm] = useState(initial);
   const [error, setError] = useState<string | null>(null);
+  const [noticePickerOpen, setNoticePickerOpen] = useState(false);
 
   const create = trpc.exams.adminCreate.useMutation();
   const update = trpc.exams.adminUpdate.useMutation();
@@ -71,25 +76,38 @@ export function ExamForm({ initial, mode }: { initial: Initial; mode: 'create' |
     try {
       if (mode === 'create') {
         const res = await create.mutateAsync(payload);
+        toast('Concours créé.');
         router.push(`/admin/exams/${res.id}`);
       } else if (initial.id) {
         await update.mutateAsync({ id: initial.id, ...payload });
+        toast('Modifications enregistrées.');
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue.';
+      setError(msg);
+      toast(msg, 'error');
     }
   }
 
   async function onDelete() {
     if (!initial.id) return;
-    if (!window.confirm('Supprimer ce concours ?')) return;
+    const { confirmed } = await confirm({
+      title: 'Supprimer ce concours ?',
+      message: `« ${form.title} » sera retiré définitivement du site. Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!confirmed) return;
     setError(null);
     try {
       await del.mutateAsync({ id: initial.id });
+      toast('Concours supprimé.');
       router.push('/admin/exams');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      const msg = err instanceof Error ? err.message : 'Erreur inconnue.';
+      setError(msg);
+      toast(msg, 'error');
     }
   }
 
@@ -108,32 +126,41 @@ export function ExamForm({ initial, mode }: { initial: Initial; mode: 'create' |
       <div className="panel" style={{ padding: 24 }}>
         <h4 style={{ marginBottom: 16 }}>Identité</h4>
         <div className="col gap-3">
-          <div className="row gap-3">
-            <div style={{ flex: 2 }}>
-              <label className="label" htmlFor="e-title">Titre *</label>
-              <input
-                id="e-title"
-                className="input"
-                value={form.title}
-                onChange={(e) => {
-                  set('title', e.target.value);
-                  if (mode === 'create' && !form.slug) set('slug', slugify(e.target.value));
-                }}
-                required
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="label" htmlFor="e-slug">Slug *</label>
-              <input
-                id="e-slug"
-                className="input mono"
-                value={form.slug}
-                onChange={(e) => set('slug', slugify(e.target.value))}
-                required
-                pattern="[a-z0-9-]+"
-              />
-            </div>
+          <div>
+            <label className="label" htmlFor="e-title">Titre *</label>
+            <input
+              id="e-title"
+              className="input"
+              value={form.title}
+              onChange={(e) => {
+                set('title', e.target.value);
+                if (mode === 'create') set('slug', slugify(e.target.value));
+              }}
+              required
+            />
           </div>
+          <details>
+            <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-soft, #64748b)' }}>
+              Adresse de la page (avancé)
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <label className="label" htmlFor="e-slug">Adresse sur le site</label>
+              <div className="row gap-1" style={{ alignItems: 'center' }}>
+                <span className="fs-13 text-soft mono">/concours/</span>
+                <input
+                  id="e-slug"
+                  className="input mono"
+                  value={form.slug}
+                  onChange={(e) => set('slug', slugify(e.target.value))}
+                  required
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <p className="fs-13 text-soft" style={{ marginTop: 4 }}>
+                Générée automatiquement depuis le titre. Ne la modifiez que si nécessaire.
+              </p>
+            </div>
+          </details>
           <div className="row gap-3">
             <div style={{ flex: 1 }}>
               <label className="label" htmlFor="e-kind">Type *</label>
@@ -215,13 +242,42 @@ export function ExamForm({ initial, mode }: { initial: Initial; mode: 'create' |
             />
           </div>
           <div>
-            <label className="label" htmlFor="e-notice">Avis de concours (clé storage PDF)</label>
-            <input
-              id="e-notice"
-              className="input"
-              value={form.noticeKey ?? ''}
-              onChange={(e) => set('noticeKey', e.target.value)}
-              placeholder="media/avis-concours-2026.pdf"
+            <label className="label">Avis de concours (PDF)</label>
+            {form.noticeKey ? (
+              <div className="row gap-2" style={{ alignItems: 'center' }}>
+                <span className="pill">📄 {form.noticeKey.split('/').pop()}</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setNoticePickerOpen(true)}
+                >
+                  Remplacer
+                </button>
+                <button
+                  type="button"
+                  className="btn-link fs-13"
+                  style={{ color: 'var(--danger)' }}
+                  onClick={() => set('noticeKey', null)}
+                >
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setNoticePickerOpen(true)}
+              >
+                Choisir un fichier
+              </button>
+            )}
+            <p className="fs-13 text-soft" style={{ marginTop: 4 }}>
+              Choisissez le document dans la médiathèque, ou ajoutez-en un depuis la page Médias.
+            </p>
+            <MediaPicker
+              open={noticePickerOpen}
+              onClose={() => setNoticePickerOpen(false)}
+              onPick={(m) => set('noticeKey', m.storageKey)}
             />
           </div>
         </div>

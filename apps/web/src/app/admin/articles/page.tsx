@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { ArticlePublishToggle } from './article-publish-toggle';
+import { ArticleDeleteButton } from './article-delete-button';
 import { CreateArticleButton } from './create-article-button';
 import { CloneArticleButton } from './clone-article-button';
 
@@ -16,14 +17,16 @@ const ALLOWED_LOCALES = ['fr', 'en'] as const;
 export default async function AdminArticlesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ locale?: string; q?: string }>;
+  searchParams: Promise<{ locale?: string; q?: string; status?: string; tag?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect('/sign-in?callbackUrl=/admin/articles');
   if (!hasPermission(session.user.roles, 'cms:write')) redirect('/admin');
 
-  const { locale: rawLocale, q } = await searchParams;
+  const { locale: rawLocale, q, status: rawStatus, tag: rawTag } = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'fr';
+  const status = rawStatus === 'published' || rawStatus === 'draft' ? rawStatus : 'all';
+  const tag = rawTag?.trim() || '';
 
   const otherLocale = locale === 'fr' ? 'en' : 'fr';
 
@@ -31,6 +34,8 @@ export default async function AdminArticlesPage({
     prisma.article.findMany({
       where: {
         locale,
+        ...(status === 'all' ? {} : { published: status === 'published' }),
+        ...(tag ? { tags: { has: tag } } : {}),
         ...(q
           ? {
               OR: [
@@ -102,13 +107,31 @@ export default async function AdminArticlesPage({
               id="filter-q"
               name="q"
               defaultValue={q ?? ''}
-              placeholder="Titre, slug"
+              placeholder="Titre ou adresse"
               className="input"
             />
           </div>
+          <div>
+            <label className="label" htmlFor="filter-tag">Tag</label>
+            <input
+              id="filter-tag"
+              name="tag"
+              defaultValue={tag}
+              placeholder="cima, ohada…"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="filter-status">Statut</label>
+            <select id="filter-status" name="status" defaultValue={status} className="input">
+              <option value="all">Tous</option>
+              <option value="published">Publiés</option>
+              <option value="draft">Brouillons</option>
+            </select>
+          </div>
           {locale ? <input type="hidden" name="locale" value={locale} /> : null}
           <button type="submit" className="btn btn-ghost btn-sm">Filtrer</button>
-          {q ? <Link href={`/admin/articles?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
+          {q || tag || status !== 'all' ? <Link href={`/admin/articles?locale=${locale}`} className="btn-link fs-13">Réinitialiser</Link> : null}
         </div>
       </form>
 
@@ -124,7 +147,7 @@ export default async function AdminArticlesPage({
             <thead>
               <tr>
                 <th>Titre ({otherLocale.toUpperCase()})</th>
-                <th>Slug</th>
+                <th>Adresse</th>
                 <th>Publication</th>
                 <th></th>
               </tr>
@@ -133,7 +156,7 @@ export default async function AdminArticlesPage({
               {missingFromCurrent.map((a) => (
                 <tr key={a.id}>
                   <td>{a.title}</td>
-                  <td className="mono fs-13 text-soft">{a.slug}</td>
+                  <td className="mono fs-13 text-soft">/blog/{a.slug}</td>
                   <td>
                     {a.published ? (
                       <span className="pill pill-success">Publié</span>
@@ -159,7 +182,7 @@ export default async function AdminArticlesPage({
             <thead>
               <tr>
                 <th>Titre</th>
-                <th>Slug</th>
+                <th>Adresse</th>
                 <th>Mis à jour</th>
                 <th>Publication</th>
                 <th></th>
@@ -176,7 +199,7 @@ export default async function AdminArticlesPage({
                       {a.title}
                     </Link>
                   </td>
-                  <td className="mono fs-13 text-soft">{a.slug}</td>
+                  <td className="mono fs-13 text-soft">/blog/{a.slug}</td>
                   <td className="mono fs-13 text-soft">{fmt.format(a.updatedAt)}</td>
                   <td>
                     {a.published ? (
@@ -199,7 +222,17 @@ export default async function AdminArticlesPage({
                         >
                           ↗ voir
                         </Link>
-                      ) : null}
+                      ) : (
+                        <Link
+                          href={`/blog/${a.slug}?preview=1`}
+                          className="btn-link fs-13"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          ↗ aperçu
+                        </Link>
+                      )}
+                      <ArticleDeleteButton id={a.id} title={a.title} />
                     </div>
                   </td>
                 </tr>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trpc } from '@/lib/trpc';
+import { useConfirm } from '@/components/cpfa/admin-ui';
 
 type Initial = {
   firstName: string;
@@ -27,6 +28,7 @@ export function UserAdminActions({
   hasPassword: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [form, setForm] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -169,8 +171,13 @@ export function UserAdminActions({
               type="button"
               className="btn btn-ghost btn-sm"
               disabled={pending || !twoFactorEnabled}
-              onClick={() => {
-                if (!window.confirm('Réinitialiser le 2FA ?')) return;
+              onClick={async () => {
+                const { confirmed } = await confirm({
+                  title: 'Réinitialiser le 2FA ?',
+                  message: 'Le membre devra reconfigurer son application d’authentification.',
+                  confirmLabel: 'Réinitialiser',
+                });
+                if (!confirmed) return;
                 run(
                   () => reset2FA.mutateAsync({ id: userId }),
                   '2FA réinitialisé. Le membre devra reconfigurer son appareil.',
@@ -193,8 +200,14 @@ export function UserAdminActions({
               type="button"
               className="btn btn-ghost btn-sm"
               disabled={pending || !hasPassword}
-              onClick={() => {
-                if (!window.confirm('Effacer le mot de passe ?')) return;
+              onClick={async () => {
+                const { confirmed } = await confirm({
+                  title: 'Effacer le mot de passe ?',
+                  message:
+                    'Le membre devra se connecter via un lien magique au prochain accès.',
+                  confirmLabel: 'Effacer le mot de passe',
+                });
+                if (!confirmed) return;
                 run(
                   () => forcePwd.mutateAsync({ id: userId }),
                   'Mot de passe effacé. Le membre devra utiliser un lien magique.',
@@ -224,9 +237,16 @@ export function UserAdminActions({
               className="btn btn-ghost btn-sm"
               style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
               disabled={pending || isSelf}
-              onClick={() => {
-                if (!window.confirm("Révoquer l'accès de ce compte ?")) return;
-                run(() => revoke.mutateAsync({ id: userId }), 'Accès révoqué (rôle VISITEUR).');
+              onClick={async () => {
+                const { confirmed } = await confirm({
+                  title: 'Révoquer l’accès de ce compte ?',
+                  message:
+                    'Tous les rôles seront retirés (le compte redevient simple visiteur). L’historique est conservé.',
+                  confirmLabel: 'Révoquer l’accès',
+                  danger: true,
+                });
+                if (!confirmed) return;
+                run(() => revoke.mutateAsync({ id: userId }), 'Accès révoqué (rôle Visiteur).');
               }}
             >
               {revoke.isPending ? '…' : isSelf ? 'Toi-même : impossible' : 'Révoquer'}
@@ -250,13 +270,14 @@ export function UserAdminActions({
                 borderColor: 'var(--danger)',
               }}
               disabled={pending || isSelf}
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    'Supprimer définitivement ce compte ? Cette action est irréversible.',
-                  )
-                )
-                  return;
+              onClick={async () => {
+                const { confirmed } = await confirm({
+                  title: 'Supprimer définitivement ce compte ?',
+                  message: 'Cette action est irréversible.',
+                  confirmLabel: 'Supprimer le compte',
+                  danger: true,
+                });
+                if (!confirmed) return;
                 setError(null);
                 setSuccess(null);
                 remove

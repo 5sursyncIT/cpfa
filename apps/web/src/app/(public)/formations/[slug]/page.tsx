@@ -46,13 +46,16 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
           .join(' · ')
       : 'À programmer';
 
-  // Admission criteria — generic, but FR-CIMA appropriate.
-  const admissions = [
+  // Admission criteria — per-course when set by the admin, otherwise the
+  // generic CPFA criteria as a fallback.
+  const GENERIC_ADMISSIONS = [
     'Diplôme reconnu CAMES de niveau Bac+4 minimum (toutes disciplines)',
     "Réussite au concours d'entrée — 4 épreuves écrites + entretien",
     'Expérience professionnelle bienvenue mais non obligatoire',
     'Maîtrise du français écrit et oral · niveau B2 anglais souhaitable',
   ];
+  const admissions =
+    course.admissionCriteria.length > 0 ? course.admissionCriteria : GENERIC_ADMISSIONS;
 
   return (
     <div>
@@ -168,16 +171,12 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
               <span className="label">Catégorie</span>
               <span className="value">{category}</span>
             </div>
-            <div className="enroll-stat-row">
-              <span className="label">Sessions</span>
-              <span className="value">{sessionsLabel}</span>
-            </div>
             <div
               className="enroll-stat-row"
               style={{ borderBottom: '1px solid var(--line-soft)' }}
             >
-              <span className="label">Note alumni</span>
-              <span className="value">★ 4,7 / 5</span>
+              <span className="label">Sessions</span>
+              <span className="value">{sessionsLabel}</span>
             </div>
 
             <EnrollLauncher

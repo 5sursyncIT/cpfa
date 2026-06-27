@@ -55,7 +55,6 @@ export default async function AdminSubscribersPage({
     take: 100,
     include: {
       user: { select: { firstName: true, lastName: true, email: true } },
-      _count: { select: { loans: { where: { status: 'ACTIVE' } } } },
     },
   });
 
@@ -121,7 +120,6 @@ export default async function AdminSubscribersPage({
                 <th>Formule</th>
                 <th>Statut</th>
                 <th>Échéance</th>
-                <th>Prêts actifs</th>
                 <th></th>
               </tr>
             </thead>
@@ -143,7 +141,6 @@ export default async function AdminSubscribersPage({
                     <td className="mono fs-13" style={{ color: expired ? 'var(--danger)' : undefined }}>
                       {s.expiresAt ? fmtDate.format(s.expiresAt) : '—'}
                     </td>
-                    <td className="mono fs-13">{s._count.loans}</td>
                     <td>
                       <Link
                         href={`/admin/library/subscribers/${s.id}`}

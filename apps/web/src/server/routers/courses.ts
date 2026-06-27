@@ -14,6 +14,7 @@ const courseInputSchema = z.object({
   durationHours: z.number().int().min(1).max(10000).default(1),
   priceXof: z.number().int().min(0).max(100_000_000).default(0),
   description: z.string().trim().max(8000).optional().nullable(),
+  admissionCriteria: z.array(z.string().trim().min(1).max(400)).max(20).default([]),
   brochureKey: z.string().trim().max(500).optional().nullable(),
   coverImageKey: z.string().trim().max(500).optional().nullable(),
   published: z.boolean().default(false),

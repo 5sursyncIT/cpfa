@@ -54,7 +54,6 @@ export default async function AdminResourcesListPage({
       take: 100,
       include: {
         category: { select: { name: true } },
-        _count: { select: { loans: { where: { status: 'ACTIVE' } } } },
       },
     }),
     prisma.category.findMany({ orderBy: { name: 'asc' } }),
@@ -141,8 +140,6 @@ export default async function AdminResourcesListPage({
             </thead>
             <tbody>
               {resources.map((r) => {
-                const onLoan = r._count.loans;
-                const available = Math.max(0, r.totalCopies - onLoan);
                 return (
                   <tr key={r.id}>
                     <td>
@@ -152,15 +149,13 @@ export default async function AdminResourcesListPage({
                       >
                         {r.title}
                       </Link>
+                      {r.cote ? <div className="fs-13 text-soft mono">{r.cote}</div> : null}
                       {r.subtitle ? <div className="fs-13 text-soft">{r.subtitle}</div> : null}
                     </td>
                     <td><span className="pill">{KIND_LABEL[r.kind] ?? r.kind}</span></td>
                     <td className="text-soft fs-13">{r.authors.join(', ') || '—'}</td>
                     <td className="text-soft fs-13">{r.category?.name ?? '—'}</td>
-                    <td className="mono fs-13">
-                      {available}/{r.totalCopies}
-                      {onLoan > 0 ? <span className="text-soft"> · {onLoan} prêt(s)</span> : null}
-                    </td>
+                    <td className="mono fs-13">{r.totalCopies}</td>
                     <td className="text-soft fs-13">{fmtDate.format(r.createdAt)}</td>
                     <td>
                       <Link

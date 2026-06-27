@@ -1,7 +1,7 @@
 'use client';
 
 import { trpc } from '@/lib/trpc';
-import { mediaUrl } from '@/lib/media';
+import { mediaUrl, fileTypeLabel } from '@/lib/media';
 
 type Picked = { storageKey: string; altText?: string | null };
 
@@ -59,7 +59,7 @@ export function MediaPicker({
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={url} alt={m.altText ?? ''} className="h-full w-full object-cover" />
                     ) : (
-                      <span className="font-mono">{m.mimeType}</span>
+                      <span className="font-medium">{fileTypeLabel(m.mimeType)}</span>
                     )}
                   </div>
                   <div className="truncate font-mono text-[10px] text-muted-foreground">

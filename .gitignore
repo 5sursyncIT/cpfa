@@ -37,5 +37,10 @@ test-results/
 # prisma
 packages/db/prisma/migrations/dev/
 
-# uploads (local dev)
+# local file storage
 uploads/
+storage/
+apps/web/storage/
+
+# database backups / dumps
+backups/

@@ -25,20 +25,11 @@ describe('mailer', () => {
   });
 
   it('subjectFor produces French-aware copy per template', () => {
-    const reminder: EmailTemplate = {
-      kind: 'loan-reminder',
-      data: {
-        firstName: null,
-        resourceTitle: 'Foo',
-        dueDate: '1 mai 2026',
-        daysOverdue: 0,
-        penaltyXof: 0,
-      },
+    const magic: EmailTemplate = {
+      kind: 'magic-link',
+      data: { url: 'https://cpfa-sn.com/x' },
     };
-    expect(subjectFor(reminder)).toContain("Rappel d'échéance");
-
-    const overdue: EmailTemplate = { ...reminder, data: { ...reminder.data, daysOverdue: 5 } };
-    expect(subjectFor(overdue)).toContain('Retour en retard');
+    expect(subjectFor(magic)).toContain('lien de connexion');
 
     const contact: EmailTemplate = {
       kind: 'contact',
