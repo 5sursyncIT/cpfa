@@ -6,6 +6,8 @@ export type FormationCover = 'navy' | 'orange' | 'cream' | 'ink';
 export type FormationCardData = {
   slug: string;
   title: string;
+  /** `CourseKind` brut — c'est lui que filtre le catalogue, pas `category`. */
+  kind: string;
   category: string;
   description?: string | null;
   duration: string;

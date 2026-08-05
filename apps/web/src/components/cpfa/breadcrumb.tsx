@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { Fragment } from 'react';
+import { getTranslations } from 'next-intl/server';
 
 export type Crumb = { href?: string; label: string };
 
-export function Breadcrumb({ items }: { items: Crumb[] }) {
+export async function Breadcrumb({ items }: { items: Crumb[] }) {
+  const t = await getTranslations('nav');
   return (
-    <nav className="breadcrumb-nav" aria-label="Fil d'Ariane">
+    <nav className="breadcrumb-nav" aria-label={t('breadcrumbLabel')}>
       <ol>
         {items.map((c, i) => {
           const last = i === items.length - 1;

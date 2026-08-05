@@ -40,6 +40,13 @@ Recommended once volume justifies the DevOps cost or souveraineté is required (
 - A reverse proxy with TLS (Caddy or Nginx + Certbot)
 - Outbound SMTP/HTTP access for Resend / Wave / OM webhooks
 
+> **Every prod command carries `-p cpfa-prod`.** The compose file declares no
+> `name:` and `.env.production` sets no `COMPOSE_PROJECT_NAME`, so Compose
+> falls back to the *directory* of the compose file — `docker` — and silently
+> stands up a **second, parallel stack** with its own empty database and
+> volumes next to the real one. `docker-compose.yml` (dev) sits in that same
+> directory, so a prod command without `-p` also recreates the dev containers.
+
 ### Layout
 
 ```
@@ -59,13 +66,13 @@ cp .env.example /opt/cpfa/.env.production
 $EDITOR /opt/cpfa/.env.production    # set production secrets
 
 # 2. Run Postgres + Redis first so migrations succeed
-docker compose -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d postgres redis
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d postgres redis
 
 # 3. Run DB migrations once
-docker compose -f docker/docker-compose.prod.yml --profile tools run --rm migrate
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production --profile tools run --rm migrate
 
 # 4. Bring up web + worker
-docker compose -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --build web worker
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --build web worker
 ```
 
 ### TLS termination (Caddy)
@@ -80,15 +87,28 @@ cpfa.example.org {
 
 ### Updates (rolling)
 
+`--env-file` is required on every one of these: Compose interpolates the whole
+file whatever service you target, so omitting it fails on `POSTGRES_PASSWORD`
+even when you only build `web`.
+
 ```bash
 cd /opt/cpfa/repo
 git pull
-docker compose -f docker/docker-compose.prod.yml build web worker
-docker compose -f docker/docker-compose.prod.yml --profile tools run --rm migrate
-docker compose -f docker/docker-compose.prod.yml up -d --no-deps web worker
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production build web worker
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production --profile tools run --rm migrate
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --no-deps web worker
 ```
 
+Rebuild **both** `web` and `worker`, not just `web`. The worker is a separate
+esbuild bundle carrying the e-mail and PDF templates; shipping a new `web`
+alone leaves transactional mail on the previous build, which no smoke test on
+the site will catch.
+
 The web service has a healthcheck on `/api/health`; the orchestrator only marks the new container healthy once the route returns 200.
+
+> Known false negative: the standalone server binds to `$HOSTNAME`, so Docker
+> can report the container `unhealthy` while the site serves traffic normally.
+> Check `curl -I https://<domain>` before treating it as a failed deploy.
 
 ## CI/CD
 
@@ -109,4 +129,4 @@ The web service has a healthcheck on `/api/health`; the orchestrator only marks 
 See [`RUNBOOK.md`](RUNBOOK.md) for the exact rollback steps. TL;DR:
 
 - **Vercel**: redeploy the previous successful deployment from the dashboard.
-- **VPS**: `git checkout <previous-tag> && docker compose up -d --no-deps web worker`. Migrations are forward-only — if a migration is the cause, restore the DB from a backup before the migration ran.
+- **VPS**: `git checkout <previous-tag> && docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --no-deps web worker`. Migrations are forward-only — if a migration is the cause, restore the DB from a backup before the migration ran.

@@ -10,7 +10,12 @@ import { prisma } from '@cpfa/db';
 import { getSetting } from '@/lib/site-settings/get';
 import { mediaUrl } from '@/lib/media';
 import { applicationStatusAt } from '@/lib/course-rules';
-import { type Locale } from '@/i18n/request';
+import { getTranslations } from 'next-intl/server';
+import { intlLocale, type Locale } from '@/i18n/request';
+import { renderEmph } from '@/lib/render-emph';
+import { applyFigures, getSiteFigures } from '@/lib/site-figures';
+import { getLibraryTiers } from '@/lib/library-pricing';
+import { formatXof } from '@/lib/library-rules';
 
 type Upcoming = {
   kind: 'session' | 'seminar' | 'exam';
@@ -20,14 +25,14 @@ type Upcoming = {
   meta?: string;
 };
 
-const fmtDate = new Intl.DateTimeFormat('fr-FR', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-});
-
 export async function HomeBlocksSection({ locale }: { locale: Locale }) {
   const now = new Date();
+  const t = await getTranslations('homeBlocks');
+  const fmtDate = new Intl.DateTimeFormat(intlLocale(locale), {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
   // Counts pour les colonnes Formation
   const [certifsCount, diplomesCount, seminarsCount, examsCount] = await Promise.all([
@@ -73,14 +78,14 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
       href: `/formations/${s.course.slug}`,
       title: s.course.title,
       startsAt: s.startsAt,
-      meta: s.location ?? 'Session',
+      meta: s.location ?? t('metaSession'),
     })),
     ...upcomingSeminars.map((s) => ({
       kind: 'seminar' as const,
       href: `/seminaires/${s.slug}`,
       title: s.title,
       startsAt: s.startsAt,
-      meta: s.location ?? 'Séminaire',
+      meta: s.location ?? t('metaSeminar'),
     })),
     ...upcomingExams.map((e) => ({
       kind: 'exam' as const,
@@ -89,7 +94,7 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
       // Concours sans date d'épreuve fixée : on retombe sur la clôture des
       // inscriptions pour rester ordonnable sur le bandeau « À venir ».
       startsAt: e.examAt ?? e.closeAt,
-      meta: e.examAt ? 'Concours' : 'Clôture des inscriptions',
+      meta: e.examAt ? t('metaExam') : t('metaExamClosing'),
     })),
   ]
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
@@ -108,22 +113,40 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
       applicationsCloseAt: true,
     },
   });
+  // Fenêtre d'inscription réelle si elle existe ; sinon le texte réglé dans
+  // /admin/settings (aucune phrase inventée dans le code).
   const diplomaWindowMessage = (() => {
-    const open = openDiplomas.find(
-      (c) => applicationStatusAt(c).state === 'open',
-    );
-    if (open) return 'Inscriptions ouvertes';
+    const open = openDiplomas.find((c) => applicationStatusAt(c).state === 'open');
+    if (open) return t('applicationsOpen');
     const next = openDiplomas
       .map((c) => applicationStatusAt(c))
       .filter((s): s is { state: 'before'; opensAt: Date } => s.state === 'before')
       .sort((a, b) => a.opensAt.getTime() - b.opensAt.getTime())[0];
-    if (next) return `Réouverture le ${fmtDate.format(next.opensAt)}`;
-    return 'Sur concours d’entrée';
+    if (next) return t('reopensOn', { date: fmtDate.format(next.opensAt) });
+    return null;
   })();
 
   // Brochure CPFA (settings) — si pas configurée, on lie vers /a-propos
   const brochure = await getSetting('site.brochureKey', locale);
   const brochureHref = brochure.key ? mediaUrl(brochure.key) : '/a-propos';
+
+  // Photos de fond des colonnes Formation (§1.3 b), pilotées depuis
+  // /admin/settings. Clés vides = colonnes en fond uni.
+  const columnImages = await getSetting('home.formationColumns', locale);
+
+  // Textes des quatre encarts + chiffres et tarifs réels. Les jetons du réglage
+  // ({ouvrages}, {tarifEtudiant}, …) sont remplacés ici : l'administration
+  // écrit une phrase, le système garantit les nombres.
+  const [blocks, figures, tiers] = await Promise.all([
+    getSetting('home.blocks', locale),
+    getSiteFigures(now),
+    getLibraryTiers(locale),
+  ]);
+  const withValues = (text: string) =>
+    applyFigures(text, figures)
+      .replace('{tarifEtudiant}', formatXof(tiers.STUDENT.priceXof))
+      .replace('{tarifPro}', formatXof(tiers.PROFESSIONAL.priceXof))
+      .replace('{tarifEmprunt}', formatXof(tiers.HOME_LOAN.priceXof));
 
   return (
     <section className="section">
@@ -140,13 +163,10 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
             className="card"
             style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}
           >
-            <span className="eyebrow">Qui sommes-nous</span>
-            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>
-              Le CPFA, <em className="italic-emph">une référence</em> régionale.
-            </h3>
+            <span className="eyebrow">{blocks.aboutEyebrow}</span>
+            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>{renderEmph(blocks.aboutTitle)}</h3>
             <p className="fs-14 text-mid" style={{ lineHeight: 1.5 }}>
-              Unité décentralisée de l&apos;IIA Yaoundé, reconnue par la Direction des Assurances.
-              Découvrez notre mission, notre gouvernance et nos partenaires.
+              {withValues(blocks.aboutText)}
             </p>
             <div className="row gap-2" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
               {brochureHref ? (
@@ -156,11 +176,11 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
                   target={brochure.key ? '_blank' : undefined}
                   rel={brochure.key ? 'noreferrer' : undefined}
                 >
-                  Brochure CPFA <span className="arrow">→</span>
+                  {blocks.aboutBrochureCta} <span className="arrow">→</span>
                 </a>
               ) : null}
               <Link className="btn btn-ghost btn-sm" href="/mot-du-directeur">
-                Mot du Directeur
+                {blocks.aboutDirectorCta}
               </Link>
             </div>
           </article>
@@ -176,10 +196,8 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
               gap: 16,
             }}
           >
-            <span className="eyebrow">Formation</span>
-            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>
-              Trois voies, <em className="italic-emph">une exigence</em>.
-            </h3>
+            <span className="eyebrow">{blocks.formationEyebrow}</span>
+            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>{renderEmph(blocks.formationTitle)}</h3>
             <div
               style={{
                 display: 'grid',
@@ -188,22 +206,25 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
               }}
             >
               <FormationColumn
-                title="Certifications"
+                title={t('colCertifications')}
                 count={certifsCount}
-                description="Spécialisations courtes, certifiantes."
-                href="/formations?cat=Certification"
+                description={withValues(blocks.formationColCertifications)}
+                href="/formations?cat=CERTIFIANT"
+                imageKey={columnImages.certificationsImageKey}
               />
               <FormationColumn
-                title="Diplômes"
+                title={t('colDiplomas')}
                 count={diplomesCount}
-                description={diplomaWindowMessage}
-                href="/formations?cat=Cursus%20dipl%C3%B4mant"
+                description={diplomaWindowMessage ?? withValues(blocks.formationColDiplomas)}
+                href="/formations?cat=DIPLOMANT"
+                imageKey={columnImages.diplomasImageKey}
               />
               <FormationColumn
-                title="Séminaires & concours"
+                title={t('colSeminars')}
                 count={seminarsCount + examsCount}
-                description="Sessions courtes & concours d’entrée."
+                description={withValues(blocks.formationColSeminars)}
                 href="/seminaires"
+                imageKey={columnImages.seminarsImageKey}
               />
             </div>
           </article>
@@ -213,13 +234,11 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
             className="card"
             style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 12 }}
           >
-            <span className="eyebrow">À venir</span>
-            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>
-              Prochaines <em className="italic-emph">échéances</em>.
-            </h3>
+            <span className="eyebrow">{blocks.upcomingEyebrow}</span>
+            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>{renderEmph(blocks.upcomingTitle)}</h3>
             {upcoming.length === 0 ? (
               <p className="fs-14 text-soft" style={{ marginTop: 4 }}>
-                Aucune session ou concours programmé pour le moment.
+                {blocks.upcomingEmpty}
               </p>
             ) : (
               <ul style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -235,9 +254,7 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
                       paddingTop: i ? 8 : 0,
                     }}
                   >
-                    <span className="mono fs-13 text-soft">
-                      {fmtDate.format(u.startsAt)}
-                    </span>
+                    <span className="mono fs-13 text-soft">{fmtDate.format(u.startsAt)}</span>
                     <Link
                       href={u.href}
                       className="fs-14"
@@ -269,21 +286,25 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
               background: 'linear-gradient(135deg, var(--orange-soft, #fff7ed), white)',
             }}
           >
-            <span className="eyebrow">Bibliothèque</span>
-            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>
-              Découvrez la <em className="italic-emph">bibliothèque</em>.
-            </h3>
+            <span className="eyebrow">{blocks.libraryEyebrow}</span>
+            <h3 style={{ fontSize: 22, lineHeight: 1.2 }}>{renderEmph(blocks.libraryTitle)}</h3>
             <p className="fs-14 text-mid" style={{ lineHeight: 1.5 }}>
-              Plus de 25 domaines spécialisés en assurance, actuariat, transport et risques. Trois
-              formules d&apos;abonnement (étudiant 10 000 · pro 15 000 · emprunt domicile 50 000
-              FCFA/an), carte d&apos;abonné PDF, règlement intérieur téléchargeable.
+              {withValues(blocks.libraryText)}
             </p>
+            {/* « En savoir + » ouvre la bibliothèque dans une nouvelle fenêtre
+                (§1.3 d) — l'espace bibliothèque se consulte en parallèle du
+                site, sans faire perdre au visiteur sa navigation en cours. */}
             <div className="row gap-2" style={{ marginTop: 'auto', flexWrap: 'wrap' }}>
-              <Link className="btn btn-primary btn-sm" href="/bibliotheque">
-                Explorer le catalogue <span className="arrow">→</span>
-              </Link>
+              <a
+                className="btn btn-primary btn-sm"
+                href="/bibliotheque"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {blocks.libraryCatalogCta} <span className="arrow">→</span>
+              </a>
               <Link className="btn btn-ghost btn-sm" href="/me/abonnement">
-                S’abonner
+                {blocks.librarySubscribeCta}
               </Link>
             </div>
           </article>
@@ -293,38 +314,65 @@ export async function HomeBlocksSection({ locale }: { locale: Locale }) {
   );
 }
 
+// Une colonne du bloc « Formation ». Avec photo de fond, le texte passe en
+// blanc sur un voile sombre pour rester lisible quelle que soit l'image
+// téléversée ; sans photo, on garde le fond uni d'origine.
 function FormationColumn({
   title,
   count,
   description,
   href,
+  imageKey,
 }: {
   title: string;
   count: number;
   description: string;
   href: string;
+  imageKey?: string;
 }) {
+  const imageSrc = mediaUrl(imageKey || null);
+
   return (
     <Link
       href={href}
       className="card"
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         padding: 16,
+        minHeight: imageSrc ? 168 : undefined,
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
-        background: 'var(--bg-soft, #f8fafc)',
+        background: imageSrc
+          ? `linear-gradient(to top, oklch(18% 0.06 258 / 0.92), oklch(18% 0.06 258 / 0.55)), url("${imageSrc}") center / cover no-repeat`
+          : 'var(--bg-soft, #f8fafc)',
         textDecoration: 'none',
       }}
     >
-      <div className="mono fs-13 text-soft">{count} programme(s)</div>
-      <div className="fs-15" style={{ fontWeight: 600 }}>
+      <div
+        className="mono fs-13"
+        style={{ color: imageSrc ? 'oklch(85% 0.02 80)' : 'var(--ink-soft)' }}
+      >
+        {count} programme(s)
+      </div>
+      <div className="fs-15" style={{ fontWeight: 600, color: imageSrc ? 'white' : undefined }}>
         {title}
       </div>
-      <div className="fs-13 text-mid" style={{ lineHeight: 1.45 }}>
+      <div
+        className="fs-13"
+        style={{ lineHeight: 1.45, color: imageSrc ? 'oklch(88% 0.01 80)' : 'var(--ink-mid)' }}
+      >
         {description}
       </div>
-      <div className="fs-13" style={{ marginTop: 'auto', color: 'var(--orange-deep)' }}>
+      <div
+        className="fs-13"
+        style={{
+          marginTop: 'auto',
+          paddingTop: 8,
+          color: imageSrc ? 'oklch(85% 0.08 60)' : 'var(--orange-deep)',
+        }}
+      >
         En savoir plus →
       </div>
     </Link>

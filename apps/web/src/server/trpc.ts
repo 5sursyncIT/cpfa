@@ -5,15 +5,21 @@ import { ZodError } from 'zod';
 import { auth } from '@/lib/auth';
 import { hasPermission, type Permission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
+import { resolveLocale, type Locale } from '@/i18n/request';
 
 export type Context = {
   session: Session | null;
   prisma: typeof prisma;
+  /** Locale de la requête — les erreurs rendues au visiteur s'y adaptent. */
+  locale: Locale;
 };
 
 export async function createContext(): Promise<Context> {
-  const session = (await auth()) as Session | null;
-  return { session, prisma };
+  const [session, locale] = await Promise.all([
+    auth() as Promise<Session | null>,
+    resolveLocale(),
+  ]);
+  return { session, prisma, locale };
 }
 
 const t = initTRPC.context<Context>().create({

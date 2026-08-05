@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { presignDownload, buildKey, presignUpload } from '@cpfa/lib/storage';
 import { router, protectedProcedure, publicProcedure, permissionProcedure } from '../trpc';
+import { serverError } from '@/lib/server-errors';
 
 export const examPapersRouter = router({
   // List papers for an exam — visibility depends on access level + viewer's
@@ -58,7 +59,7 @@ export const examPapersRouter = router({
           paper.accessLevel === 'REGISTERED'
             ? !!reg
             : reg?.status === 'PAID' || reg?.status === 'VALIDATED';
-        if (!ok) throw new TRPCError({ code: 'FORBIDDEN', message: 'Inscription requise pour cette épreuve.' });
+        if (!ok) throw new TRPCError({ code: 'FORBIDDEN', message: serverError('examRegistrationRequired', ctx.locale) });
       }
 
       return { url: await presignDownload(paper.fileKey, 300) };

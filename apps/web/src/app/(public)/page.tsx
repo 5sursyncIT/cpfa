@@ -11,20 +11,17 @@ import { EmptyState } from '@/components/cpfa/empty-state';
 import { courseToCard, resourceToBook } from '@/lib/cpfa-mappers';
 import { getSetting } from '@/lib/site-settings/get';
 import { getKeyFigures, getHomeTestimonials } from '@/lib/content-blocks';
-import { resolveLocale, type Locale } from '@/i18n/request';
+import { applyFigures, getSiteFigures } from '@/lib/site-figures';
+import { intlLocale, resolveLocale, type Locale } from '@/i18n/request';
 import { HomeBlocksSection } from '@/components/cpfa/home-blocks-section';
 import { renderEmph } from '@/lib/render-emph';
-import { richTags } from '@/lib/i18n-tags';
 import heroPhoto from './hero/hero_cpafa_v2.jpg';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const locale = await resolveLocale();
-  const [hero, t] = await Promise.all([
-    getSetting('home.hero', locale),
-    getTranslations('home'),
-  ]);
+  const [hero, t] = await Promise.all([getSetting('home.hero', locale), getTranslations('home')]);
 
   return (
     <>
@@ -38,7 +35,7 @@ export default async function HomePage() {
               </span>
               <h1 className="hero-headline">{renderEmph(hero.headline)}</h1>
               <p className="hero-lede">{hero.description}</p>
-              <div className="row gap-3 hero-ctas">
+              <div className="row hero-ctas gap-3">
                 <Link href="/formations" className="btn btn-primary btn-lg">
                   {t('heroCtaPrimary')} <span className="arrow">→</span>
                 </Link>
@@ -88,68 +85,92 @@ export default async function HomePage() {
       </Suspense>
 
       <Suspense fallback={<FeaturedSkeleton />}>
-        <FeaturedFormationsSection />
+        <FeaturedFormationsSection locale={locale} />
       </Suspense>
 
       <Suspense fallback={<BooksSkeleton />}>
-        <BooksSection />
+        <BooksSection locale={locale} />
       </Suspense>
 
       <Suspense fallback={<TestimonialsSkeleton />}>
         <TestimonialsSection locale={locale} />
       </Suspense>
 
-      <ConcoursSection />
+      <ConcoursSection locale={locale} />
     </>
   );
 }
 
-async function ConcoursSection() {
-  const [t, nextExam] = await Promise.all([
-    getTranslations('home'),
+async function ConcoursSection({ locale }: { locale: Locale }) {
+  // Dates, frais et description viennent du concours publié : le compte à
+  // rebours et les faits affichés à côté ne peuvent plus se contredire.
+  const [section, nextExam] = await Promise.all([
+    getSetting('home.concours', locale),
     prisma.exam.findFirst({
       where: { published: true, closeAt: { gt: new Date() } },
       orderBy: { closeAt: 'asc' },
-      select: { closeAt: true },
+      select: {
+        slug: true,
+        title: true,
+        description: true,
+        closeAt: true,
+        examAt: true,
+        feeXof: true,
+      },
     }),
   ]);
+
+  const fmtDay = new Intl.DateTimeFormat(intlLocale(locale), {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const facts: Array<[string, string]> = nextExam
+    ? [
+        [section.labelDeposit, `jusqu'au ${fmtDay.format(nextExam.closeAt)}`],
+        ...(nextExam.examAt
+          ? ([[section.labelWritten, fmtDay.format(nextExam.examAt)]] as Array<[string, string]>)
+          : []),
+        [section.labelFee, `${nextExam.feeXof.toLocaleString('fr-FR')} FCFA`],
+      ]
+    : [];
+
   return (
     <section className="section" style={{ paddingBottom: 0, borderTop: 'none' }}>
       <div className="container">
         <div className="concours-card">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              {t('concoursEyebrow')}
+              {section.eyebrow}
             </span>
-            <div className="concours-headline">{t.rich('concoursHeadline', richTags)}</div>
+            <div className="concours-headline">{renderEmph(section.headline)}</div>
             {nextExam ? <Countdown deadline={nextExam.closeAt} /> : null}
             <div className="row gap-3">
               <Link href="/concours" className="btn btn-orange btn-lg">
-                {t('concoursCtaPrimary')} <span className="arrow">→</span>
+                {section.ctaPrimary} <span className="arrow">→</span>
               </Link>
               <Link href="/concours" className="btn btn-ghost btn-lg">
-                {t('concoursCtaSecondary')}
+                {section.ctaSecondary}
               </Link>
             </div>
           </div>
           <div>
             <p className="fs-17 text-mid" style={{ lineHeight: 1.5 }}>
-              {t('concoursDescription')}
+              {nextExam?.description || section.fallbackDescription}
             </p>
             <div className="divider" style={{ margin: '24px 0' }}></div>
-            <div className="col gap-3">
-              {[
-                [t('concoursFactDeposit'), t('concoursFactDepositValue')],
-                [t('concoursFactWritten'), t('concoursFactWrittenValue')],
-                [t('concoursFactResults'), t('concoursFactResultsValue')],
-                [t('concoursFactFee'), t('concoursFactFeeValue')],
-              ].map(([k, v]) => (
-                <div key={k} className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="text-soft fs-13">{k}</span>
-                  <span className="mono fs-13">{v}</span>
-                </div>
-              ))}
-            </div>
+            {facts.length > 0 ? (
+              <div className="col gap-3">
+                {facts.map(([k, v]) => (
+                  <div key={k} className="row" style={{ justifyContent: 'space-between' }}>
+                    <span className="text-soft fs-13">{k}</span>
+                    <span className="mono fs-13">{v}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="fs-14 text-soft">{section.emptyMessage}</p>
+            )}
           </div>
         </div>
       </div>
@@ -191,8 +212,8 @@ function StatsSkeleton() {
   );
 }
 
-async function FeaturedFormationsSection() {
-  const [featured, t] = await Promise.all([
+async function FeaturedFormationsSection({ locale }: { locale: Locale }) {
+  const [featured, section, figures] = await Promise.all([
     prisma.course.findMany({
       where: { published: true },
       orderBy: { createdAt: 'desc' },
@@ -208,7 +229,8 @@ async function FeaturedFormationsSection() {
         coverImageKey: true,
       },
     }),
-    getTranslations('home'),
+    getSetting('home.featured', locale),
+    getSiteFigures(),
   ]);
   return (
     <section className="section">
@@ -216,24 +238,24 @@ async function FeaturedFormationsSection() {
         <div className="section-header">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              {t('featuredEyebrow')}
+              {section.eyebrow}
             </span>
-            <h2>{t.rich('featuredHeadline', richTags)}</h2>
+            <h2>{renderEmph(applyFigures(section.headline, figures))}</h2>
           </div>
           <Link href="/formations" className="btn btn-ghost">
-            {t('featuredCta')} <span className="arrow">→</span>
+            {section.cta} <span className="arrow">→</span>
           </Link>
         </div>
         {featured.length === 0 ? (
           <EmptyState
-            title={t('featuredEmptyTitle')}
-            description={t('featuredEmptyDesc')}
-            action={{ href: '/contact', label: t('featuredEmptyAction') }}
+            title={section.emptyTitle}
+            description={section.emptyDescription}
+            action={{ href: '/contact', label: section.emptyAction }}
           />
         ) : (
           <div className="formations-grid">
             {featured.map((c) => (
-              <FormationCard key={c.slug} f={courseToCard(c)} />
+              <FormationCard key={c.slug} f={courseToCard(c, locale)} />
             ))}
           </div>
         )}
@@ -262,14 +284,15 @@ function FeaturedSkeleton() {
   );
 }
 
-async function BooksSection() {
-  const [books, t] = await Promise.all([
+async function BooksSection({ locale }: { locale: Locale }) {
+  const [books, section, figures] = await Promise.all([
     prisma.resource.findMany({
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: { id: true, title: true, authors: true, totalCopies: true },
     }),
-    getTranslations('home'),
+    getSetting('home.books', locale),
+    getSiteFigures(),
   ]);
   return (
     <section className="section">
@@ -277,24 +300,24 @@ async function BooksSection() {
         <div className="section-header">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              {t('booksEyebrow')}
+              {section.eyebrow}
             </span>
-            <h2>{t.rich('booksHeadline', richTags)}</h2>
+            <h2>{renderEmph(applyFigures(section.headline, figures))}</h2>
           </div>
           <Link href="/bibliotheque" className="btn btn-ghost">
-            {t('booksCta')} <span className="arrow">→</span>
+            {section.cta} <span className="arrow">→</span>
           </Link>
         </div>
         {books.length === 0 ? (
           <EmptyState
-            title={t('booksEmptyTitle')}
-            description={t('booksEmptyDesc')}
-            action={{ href: '/bibliotheque', label: t('booksEmptyAction') }}
+            title={section.emptyTitle}
+            description={section.emptyDescription}
+            action={{ href: '/bibliotheque', label: section.emptyAction }}
           />
         ) : (
           <div className="book-grid">
             {books.map((r) => (
-              <Book key={r.id} b={resourceToBook(r)} href={`/bibliotheque/${r.id}`} />
+              <Book key={r.id} b={resourceToBook(r, locale)} href={`/bibliotheque/${r.id}`} />
             ))}
           </div>
         )}
@@ -324,9 +347,11 @@ function BooksSkeleton() {
 }
 
 async function TestimonialsSection({ locale }: { locale: Locale }) {
-  const [testimonials, t] = await Promise.all([
+  // Habillage éditable dans /admin/settings ; témoignages dans
+  // /admin/testimonials. Aucun texte de cette section ne vit plus dans le code.
+  const [testimonials, section] = await Promise.all([
     getHomeTestimonials(locale),
-    getTranslations('home'),
+    getSetting('home.testimonialsSection', locale),
   ]);
 
   return (
@@ -335,16 +360,13 @@ async function TestimonialsSection({ locale }: { locale: Locale }) {
         <div className="section-header">
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              {t('testimonialsEyebrow')}
+              {renderEmph(section.eyebrow)}
             </span>
-            <h2>{t.rich('testimonialsHeadline', richTags)}</h2>
+            <h2>{renderEmph(section.headline)}</h2>
           </div>
         </div>
         {testimonials.length === 0 ? (
-          <EmptyState
-            title={t('testimonialsEmptyTitle')}
-            description={t('testimonialsEmptyDesc')}
-          />
+          <EmptyState title={section.emptyTitle} description={section.emptyDescription} />
         ) : (
           <div className="quote-grid">
             {testimonials.map((t, i) => (

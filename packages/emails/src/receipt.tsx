@@ -1,4 +1,5 @@
 import { Body, Container, Head, Heading, Html, Preview, Text } from '@react-email/components';
+import { emailCopy, emailXof, type Locale } from './copy';
 
 export type ReceiptEmailProps = {
   customerName: string;
@@ -6,6 +7,7 @@ export type ReceiptEmailProps = {
   amountXof: number;
   description: string;
   issuedAt: string;
+  locale?: Locale;
 };
 
 export function ReceiptEmail({
@@ -14,32 +16,29 @@ export function ReceiptEmail({
   amountXof,
   description,
   issuedAt,
+  locale,
 }: ReceiptEmailProps) {
-  const fmt = `${amountXof.toLocaleString('fr-FR')} FCFA`;
+  const c = emailCopy('receipt', locale);
+  const amount = emailXof(amountXof, locale);
   return (
     <Html>
       <Head />
-      <Preview>Reçu N° {invoiceNumber} — CPFA</Preview>
+      <Preview>{c.preview(invoiceNumber)}</Preview>
       <Body style={{ fontFamily: 'sans-serif', backgroundColor: '#f8fafc', padding: '24px' }}>
         <Container style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 24, maxWidth: 480 }}>
-          <Heading as="h1">Paiement confirmé</Heading>
-          <Text>Bonjour {customerName},</Text>
-          <Text>
-            Votre paiement a bien été reçu et confirmé par nos services. Vous trouverez en pièce
-            jointe le reçu officiel correspondant.
-          </Text>
+          <Heading as="h1">{c.heading}</Heading>
+          <Text>{c.greeting(customerName)}</Text>
+          <Text>{c.body}</Text>
           <Text style={{ background: '#f1f5f9', padding: 12, borderRadius: 6 }}>
-            <strong>N°</strong> {invoiceNumber}
+            <strong>{c.numberLabel}</strong> {invoiceNumber}
             <br />
-            <strong>Date</strong> {issuedAt}
+            <strong>{c.dateLabel}</strong> {issuedAt}
             <br />
-            <strong>Objet</strong> {description}
+            <strong>{c.purposeLabel}</strong> {description}
             <br />
-            <strong>Montant</strong> {fmt}
+            <strong>{c.amountLabel}</strong> {amount}
           </Text>
-          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>
-            Si vous avez des questions concernant ce paiement, contactez l’équipe comptable du CPFA.
-          </Text>
+          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>{c.footer}</Text>
         </Container>
       </Body>
     </Html>

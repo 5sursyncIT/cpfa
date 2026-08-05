@@ -2,20 +2,22 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
 const KINDS = [
-  { value: undefined, label: 'Tous les types' },
-  { value: 'BOOK', label: 'Livres' },
-  { value: 'JOURNAL', label: 'Revues' },
-  { value: 'THESIS', label: 'Mémoires' },
-  { value: 'DIGITAL', label: 'Numérique' },
+  { value: undefined, labelKey: 'kindAll' },
+  { value: 'BOOK', labelKey: 'kindBook' },
+  { value: 'JOURNAL', labelKey: 'kindJournal' },
+  { value: 'THESIS', labelKey: 'kindThesis' },
+  { value: 'DIGITAL', labelKey: 'kindDigital' },
 ] as const;
 
 type Kind = (typeof KINDS)[number]['value'];
 
 export function LibrarySearch() {
+  const t = useTranslations('librarySearch');
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind>(undefined);
 
@@ -34,7 +36,7 @@ export function LibrarySearch() {
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Titre, auteur, mot-clé, ISBN…"
+          placeholder={t('placeholder')}
           className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <select
@@ -43,8 +45,8 @@ export function LibrarySearch() {
           className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {KINDS.map((k) => (
-            <option key={k.label} value={k.value ?? ''}>
-              {k.label}
+            <option key={k.labelKey} value={k.value ?? ''}>
+              {t(k.labelKey)}
             </option>
           ))}
         </select>
@@ -52,11 +54,11 @@ export function LibrarySearch() {
 
       <div className="mt-8">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <p className="text-sm text-muted-foreground">{t('loading')}</p>
         ) : isError ? (
-          <p className="text-sm text-destructive">Une erreur est survenue.</p>
+          <p className="text-sm text-destructive">{t('error')}</p>
         ) : !data || data.items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun résultat.</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         ) : (
           <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {data.items.map((r) => (
@@ -85,7 +87,7 @@ export function LibrarySearch() {
 
       {data?.nextCursor ? (
         <div className="mt-6">
-          <Button variant="outline">Charger plus</Button>
+          <Button variant="outline">{t('loadMore')}</Button>
         </div>
       ) : null}
     </div>

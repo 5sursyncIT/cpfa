@@ -83,13 +83,7 @@ export async function CpfaFooter() {
                   </span>
                 );
                 return p.url ? (
-                  <a
-                    key={p.name}
-                    href={p.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={p.name}
-                  >
+                  <a key={p.name} href={p.url} target="_blank" rel="noreferrer" aria-label={p.name}>
                     {inner}
                   </a>
                 ) : (
@@ -252,7 +246,7 @@ export async function CpfaFooter() {
         </div>
 
         <div className="footer-bottom">
-          <span>{tFooter('copyright')}</span>
+          <span>{tFooter('copyright', { year: new Date().getFullYear() })}</span>
           <span>{tFooter('designedIn')}</span>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { Prisma } from '@cpfa/db';
 import { buildKey, presignDownload, presignUpload } from '@cpfa/lib/storage';
 import { getQueue, type EmailJob } from '@cpfa/lib/queues';
+import { serverError } from '@/lib/server-errors';
 import {
   router,
   protectedProcedure,
@@ -22,7 +23,7 @@ import {
 // isolation (defense in depth).
 const trainerProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!ctx.session!.user.roles.includes('FORMATEUR')) {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Réservé aux formateurs validés.' });
+    throw new TRPCError({ code: 'FORBIDDEN', message: serverError('approvedTrainersOnly', ctx.locale) });
   }
   return next();
 });
@@ -53,7 +54,7 @@ export const trainersRouter = router({
     if (existing?.status === 'APPROVED') {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'Vous êtes déjà formateur — modifiez votre fiche depuis votre espace.',
+        message: serverError('alreadyTrainer', ctx.locale),
       });
     }
 

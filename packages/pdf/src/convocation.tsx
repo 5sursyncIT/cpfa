@@ -1,4 +1,5 @@
 import { Document, Page, StyleSheet, Text, View, renderToBuffer } from '@react-pdf/renderer';
+import { pdfCopy, type Locale } from './copy';
 
 export type ConvocationProps = {
   registrationId: string;
@@ -7,6 +8,7 @@ export type ConvocationProps = {
   kind: 'course' | 'seminar' | 'exam';
   startsAt?: string; // formatted date
   location?: string;
+  locale?: Locale;
 };
 
 const styles = StyleSheet.create({
@@ -22,12 +24,6 @@ const styles = StyleSheet.create({
   signature: { marginTop: 48, fontSize: 10, color: '#475569' },
 });
 
-const KIND_LABEL: Record<ConvocationProps['kind'], string> = {
-  course: 'Formation',
-  seminar: 'Séminaire',
-  exam: 'Concours / Examen',
-};
-
 export function Convocation({
   registrationId,
   candidateName,
@@ -35,51 +31,55 @@ export function Convocation({
   kind,
   startsAt,
   location,
+  locale,
 }: ConvocationProps) {
+  const c = pdfCopy('convocation', locale);
+  const kindLabel = {
+    course: c.kindCourse,
+    seminar: c.kindSeminar,
+    exam: c.kindExam,
+  }[kind];
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.brand}>CPFA — Centre Professionnel de Formation à l’Assurance</Text>
-          <Text style={styles.brandSub}>Dakar, Sénégal</Text>
+          <Text style={styles.brand}>{c.brand}</Text>
+          <Text style={styles.brandSub}>{c.brandSub}</Text>
         </View>
 
-        <Text style={styles.h1}>Convocation officielle</Text>
-        <Text style={styles.meta}>Référence : {registrationId}</Text>
+        <Text style={styles.h1}>{c.title}</Text>
+        <Text style={styles.meta}>{c.reference(registrationId)}</Text>
 
         <View style={styles.block}>
           <View style={styles.row}>
-            <Text style={styles.label}>Candidat·e</Text>
+            <Text style={styles.label}>{c.candidate}</Text>
             <Text>{candidateName}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>Objet</Text>
+            <Text style={styles.label}>{c.subject}</Text>
             <Text>
-              {KIND_LABEL[kind]} — {target}
+              {kindLabel} — {target}
             </Text>
           </View>
           {startsAt ? (
             <View style={styles.row}>
-              <Text style={styles.label}>Date</Text>
+              <Text style={styles.label}>{c.date}</Text>
               <Text>{startsAt}</Text>
             </View>
           ) : null}
           {location ? (
             <View style={styles.row}>
-              <Text style={styles.label}>Lieu</Text>
+              <Text style={styles.label}>{c.place}</Text>
               <Text>{location}</Text>
             </View>
           ) : null}
         </View>
 
         <View style={styles.block}>
-          <Text>
-            Vous êtes officiellement convoqué·e pour la session ci-dessus. Présentez ce document
-            ainsi qu’une pièce d’identité valide à l’accueil.
-          </Text>
+          <Text>{c.body}</Text>
         </View>
 
-        <Text style={styles.signature}>La Direction des études — CPFA</Text>
+        <Text style={styles.signature}>{c.signature}</Text>
       </Page>
     </Document>
   );

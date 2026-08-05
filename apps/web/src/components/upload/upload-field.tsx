@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
@@ -19,6 +20,7 @@ export function UploadField({
   required?: boolean;
   onUploaded?: (result: UploadResult) => void;
 }) {
+  const t = useTranslations('uploadField');
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<'idle' | 'signing' | 'uploading' | 'confirming' | 'done' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function UploadField({
         headers: presigned.headers,
         body: file,
       });
-      if (!res.ok) throw new Error(`Upload échoué (HTTP ${res.status}).`);
+      if (!res.ok) throw new Error(t('httpError', { status: res.status }));
 
       setStatus('confirming');
       await confirm.mutateAsync({
@@ -67,7 +69,7 @@ export function UploadField({
       onUploaded?.(result);
     } catch (err) {
       setStatus('error');
-      setErrorMsg(err instanceof Error ? err.message : 'Erreur d’upload');
+      setErrorMsg(err instanceof Error ? err.message : t('genericError'));
     }
   }
 
@@ -80,9 +82,11 @@ export function UploadField({
             {required ? <span className="ml-1 text-destructive">*</span> : null}
           </p>
           {uploaded ? (
-            <p className="text-xs text-emerald-700">Téléversé · {(uploaded.sizeBytes / 1024).toFixed(0)} Ko</p>
+            <p className="text-xs text-emerald-700">
+              {t('uploaded', { size: (uploaded.sizeBytes / 1024).toFixed(0) })}
+            </p>
           ) : (
-            <p className="text-xs text-muted-foreground">PDF / image · 25 Mo max</p>
+            <p className="text-xs text-muted-foreground">{t('hint')}</p>
           )}
         </div>
         <Button
@@ -93,14 +97,14 @@ export function UploadField({
           disabled={status === 'signing' || status === 'uploading' || status === 'confirming'}
         >
           {status === 'signing'
-            ? 'Préparation…'
+            ? t('preparing')
             : status === 'uploading'
-              ? 'Envoi…'
+              ? t('sending')
               : status === 'confirming'
-                ? 'Finalisation…'
+                ? t('finalising')
                 : uploaded
-                  ? 'Remplacer'
-                  : 'Téléverser'}
+                  ? t('replace')
+                  : t('upload')}
         </Button>
       </div>
       <input

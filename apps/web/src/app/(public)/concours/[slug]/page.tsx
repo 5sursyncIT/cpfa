@@ -1,29 +1,38 @@
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
+import { formatDate, formatNumber, formatXof } from '@cpfa/lib/i18n';
 import { ExamRegistrationCard } from '@/components/exam/exam-registration-card';
 import { Countdown } from '@/components/cpfa/countdown';
-import { fmtXof } from '@/lib/cpfa-mappers';
+import { resolveLocale } from '@/i18n/request';
+import { richTags } from '@/lib/i18n-tags';
 
 export const dynamic = 'force-dynamic';
 
-const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
-
-const KIND_LABEL: Record<string, string> = {
-  CONCOURS: 'Concours',
-  EXAM_BLANC: 'Examen blanc',
-  CERTIFICATION: 'Certification',
-};
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, t] = await Promise.all([params, getTranslations('examDetail')]);
   const exam = await prisma.exam.findUnique({ where: { slug }, select: { title: true } });
-  return { title: exam ? `${exam.title} — CPFA` : 'Concours introuvable — CPFA' };
+  return { title: exam ? `${exam.title} — CPFA` : t('notFound') };
 }
 
 export default async function ExamPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, t, tExams, locale] = await Promise.all([
+    params,
+    getTranslations('examDetail'),
+    getTranslations('examsPage'),
+    resolveLocale(),
+  ]);
   const exam = await prisma.exam.findUnique({ where: { slug } });
   if (!exam || !exam.published) notFound();
+
+  // Les libellés de type d'épreuve vivent déjà dans `examsPage`, partagés avec
+  // la page index — on les réutilise plutôt que d'en maintenir un second jeu.
+  const KIND_KEY: Record<string, 'kindConcours' | 'kindExamBlanc' | 'kindCertification'> = {
+    CONCOURS: 'kindConcours',
+    EXAM_BLANC: 'kindExamBlanc',
+    CERTIFICATION: 'kindCertification',
+  };
+  const kindKey = KIND_KEY[exam.kind];
 
   const now = new Date();
   const isOpen = exam.openAt <= now && exam.closeAt >= now;
@@ -33,7 +42,7 @@ export default async function ExamPage({ params }: { params: Promise<{ slug: str
       <div className="container">
         <div className="page-head" style={{ paddingBottom: 0 }}>
           <div className="breadcrumb">
-            CPFA · Concours · <span>{exam.title}</span>
+            CPFA · {t('breadcrumb')} · <span>{exam.title}</span>
           </div>
           <div className="detail-hero">
             <div>
@@ -46,7 +55,7 @@ export default async function ExamPage({ params }: { params: Promise<{ slug: str
                   marginBottom: 16,
                 }}
               >
-                {KIND_LABEL[exam.kind] ?? exam.kind}
+                {kindKey ? tExams(kindKey) : exam.kind}
               </span>
               <h1>{exam.title}</h1>
             </div>
@@ -67,31 +76,31 @@ export default async function ExamPage({ params }: { params: Promise<{ slug: str
             {isOpen ? (
               <>
                 <span className="eyebrow" style={{ marginBottom: 16 }}>
-                  Clôture des candidatures dans
+                  {t('deadlineEyebrow')}
                 </span>
                 <Countdown deadline={exam.closeAt} />
               </>
             ) : null}
 
             <h3 style={{ marginTop: 48, marginBottom: 24 }}>
-              Calendrier <em className="italic-emph">officiel</em>
+              {t.rich('calendarHeading', richTags)}
             </h3>
             <div className="col gap-3" style={{ maxWidth: 640 }}>
               <div className="enroll-stat-row" style={{ borderTop: '1px solid var(--line)' }}>
-                <span className="label">Ouverture des candidatures</span>
-                <span className="value">{fmt.format(exam.openAt)}</span>
+                <span className="label">{t('opensLabel')}</span>
+                <span className="value">{formatDate(exam.openAt, locale)}</span>
               </div>
               <div className="enroll-stat-row">
-                <span className="label">Clôture</span>
-                <span className="value">{fmt.format(exam.closeAt)}</span>
+                <span className="label">{t('closesLabel')}</span>
+                <span className="value">{formatDate(exam.closeAt, locale)}</span>
               </div>
               {exam.examAt ? (
                 <div
                   className="enroll-stat-row"
                   style={{ borderBottom: '1px solid var(--line-soft)' }}
                 >
-                  <span className="label">Épreuves</span>
-                  <span className="value">{fmt.format(exam.examAt)}</span>
+                  <span className="label">{t('examsLabel')}</span>
+                  <span className="value">{formatDate(exam.examAt, locale)}</span>
                 </div>
               ) : null}
             </div>
@@ -99,31 +108,28 @@ export default async function ExamPage({ params }: { params: Promise<{ slug: str
 
           <aside className="enroll-card">
             <div>
-              <div className="label">Frais de candidature</div>
+              <div className="label">{t('feeLabel')}</div>
               <div className="enroll-price">
-                {exam.feeXof === 0 ? 'Gratuit' : exam.feeXof.toLocaleString('fr-FR')}{' '}
+                {exam.feeXof === 0 ? formatXof(0, locale) : formatNumber(exam.feeXof, locale)}{' '}
                 {exam.feeXof === 0 ? null : <small>FCFA</small>}
               </div>
             </div>
             <div className="enroll-stat-row">
-              <span className="label">Statut</span>
-              <span className="value">
-                {isOpen ? 'Inscriptions ouvertes' : 'Inscriptions fermées'}
-              </span>
+              <span className="label">{t('statusLabel')}</span>
+              <span className="value">{isOpen ? t('statusOpen') : t('statusClosed')}</span>
             </div>
             {exam.examAt ? (
               <div
                 className="enroll-stat-row"
                 style={{ borderBottom: '1px solid var(--line-soft)' }}
               >
-                <span className="label">Date des épreuves</span>
-                <span className="value">{fmt.format(exam.examAt)}</span>
+                <span className="label">{t('examDateLabel')}</span>
+                <span className="value">{formatDate(exam.examAt, locale)}</span>
               </div>
             ) : null}
             <ExamRegistrationCard examId={exam.id} disabled={!isOpen} />
             <p className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
-              Frais payables : <strong>{fmtXof(exam.feeXof)}</strong>. Wave, Orange Money ou
-              virement.
+              {t.rich('feeNote', { ...richTags, price: formatXof(exam.feeXof, locale) })}
             </p>
           </aside>
         </div>

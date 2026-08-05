@@ -2,6 +2,8 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { renderConvocation } from '@cpfa/pdf';
+import { formatDateTime } from '@cpfa/lib/i18n';
+import { recipientLocale } from '@/lib/recipient-locale';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const reg = await prisma.registration.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      user: { select: { id: true, firstName: true, lastName: true, email: true, locale: true } },
       course: { select: { title: true } },
       seminar: { select: { title: true, startsAt: true, location: true } },
       exam: { select: { title: true, examAt: true } },
@@ -38,9 +40,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const kind: 'course' | 'seminar' | 'exam' = reg.courseId ? 'course' : reg.seminarId ? 'seminar' : 'exam';
 
   const date = reg.session?.startsAt ?? reg.seminar?.startsAt ?? reg.exam?.examAt ?? null;
-  const startsAt = date
-    ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).format(date)
-    : undefined;
+  // La convocation appartient au candidat, pas à qui la télécharge : un admin
+  // qui la récupère obtient le document dans la langue du candidat.
+  const locale = recipientLocale(reg.user);
+  const startsAt = date ? formatDateTime(date, locale) : undefined;
   const location = reg.session?.location ?? reg.seminar?.location ?? undefined;
 
   const pdf = await renderConvocation({
@@ -50,6 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     kind,
     startsAt,
     location,
+    locale,
   });
 
   return new Response(new Uint8Array(pdf), {

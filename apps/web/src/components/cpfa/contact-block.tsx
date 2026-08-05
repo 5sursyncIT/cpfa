@@ -1,6 +1,7 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
+import { useTranslations } from 'next-intl';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { trpc } from '@/lib/trpc';
 import { contactSchema, type ContactInput } from '@/server/routers/contact-schema';
@@ -15,6 +16,7 @@ export type ContactBlockProps = {
 };
 
 export function ContactBlock({ contact }: ContactBlockProps) {
+  const t = useTranslations('contactBlock');
   const submit = trpc.contact.submit.useMutation();
   const {
     register,
@@ -56,24 +58,22 @@ export function ContactBlock({ contact }: ContactBlockProps) {
             >
               ✓
             </div>
-            <h3>Message reçu</h3>
-            <p className="fs-15 text-mid">
-              Notre équipe vous répondra sous 48 heures ouvrées.
-            </p>
+            <h3>{t('sentTitle')}</h3>
+            <p className="fs-15 text-mid">{t('sentBody')}</p>
             <button
               type="button"
               className="btn btn-ghost"
               onClick={() => submit.reset()}
               style={{ alignSelf: 'center' }}
             >
-              Envoyer un autre message
+              {t('sendAnother')}
             </button>
           </div>
         ) : (
           <form className="col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
             <div>
               <label className="label" htmlFor="contact-name">
-                Nom complet
+                {t('nameLabel')}
               </label>
               <input
                 id="contact-name"
@@ -97,7 +97,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
             <div className="row gap-3">
               <div style={{ flex: 1 }}>
                 <label className="label" htmlFor="contact-email">
-                  Email
+                  {t('emailLabel')}
                 </label>
                 <input
                   id="contact-email"
@@ -120,7 +120,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
               </div>
               <div style={{ flex: 1 }}>
                 <label className="label" htmlFor="contact-phone">
-                  Téléphone (optionnel)
+                  {t('phoneLabel')}
                 </label>
                 <input id="contact-phone" className="input" {...register('phone')} />
               </div>
@@ -128,13 +128,13 @@ export function ContactBlock({ contact }: ContactBlockProps) {
 
             <div>
               <label className="label" htmlFor="contact-subject">
-                Objet
+                {t('subjectLabel')}
               </label>
               <input
                 id="contact-subject"
                 className="input"
                 {...register('subject')}
-                placeholder="Information sur les formations, partenariat, concours…"
+                placeholder={t('subjectPlaceholder')}
                 aria-invalid={errors.subject ? true : undefined}
                 aria-describedby={errors.subject ? 'contact-subject-error' : undefined}
               />
@@ -151,14 +151,14 @@ export function ContactBlock({ contact }: ContactBlockProps) {
 
             <div>
               <label className="label" htmlFor="contact-message">
-                Message
+                {t('messageLabel')}
               </label>
               <textarea
                 id="contact-message"
                 className="textarea"
                 {...register('message')}
                 rows={5}
-                placeholder="Précisez votre demande…"
+                placeholder={t('messagePlaceholder')}
                 required
                 aria-invalid={errors.message ? true : undefined}
                 aria-describedby={errors.message ? 'contact-message-error' : undefined}
@@ -177,7 +177,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
             <div role="alert" aria-live="assertive">
               {submit.isError ? (
                 <p className="fs-13" style={{ color: 'var(--danger)' }}>
-                  Désolé, l&apos;envoi a échoué. Réessayez dans quelques instants.
+                  {t('submitError')}
                 </p>
               ) : null}
             </div>
@@ -188,7 +188,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
               disabled={isSubmitting || submit.isPending}
               style={{ alignSelf: 'start' }}
             >
-              {isSubmitting || submit.isPending ? 'Envoi…' : 'Envoyer le message'}{' '}
+              {isSubmitting || submit.isPending ? t('sending') : t('submitCta')}{' '}
               {!(isSubmitting || submit.isPending) ? <span className="arrow">→</span> : null}
             </button>
           </form>
@@ -197,7 +197,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
 
       <div className="col gap-5">
         <div className="card">
-          <div className="label">Adresse</div>
+          <div className="label">{t('addressLabel')}</div>
           <p className="fs-15" style={{ marginTop: 8, lineHeight: 1.45 }}>
             {contact.address1}
             <br />
@@ -205,7 +205,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
           </p>
         </div>
         <div className="card">
-          <div className="label">Standard</div>
+          <div className="label">{t('switchboardLabel')}</div>
           <p className="fs-15" style={{ marginTop: 8, lineHeight: 1.45 }}>
             <a href={`tel:${contact.phone.replace(/\s+/g, '')}`} style={{ color: 'inherit' }}>
               {contact.phone}
@@ -213,7 +213,7 @@ export function ContactBlock({ contact }: ContactBlockProps) {
           </p>
         </div>
         <div className="card">
-          <div className="label">Email</div>
+          <div className="label">{t('emailLabel')}</div>
           <p className="fs-15" style={{ marginTop: 8, lineHeight: 1.45 }}>
             <a href={`mailto:${contact.email}`} style={{ color: 'inherit' }}>
               {contact.email}
@@ -229,17 +229,17 @@ export function ContactBlock({ contact }: ContactBlockProps) {
           }}
         >
           <div className="label" style={{ color: 'oklch(70% 0.02 80)' }}>
-            Vous êtes une entreprise ?
+            {t('corporateEyebrow')}
           </div>
           <h4 style={{ color: 'var(--bg)', margin: '12px 0', fontSize: 24 }}>
-            Concevons une formation sur mesure pour vos équipes.
+            {t('corporateHeadline')}
           </h4>
           <button
             type="button"
             className="btn"
             style={{ background: 'var(--orange)', color: 'white' }}
           >
-            Découvrir le programme corporate <span className="arrow">→</span>
+            {t('corporateCta')} <span className="arrow">→</span>
           </button>
         </div>
       </div>

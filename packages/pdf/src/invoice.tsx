@@ -1,4 +1,6 @@
 import { Document, Page, StyleSheet, Text, View, renderToBuffer } from '@react-pdf/renderer';
+import { formatXofExact } from '@cpfa/lib/i18n';
+import { pdfCopy, type Locale } from './copy';
 
 export type InvoiceProps = {
   number: string;
@@ -6,6 +8,7 @@ export type InvoiceProps = {
   amountXof: number;
   description: string;
   issuedAt: string;
+  locale?: Locale;
 };
 
 const styles = StyleSheet.create({
@@ -16,26 +19,34 @@ const styles = StyleSheet.create({
   total: { marginTop: 16, fontSize: 14, fontWeight: 700 },
 });
 
-const fmt = (xof: number) => `${xof.toLocaleString('fr-FR')} FCFA`;
-
-export function Invoice({ number, customerName, amountXof, description, issuedAt }: InvoiceProps) {
+export function Invoice({
+  number,
+  customerName,
+  amountXof,
+  description,
+  issuedAt,
+  locale,
+}: InvoiceProps) {
+  const c = pdfCopy('invoice', locale);
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.h1}>Reçu N° {number}</Text>
+        <Text style={styles.h1}>{c.title(number)}</Text>
         <View style={styles.row}>
-          <Text style={styles.label}>Client</Text>
+          <Text style={styles.label}>{c.customer}</Text>
           <Text>{customerName}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Date</Text>
+          <Text style={styles.label}>{c.date}</Text>
           <Text>{issuedAt}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Description</Text>
+          <Text style={styles.label}>{c.description}</Text>
           <Text>{description}</Text>
         </View>
-        <Text style={styles.total}>Total : {fmt(amountXof)}</Text>
+        <Text style={styles.total}>
+          {c.total} {formatXofExact(amountXof, locale)}
+        </Text>
       </Page>
     </Document>
   );

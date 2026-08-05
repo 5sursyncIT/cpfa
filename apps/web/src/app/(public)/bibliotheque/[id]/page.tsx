@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
+import { formatNumber } from '@cpfa/lib/i18n';
+import { resolveLocale } from '@/i18n/request';
 import { pickCover, resourceKindLabel } from '@/lib/cpfa-mappers';
+import { LIBRARY_DAILY_PENALTY_XOF, LIBRARY_LOAN_DAYS } from '@/lib/library-rules';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,13 +13,17 @@ type Cover = 'navy' | 'orange' | 'ink' | 'cream' | 'olive';
 const COVER_PALETTE: Cover[] = ['navy', 'orange', 'ink', 'cream', 'olive'];
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const [{ id }, t] = await Promise.all([params, getTranslations('resourceDetail')]);
   const resource = await prisma.resource.findUnique({ where: { id }, select: { title: true } });
-  return { title: resource ? `${resource.title} — CPFA` : 'Ressource introuvable — CPFA' };
+  return { title: resource ? `${resource.title} — CPFA` : t('notFound') };
 }
 
 export default async function ResourcePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const [{ id }, t, locale] = await Promise.all([
+    params,
+    getTranslations('resourceDetail'),
+    resolveLocale(),
+  ]);
   const resource = await prisma.resource.findUnique({
     where: { id },
     include: { category: true },
@@ -23,14 +31,14 @@ export default async function ResourcePage({ params }: { params: Promise<{ id: s
   if (!resource) notFound();
 
   const cover = pickCover<Cover>(resource.id, COVER_PALETTE);
-  const author = (resource.authors[0] ?? 'Anonyme').toUpperCase();
+  const author = (resource.authors[0] ?? t('anonymous')).toUpperCase();
 
   return (
     <div>
       <div className="container">
         <div className="page-head" style={{ paddingBottom: 32 }}>
           <div className="breadcrumb">
-            CPFA · Bibliothèque · <span>{resource.title}</span>
+            CPFA · {t('breadcrumb')} · <span>{resource.title}</span>
           </div>
         </div>
 
@@ -48,14 +56,14 @@ export default async function ResourcePage({ params }: { params: Promise<{ id: s
             <div style={{ marginTop: 24 }}>
               <span className="pill pill-success">
                 <span className="dot"></span>
-                Consultable sur place
+                {t('onSiteBadge')}
               </span>
             </div>
           </div>
 
           <div>
             <span className="eyebrow" style={{ marginBottom: 16 }}>
-              {resourceKindLabel(resource.kind)}
+              {resourceKindLabel(resource.kind, locale)}
             </span>
             <h1 style={{ fontSize: 'clamp(36px, 4vw, 56px)', marginTop: 8 }}>
               {resource.title}
@@ -72,30 +80,30 @@ export default async function ResourcePage({ params }: { params: Promise<{ id: s
             <div style={{ marginTop: 32 }} className="col gap-3">
               {resource.authors.length > 0 ? (
                 <div className="enroll-stat-row" style={{ borderTop: '1px solid var(--line)' }}>
-                  <span className="label">Auteur(s)</span>
+                  <span className="label">{t('authorsLabel')}</span>
                   <span className="value">{resource.authors.join(', ')}</span>
                 </div>
               ) : null}
               {resource.publisher ? (
                 <div className="enroll-stat-row">
-                  <span className="label">Éditeur</span>
+                  <span className="label">{t('publisherLabel')}</span>
                   <span className="value">{resource.publisher}</span>
                 </div>
               ) : null}
               {resource.publishedYear ? (
                 <div className="enroll-stat-row">
-                  <span className="label">Année</span>
+                  <span className="label">{t('yearLabel')}</span>
                   <span className="value">{resource.publishedYear}</span>
                 </div>
               ) : null}
               {resource.isbn ? (
                 <div className="enroll-stat-row">
-                  <span className="label">ISBN</span>
+                  <span className="label">{t('isbnLabel')}</span>
                   <span className="value mono">{resource.isbn}</span>
                 </div>
               ) : null}
               <div className="enroll-stat-row" style={{ borderBottom: '1px solid var(--line-soft)' }}>
-                <span className="label">Langue</span>
+                <span className="label">{t('languageLabel')}</span>
                 <span className="value">{resource.language.toUpperCase()}</span>
               </div>
             </div>
@@ -111,16 +119,18 @@ export default async function ResourcePage({ params }: { params: Promise<{ id: s
 
             <div className="row gap-3" style={{ marginTop: 32 }}>
               <Link href="/me/bibliotheque" className="btn btn-primary">
-                Mon espace bibliothèque <span className="arrow">→</span>
+                {t('myLibraryCta')} <span className="arrow">→</span>
               </Link>
               <Link href="/me/abonnement" className="btn btn-ghost">
-                Devenir abonné
+                {t('subscribeCta')}
               </Link>
             </div>
 
             <p className="fs-13 text-soft" style={{ marginTop: 24, lineHeight: 1.45 }}>
-              L&apos;emprunt s&apos;effectue à l&apos;accueil de la bibliothèque (scan QR de
-              votre carte). Durée : 14 jours. Pénalité de retard : 500 FCFA/jour.
+              {t('loanNote', {
+                days: LIBRARY_LOAN_DAYS,
+                penalty: formatNumber(LIBRARY_DAILY_PENALTY_XOF, locale),
+              })}
             </p>
           </div>
         </div>

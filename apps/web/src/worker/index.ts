@@ -17,9 +17,19 @@ import {
 } from '@cpfa/lib/queues';
 import { putObject, readObject } from '@cpfa/lib/storage';
 import { qrToDataUrl } from '@cpfa/lib/qr';
-import { renderSubscriberCard, renderInvoice, renderConvocation } from '@cpfa/pdf';
+import { defaultLocale, formatDate, formatDateTime } from '@cpfa/lib/i18n';
+import {
+  renderSubscriberCard,
+  renderInvoice,
+  renderConvocation,
+  renderSubscriptionContract,
+} from '@cpfa/pdf';
 import { sendEmail, subjectFor, type EmailAttachment, type EmailTemplate } from '../lib/mailer';
 import { confirmPayment } from '../lib/payments-confirm';
+import { readSetting } from '../lib/site-settings/read';
+import { localeForEmail, recipientLocale } from '../lib/recipient-locale';
+import { getLibraryTiers } from '../lib/library-pricing';
+import { buildSubscriptionContract, contractStorageKey } from '../lib/subscription-contract';
 
 const connection = makeConnection();
 
@@ -28,6 +38,10 @@ const emailWorker = new Worker<EmailJob>(
   async (job) => {
     const { to, template, data, replyTo, attachments } = job.data;
     const tmpl = { kind: template, data } as unknown as EmailTemplate;
+    // La préférence enregistrée du destinataire fait foi. `job.data.locale` ne
+    // sert que pour les adresses sans compte (recruteur ou candidat externe),
+    // où elle porte la locale de la requête qui a enfilé le message.
+    const locale = await localeForEmail(to, job.data.locale);
     // Read attachment bytes straight from local disk and attach as base64 —
     // the queue payload only carries the storage key, so nothing goes stale on
     // a retry days later.
@@ -50,8 +64,9 @@ const emailWorker = new Worker<EmailJob>(
     }
     const result = await sendEmail({
       to,
-      subject: subjectFor(tmpl),
+      subject: subjectFor(tmpl, locale),
       template: tmpl,
+      locale,
       replyTo,
       attachments: resolvedAttachments,
     });
@@ -70,22 +85,24 @@ const pdfWorker = new Worker<PdfJob>(
     if (data.kind === 'subscriber-card') {
       const sub = await prisma.subscription.findUnique({
         where: { id: data.subscriptionId },
-        include: { user: { select: { firstName: true, lastName: true, email: true } } },
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true, locale: true } },
+        },
       });
       if (!sub) throw new Error(`subscription ${data.subscriptionId} not found`);
+      const locale = recipientLocale(sub.user);
       const fullName =
         [sub.user.firstName, sub.user.lastName].filter(Boolean).join(' ') ||
         sub.user.email ||
         'Abonné CPFA';
-      const validUntil = sub.expiresAt
-        ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(sub.expiresAt)
-        : '—';
+      const validUntil = sub.expiresAt ? formatDate(sub.expiresAt, locale, 'medium') : '—';
       const qrDataUrl = await qrToDataUrl(sub.qrPayload);
       const pdf = await renderSubscriberCard({
         fullName,
         cardNumber: sub.cardNumber,
         validUntil,
         qrDataUrl,
+        locale,
       });
       const key = `card/${sub.id}/${sub.cardNumber}.pdf`;
       await putObject({ key, body: pdf, contentType: 'application/pdf' });
@@ -93,11 +110,70 @@ const pdfWorker = new Worker<PdfJob>(
       return { key };
     }
 
+    // Contrat d'abonnement — rendu à l'activation, archivé tel quel (c'est la
+    // version que l'abonné signe) puis envoyé en pièce jointe.
+    if (data.kind === 'subscription-contract') {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: data.subscriptionId },
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true, locale: true } },
+        },
+      });
+      if (!sub) throw new Error(`subscription ${data.subscriptionId} not found`);
+
+      const locale = recipientLocale(sub.user);
+
+      // Le CONTRAT lui-même reste en français, quelle que soit la langue de
+      // l'abonné : c'est un document contractuel qui reproduit mot pour mot
+      // l'original papier signé par la Direction, et un PDF moitié français
+      // moitié anglais n'aurait aucune valeur. Pour l'ouvrir à l'anglais il
+      // faut d'abord que le réglage `library.contract` existe en `en` (les
+      // huit articles traduits et validés) — sans quoi le fallback FR du CMS
+      // produirait des articles français sous un habillage anglais.
+      // L'e-mail qui l'accompagne, lui, suit bien la langue de l'abonné.
+      const mentions = await readSetting('library.contract', 'fr');
+      const contract = buildSubscriptionContract({
+        subscription: sub,
+        user: sub.user,
+        mentions,
+        tiers: await getLibraryTiers('fr'),
+      });
+      const pdf = await renderSubscriptionContract(contract);
+      const key = contractStorageKey(sub.id, sub.cardNumber);
+      await putObject({ key, body: pdf, contentType: 'application/pdf' });
+
+      if (sub.user.email) {
+        await getQueue<EmailJob>('email').add(
+          'subscription-contract',
+          {
+            to: sub.user.email,
+            template: 'subscription-contract',
+            data: {
+              subscriberName: contract.subscriberName,
+              cardNumber: sub.cardNumber,
+              tierLabel: contract.tierLabel,
+              expiresAt: contract.expiresAt,
+            },
+            locale,
+            attachments: [
+              {
+                filename: `contrat-abonnement-${sub.cardNumber}.pdf`,
+                storageKey: key,
+                contentType: 'application/pdf',
+              },
+            ],
+          },
+          { jobId: `subscription-contract:${sub.id}` },
+        );
+      }
+      return { key };
+    }
+
     if (data.kind === 'invoice') {
       const invoice = await prisma.invoice.findUnique({
         where: { paymentId: data.paymentId },
         include: {
-          user: { select: { firstName: true, lastName: true, email: true } },
+          user: { select: { firstName: true, lastName: true, email: true, locale: true } },
           payment: { select: { purpose: true, amountXof: true } },
         },
       });
@@ -105,15 +181,15 @@ const pdfWorker = new Worker<PdfJob>(
       const customerName =
         [invoice.user.firstName, invoice.user.lastName].filter(Boolean).join(' ') ||
         invoice.user.email;
-      const issuedAtLabel = new Intl.DateTimeFormat('fr-FR', {
-        dateStyle: 'medium',
-      }).format(invoice.issuedAt);
+      const locale = recipientLocale(invoice.user);
+      const issuedAtLabel = formatDate(invoice.issuedAt, locale, 'medium');
       const pdf = await renderInvoice({
         number: invoice.number,
         customerName,
         amountXof: invoice.amountXof,
         description: invoice.payment.purpose,
         issuedAt: issuedAtLabel,
+        locale,
       });
       const key = `invoice/${invoice.id}/${invoice.number}.pdf`;
       await putObject({ key, body: pdf, contentType: 'application/pdf' });
@@ -134,6 +210,7 @@ const pdfWorker = new Worker<PdfJob>(
               description: invoice.payment.purpose,
               issuedAt: issuedAtLabel,
             },
+            locale,
             attachments: [
               {
                 filename: `${invoice.number}.pdf`,
@@ -152,7 +229,7 @@ const pdfWorker = new Worker<PdfJob>(
       const reg = await prisma.registration.findUnique({
         where: { id: data.registrationId },
         include: {
-          user: { select: { firstName: true, lastName: true, email: true } },
+          user: { select: { firstName: true, lastName: true, email: true, locale: true } },
           course: { select: { title: true } },
           seminar: { select: { title: true, startsAt: true, location: true } },
           exam: { select: { title: true, examAt: true } },
@@ -169,9 +246,8 @@ const pdfWorker = new Worker<PdfJob>(
           ? 'seminar'
           : 'exam';
       const date = reg.session?.startsAt ?? reg.seminar?.startsAt ?? reg.exam?.examAt ?? null;
-      const startsAt = date
-        ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).format(date)
-        : undefined;
+      const locale = recipientLocale(reg.user);
+      const startsAt = date ? formatDateTime(date, locale) : undefined;
       const location = reg.session?.location ?? reg.seminar?.location ?? undefined;
       const pdf = await renderConvocation({
         registrationId: reg.id,
@@ -180,6 +256,7 @@ const pdfWorker = new Worker<PdfJob>(
         kind,
         startsAt,
         location,
+        locale,
       });
       const key = `convocation/${reg.id}.pdf`;
       await putObject({ key, body: pdf, contentType: 'application/pdf' });

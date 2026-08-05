@@ -14,9 +14,9 @@ export async function generateMetadata() {
 export default async function JobsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; level?: string; q?: string }>;
+  searchParams: Promise<{ type?: string; level?: string; location?: string; q?: string }>;
 }) {
-  const [{ type, level, q }, t, locale] = await Promise.all([
+  const [{ type, level, location, q }, t, locale] = await Promise.all([
     searchParams,
     getTranslations('jobs'),
     resolveLocale(),
@@ -44,22 +44,30 @@ export default async function JobsListPage({
   const jobs = await prisma.jobPosting.findMany({
     where: {
       status: 'PUBLISHED',
-      OR: [{ closesAt: null }, { closesAt: { gte: now } }],
+      // Both conditions live under AND: a bare `OR` key here would be
+      // overwritten by the search-term `OR` below, silently resurfacing
+      // offers past their closing date (§3.2.a du Directeur).
+      AND: [
+        { OR: [{ closesAt: null }, { closesAt: { gte: now } }] },
+        ...(q
+          ? [
+              {
+                OR: [
+                  { title: { contains: q, mode: 'insensitive' as const } },
+                  { companyName: { contains: q, mode: 'insensitive' as const } },
+                  { description: { contains: q, mode: 'insensitive' as const } },
+                ],
+              },
+            ]
+          : []),
+      ],
       ...(type && type in TYPE_LABEL
         ? { type: type as 'CDI' | 'CDD' | 'STAGE' | 'FREELANCE' | 'ALTERNANCE' }
         : {}),
       ...(level && level in LEVEL_LABEL
         ? { level: level as 'JUNIOR' | 'INTERMEDIAIRE' | 'SENIOR' | 'EXECUTIVE' }
         : {}),
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: 'insensitive' as const } },
-              { companyName: { contains: q, mode: 'insensitive' as const } },
-              { description: { contains: q, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
+      ...(location ? { location: { contains: location, mode: 'insensitive' as const } } : {}),
     },
     take: 60,
     orderBy: [{ urgent: 'desc' }, { publishedAt: 'desc' }],
@@ -124,6 +132,13 @@ export default async function JobsListPage({
             </option>
           ))}
         </select>
+        <input
+          name="location"
+          defaultValue={location ?? ''}
+          placeholder={t('filterLocationPlaceholder')}
+          className="input"
+          style={{ flex: '0 1 180px' }}
+        />
         <button type="submit" className="btn btn-primary">
           {t('filterCta')}
         </button>
@@ -158,8 +173,7 @@ export default async function JobsListPage({
                       {t('urgent')}
                     </span>
                   ) : null}
-                  {j.publishedAt &&
-                  Date.now() - j.publishedAt.getTime() < 7 * 24 * 3600 * 1000 ? (
+                  {j.publishedAt && Date.now() - j.publishedAt.getTime() < 7 * 24 * 3600 * 1000 ? (
                     <span className="fs-13 text-soft">{t('recent')}</span>
                   ) : null}
                 </div>

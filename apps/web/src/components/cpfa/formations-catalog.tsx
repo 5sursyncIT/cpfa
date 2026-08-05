@@ -1,13 +1,25 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { FormationCard, type FormationCardData } from './formation-card';
 
-const CATEGORIES = ['Tout', 'Cursus diplômant', 'Certification', 'Séminaire', 'Sur mesure'] as const;
-type Category = (typeof CATEGORIES)[number];
+// Le filtre porte sur `CourseKind`, pas sur le libellé affiché : celui-ci est
+// traduit, donc comparer des chaînes visibles casserait le catalogue dès qu'on
+// bascule en anglais. Le `?cat=` de l'URL transporte donc la clé d'enum, ce qui
+// le rend au passage stable d'une langue à l'autre.
+const CATEGORIES = [
+  { kind: 'all', labelKey: 'catAll' },
+  { kind: 'DIPLOMANT', labelKey: 'catDegree' },
+  { kind: 'CERTIFIANT', labelKey: 'catCertification' },
+  { kind: 'CARTE', labelKey: 'catTailored' },
+  { kind: 'AUDITORAT', labelKey: 'catAudit' },
+] as const;
 
-function isCategory(v: string | undefined): v is Category {
-  return !!v && (CATEGORIES as readonly string[]).includes(v);
+type CategoryKind = (typeof CATEGORIES)[number]['kind'];
+
+function isCategoryKind(v: string | undefined): v is CategoryKind {
+  return !!v && CATEGORIES.some((c) => c.kind === v);
 }
 
 export function FormationsCatalog({
@@ -17,15 +29,16 @@ export function FormationsCatalog({
   cards: FormationCardData[];
   initialCategory?: string;
 }) {
-  const [cat, setCat] = useState<Category>(
-    isCategory(initialCategory) ? initialCategory : 'Tout',
+  const t = useTranslations('formationsCatalog');
+  const [cat, setCat] = useState<CategoryKind>(
+    isCategoryKind(initialCategory) ? initialCategory : 'all',
   );
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return cards.filter((c) => {
-      if (cat !== 'Tout' && c.category !== cat) return false;
+      if (cat !== 'all' && c.kind !== cat) return false;
       if (term && !c.title.toLowerCase().includes(term)) return false;
       return true;
     });
@@ -36,18 +49,18 @@ export function FormationsCatalog({
       <div className="filter-bar">
         {CATEGORIES.map((c) => (
           <button
-            key={c}
+            key={c.kind}
             type="button"
-            className={'filter-chip' + (c === cat ? ' active' : '')}
-            onClick={() => setCat(c)}
+            className={'filter-chip' + (c.kind === cat ? ' active' : '')}
+            onClick={() => setCat(c.kind)}
           >
-            {c}
+            {t(c.labelKey)}
           </button>
         ))}
         <div style={{ flex: 1 }}></div>
         <input
           className="input"
-          placeholder="Rechercher un programme…"
+          placeholder={t('searchPlaceholder')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ maxWidth: 280 }}
@@ -56,7 +69,7 @@ export function FormationsCatalog({
 
       {filtered.length === 0 ? (
         <p className="text-soft" style={{ padding: '32px 0' }}>
-          Aucune formation ne correspond à vos critères.
+          {t('empty')}
         </p>
       ) : (
         <div className="formations-grid">

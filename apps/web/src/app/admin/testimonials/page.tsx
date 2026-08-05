@@ -32,10 +32,16 @@ export default async function AdminTestimonialsPage({
       ? (rawScope as 'STUDENT' | 'TEACHER' | 'PROFESSIONAL' | 'PARTNER')
       : undefined;
 
-  const items = await prisma.testimonial.findMany({
-    where: { locale, ...(scope ? { scope } : {}) },
-    orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
-  });
+  const [items, publishedForHome] = await Promise.all([
+    prisma.testimonial.findMany({
+      where: { locale, ...(scope ? { scope } : {}) },
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
+    }),
+    // Mêmes critères que la page d'accueil (voir getHomeTestimonials).
+    prisma.testimonial.count({
+      where: { locale, published: true, scope: { not: 'TEACHER' } },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -60,7 +66,7 @@ export default async function AdminTestimonialsPage({
             <input type="hidden" name="locale" value={locale} />
             <select
               name="scope"
-              className="rounded-md border bg-background px-2 py-1.5 text-sm"
+              className="bg-background rounded-md border px-2 py-1.5 text-sm"
               defaultValue={scope ?? ''}
             >
               <option value="">Tous les profils</option>
@@ -69,10 +75,7 @@ export default async function AdminTestimonialsPage({
               <option value="PROFESSIONAL">Professionnels</option>
               <option value="PARTNER">Partenaires</option>
             </select>
-            <button
-              type="submit"
-              className="rounded-md border bg-background px-3 py-1.5 text-sm"
-            >
+            <button type="submit" className="bg-background rounded-md border px-3 py-1.5 text-sm">
               Filtrer
             </button>
           </form>
@@ -80,23 +83,35 @@ export default async function AdminTestimonialsPage({
         </div>
       </header>
 
+      {/* Le piège à expliquer : sans témoignage publié, la page d'accueil
+          montre trois exemples écrits en dur, que personne ne retrouve ici. */}
+      {publishedForHome === 0 ? (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          Aucun témoignage n’est publié pour la page d’accueil : elle affiche pour l’instant trois
+          exemples. Publiez au moins un témoignage (profil Étudiant, Professionnel ou Partenaire)
+          pour qu’ils soient remplacés. Le titre de la section se modifie dans{' '}
+          <a href="/admin/settings" className="underline">
+            Paramètres du site
+          </a>
+          .
+        </p>
+      ) : null}
+
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aucun témoignage dans ce filtre.</p>
+        <p className="text-muted-foreground text-sm">Aucun témoignage dans ce filtre.</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((t) => (
-            <article key={t.id} className="rounded-lg border bg-card p-4">
+            <article key={t.id} className="bg-card rounded-lg border p-4">
               <header className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                 <div>
                   <strong>{t.authorName}</strong>
                   {t.authorRole ? (
-                    <span className="ml-2 text-xs text-muted-foreground">{t.authorRole}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">{t.authorRole}</span>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="rounded-full bg-muted px-2 py-0.5">
-                    {SCOPE_LABEL[t.scope]}
-                  </span>
+                  <span className="bg-muted rounded-full px-2 py-0.5">{SCOPE_LABEL[t.scope]}</span>
                   <span
                     className={
                       'rounded-full px-2 py-0.5 ' +
@@ -109,8 +124,8 @@ export default async function AdminTestimonialsPage({
                   </span>
                 </div>
               </header>
-              <blockquote className="italic text-sm">« {t.quote} »</blockquote>
-              <footer className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+              <blockquote className="text-sm italic">« {t.quote} »</blockquote>
+              <footer className="text-muted-foreground mt-3 flex items-center justify-between text-xs">
                 <span>
                   Ordre d’affichage : {t.displayOrder} · maj {fmt.format(t.updatedAt)}
                 </span>

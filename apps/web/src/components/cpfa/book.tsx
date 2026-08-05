@@ -7,6 +7,8 @@ export type BookData = {
   title: string;
   author: string;
   status: 'dispo' | 'emprunte';
+  /** Already localised by `resourceToBook` — the badge is pure presentation. */
+  statusLabel: string;
   cover: BookCover;
 };
 
@@ -21,7 +23,7 @@ export function Book({ b, href }: { b: BookData; href?: string }) {
         <span className="title fs-13" style={{ flex: 1, lineHeight: 1.3 }}>
           {b.title}
         </span>
-        <span className={'status ' + b.status}>{b.status === 'dispo' ? 'Dispo' : 'Sortie'}</span>
+        <span className={'status ' + b.status}>{b.statusLabel}</span>
       </div>
     </>
   );

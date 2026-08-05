@@ -47,6 +47,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.75.0(react@19.0.0))
+      '@react-pdf/renderer':
+        specifier: ^4.1.5
+        version: 4.5.1(react@19.0.0)
       '@tanstack/react-query':
         specifier: ^5.59.20
         version: 5.100.9(react@19.0.0)
@@ -178,6 +181,9 @@ importers:
 
   packages/emails:
     dependencies:
+      '@cpfa/lib':
+        specifier: workspace:*
+        version: link:../lib
       '@react-email/components':
         specifier: ^0.0.32
         version: 0.0.32(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -222,6 +228,9 @@ importers:
 
   packages/pdf:
     dependencies:
+      '@cpfa/lib':
+        specifier: workspace:*
+        version: link:../lib
       '@react-pdf/renderer':
         specifier: ^4.1.5
         version: 4.5.1(react@19.0.0)

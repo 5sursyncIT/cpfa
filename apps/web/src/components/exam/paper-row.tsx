@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@cpfa/ui';
 import { trpc } from '@/lib/trpc';
 
@@ -12,13 +13,14 @@ type Paper = {
   accessLevel: string;
 };
 
-const ACCESS_LABEL: Record<string, string> = {
-  PUBLIC: 'Public',
-  REGISTERED: 'Candidats',
-  PAID: 'Banque protégée',
+const ACCESS_KEY: Record<string, 'accessPublic' | 'accessRegistered' | 'accessPaid'> = {
+  PUBLIC: 'accessPublic',
+  REGISTERED: 'accessRegistered',
+  PAID: 'accessPaid',
 };
 
 export function PaperRow({ paper }: { paper: Paper }) {
+  const t = useTranslations('paperRow');
   const dl = trpc.examPapers.getDownloadUrl.useMutation({
     onSuccess: ({ url }) => window.open(url, '_blank', 'noopener'),
   });
@@ -29,7 +31,7 @@ export function PaperRow({ paper }: { paper: Paper }) {
         <p className="text-sm font-medium">{paper.title}</p>
         <p className="text-xs text-muted-foreground">
           {paper.year ? `${paper.year} · ` : ''}
-          {ACCESS_LABEL[paper.accessLevel] ?? paper.accessLevel}
+          {ACCESS_KEY[paper.accessLevel] ? t(ACCESS_KEY[paper.accessLevel]!) : paper.accessLevel}
           {paper.sizeBytes ? ` · ${(paper.sizeBytes / 1024).toFixed(0)} Ko` : ''}
         </p>
       </div>
@@ -39,7 +41,7 @@ export function PaperRow({ paper }: { paper: Paper }) {
         disabled={dl.isPending}
         onClick={() => dl.mutate({ paperId: paper.id })}
       >
-        {dl.isPending ? '…' : 'Télécharger'}
+        {dl.isPending ? '…' : t('download')}
       </Button>
       {dl.isError ? <span className="text-xs text-destructive">{dl.error.message}</span> : null}
     </li>

@@ -41,9 +41,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
   const confirm = useConfirm();
 
   // One state shape per form kind; we read the relevant one at save time.
-  const [obj, setObj] = useState<Obj>(() =>
-    ui.form === 'object' ? asObj(initialValue) : {},
-  );
+  const [obj, setObj] = useState<Obj>(() => (ui.form === 'object' ? asObj(initialValue) : {}));
   const [strList, setStrList] = useState<string[]>(() =>
     ui.form === 'string-list' ? asArray(initialValue).map((x) => String(x ?? '')) : [],
   );
@@ -98,7 +96,8 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
   async function onReset() {
     const { confirmed } = await confirm({
       title: 'Réinitialiser ce contenu ?',
-      message: 'La version personnalisée sera supprimée et le contenu reviendra à sa valeur par défaut.',
+      message:
+        'La version personnalisée sera supprimée et le contenu reviendra à sa valeur par défaut.',
       confirmLabel: 'Réinitialiser',
       danger: true,
     });
@@ -121,7 +120,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
           rows={3}
           placeholder={spec.placeholder}
           onChange={(e) => touchedChange(e.target.value)}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          className="bg-background w-full rounded-md border px-3 py-2 text-sm"
         />
       );
     }
@@ -133,9 +132,9 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={url} alt="" className="max-h-28 rounded-md border object-contain" />
           ) : str ? (
-            <p className="break-all font-mono text-xs text-muted-foreground">{str}</p>
+            <p className="text-muted-foreground break-all font-mono text-xs">{str}</p>
           ) : (
-            <p className="text-xs text-muted-foreground">Aucun média sélectionné.</p>
+            <p className="text-muted-foreground text-xs">Aucun média sélectionné.</p>
           )}
           <div className="flex gap-2">
             <Button
@@ -155,14 +154,26 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
         </div>
       );
     }
-    const inputType = spec.type === 'email' ? 'email' : spec.type === 'url' ? 'url' : 'text';
+    // `number` sert aux montants (tarifs d'abonnement) : clavier numérique sur
+    // mobile, et le schéma du registre convertit la saisie en nombre.
+    const inputType =
+      spec.type === 'email'
+        ? 'email'
+        : spec.type === 'url'
+          ? 'url'
+          : spec.type === 'number'
+            ? 'number'
+            : 'text';
     return (
       <input
         type={inputType}
+        inputMode={spec.type === 'number' ? 'numeric' : undefined}
+        step={spec.type === 'number' ? 500 : undefined}
+        min={spec.type === 'number' ? 0 : undefined}
         value={str}
         placeholder={spec.placeholder}
         onChange={(e) => touchedChange(e.target.value)}
-        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+        className="bg-background w-full rounded-md border px-3 py-2 text-sm"
       />
     );
   }
@@ -198,7 +209,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
       {!showJson && ui.form === 'string-list' ? (
         <div className="space-y-2">
           {strList.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun élément.</p>
+            <p className="text-muted-foreground text-sm">Aucun élément.</p>
           ) : null}
           {strList.map((item, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -208,7 +219,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
                   setStrList((l) => l.map((x, idx) => (idx === i ? e.target.value : x)));
                   setDirty(true);
                 }}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                className="bg-background w-full rounded-md border px-3 py-2 text-sm"
               />
               <button
                 type="button"
@@ -216,7 +227,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
                   setStrList((l) => move(l, i, -1));
                   setDirty(true);
                 }}
-                className="px-2 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground px-2"
                 aria-label="Monter"
               >
                 ↑
@@ -227,7 +238,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
                   setStrList((l) => move(l, i, 1));
                   setDirty(true);
                 }}
-                className="px-2 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground px-2"
                 aria-label="Descendre"
               >
                 ↓
@@ -238,7 +249,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
                   setStrList((l) => l.filter((_, idx) => idx !== i));
                   setDirty(true);
                 }}
-                className="px-2 text-destructive"
+                className="text-destructive px-2"
                 aria-label="Supprimer"
               >
                 ×
@@ -262,11 +273,11 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
       {!showJson && ui.form === 'object-list' ? (
         <div className="space-y-3">
           {objList.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun élément.</p>
+            <p className="text-muted-foreground text-sm">Aucun élément.</p>
           ) : null}
           {objList.map((item, i) => (
-            <div key={i} className="rounded-md border bg-background p-3">
-              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <div key={i} className="bg-background rounded-md border p-3">
+              <div className="text-muted-foreground mb-2 flex items-center justify-between text-xs">
                 <span>
                   {ui.itemLabel} {i + 1}
                 </span>
@@ -299,7 +310,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
                       setObjList((l) => l.filter((_, idx) => idx !== i));
                       setDirty(true);
                     }}
-                    className="px-2 text-destructive"
+                    className="text-destructive px-2"
                     aria-label="Supprimer"
                   >
                     ×
@@ -352,14 +363,16 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
             }}
             rows={Math.min(Math.max(jsonDraft.split('\n').length + 1, 8), 30)}
             spellCheck={false}
-            className="w-full rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+            className="bg-background w-full rounded-md border px-3 py-2 font-mono text-xs leading-relaxed"
           />
-          {jsonError ? <p className="text-xs text-destructive">JSON invalide : {jsonError}</p> : null}
+          {jsonError ? (
+            <p className="text-destructive text-xs">JSON invalide : {jsonError}</p>
+          ) : null}
         </div>
       ) : null}
 
-      {set.isError ? <p className="text-xs text-destructive">{set.error.message}</p> : null}
-      {reset.isError ? <p className="text-xs text-destructive">{reset.error.message}</p> : null}
+      {set.isError ? <p className="text-destructive text-xs">{set.error.message}</p> : null}
+      {reset.isError ? <p className="text-destructive text-xs">{reset.error.message}</p> : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={save} disabled={(showJson && Boolean(jsonError)) || set.isPending}>
@@ -382,7 +395,7 @@ export function SettingEditor({ settingKey, locale, ui, initialValue, hasCustomi
             if (!showJson) setJsonDraft(JSON.stringify(currentValue(), null, 2));
             setShowJson((s) => !s);
           }}
-          className="ml-auto text-xs text-muted-foreground underline underline-offset-2"
+          className="text-muted-foreground ml-auto text-xs underline underline-offset-2"
         >
           {showJson ? '← Édition simplifiée' : 'Édition avancée (JSON)'}
         </button>

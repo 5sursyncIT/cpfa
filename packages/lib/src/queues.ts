@@ -38,9 +38,15 @@ export type EmailJob = {
     | 'job-application-recruiter'
     | 'job-application-candidate'
     | 'job-posted'
-    | 'receipt';
+    | 'receipt'
+    | 'subscription-contract'
+    | 'payment-instructions'
+    | 'payment-declared';
   data: Record<string, unknown>;
   replyTo?: string;
+  // Langue du destinataire, résolue à l'enfilement (la locale de la requête qui
+  // a déclenché l'envoi). Absente ⇒ français, la locale par défaut du site.
+  locale?: import('./i18n').Locale;
   // Worker resolves storageKey to a presigned URL at send-time so the URL
   // stays fresh (presigned ≤ 1h). Used by the receipt flow to attach the
   // generated invoice PDF.
@@ -51,10 +57,14 @@ export type EmailJob = {
   }>;
 };
 
-export type PdfJob =
+// `locale` suit la même règle que pour les e-mails : résolue à l'enfilement,
+// elle décide de la langue du document produit et de l'e-mail qui l'accompagne.
+export type PdfJob = { locale?: import('./i18n').Locale } & (
   | { kind: 'subscriber-card'; subscriptionId: string }
+  | { kind: 'subscription-contract'; subscriptionId: string }
   | { kind: 'invoice'; paymentId: string }
-  | { kind: 'convocation'; registrationId: string };
+  | { kind: 'convocation'; registrationId: string }
+);
 
 export type PaymentWebhookJob = {
   provider: 'wave' | 'orange-money';

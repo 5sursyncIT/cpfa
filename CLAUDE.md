@@ -47,7 +47,33 @@ Package manager: **pnpm 10**. Orchestrator: **Turborepo 2**.
 | `pnpm db:seed` | Run `packages/db/prisma/seed.ts` |
 | `pnpm worker` | BullMQ worker (`apps/web/src/worker/index.ts`) |
 | `pnpm docker:up` / `docker:down` | Postgres + Redis + MinIO via `docker/docker-compose.yml` |
-| `docker compose -f docker/docker-compose.prod.yml up -d --build` | Production stack (Dockerfile multi-stage build) |
+| `docker compose -p cpfa-prod -f docker/docker-compose.prod.yml --env-file /opt/cpfa/.env.production up -d --build` | Production stack. Les **trois** options sont obligatoires — voir l'encadré ci-dessous et [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). |
+
+### Toucher à la prod : `-p cpfa-prod` n'est pas optionnel
+
+La production tourne sous le projet Compose **`cpfa-prod`** (conteneurs
+`cpfa-prod-*`, volumes `cpfa-prod_*`). Or `docker-compose.prod.yml` ne déclare
+pas de `name:` et `.env.production` ne pose pas `COMPOSE_PROJECT_NAME` : sans
+`-p cpfa-prod`, Compose déduit le nom du **dossier du fichier compose** et
+retombe sur `docker`. Il monte alors un **second stack complet**, avec sa
+propre base vide et ses propres volumes, à côté de la vraie prod.
+
+Pire : `docker-compose.yml` (dev) vit dans le même dossier, donc partage ce
+nom `docker`. Une commande de prod sans `-p` recrée aussi les conteneurs de
+dev.
+
+Toute commande visant la prod porte donc les trois options :
+
+```bash
+docker compose -p cpfa-prod -f docker/docker-compose.prod.yml \
+  --env-file /opt/cpfa/.env.production <commande>
+```
+
+- `-p cpfa-prod` — sinon second stack fantôme (voir ci-dessus) ;
+- `--env-file /opt/cpfa/.env.production` — sinon l'interpolation échoue sur
+  `POSTGRES_PASSWORD` ; le `.env` racine est celui de dev ;
+- `--no-deps` sur un `up web worker` de routine, pour ne pas recréer le
+  Postgres de prod au passage.
 
 To run a single Vitest test: `pnpm --filter @cpfa/web exec vitest run tests/rbac.test.ts`.
 To run a single Playwright spec: `pnpm --filter @cpfa/web exec playwright test e2e/home.spec.ts`.
@@ -61,6 +87,31 @@ Edge-vs-Node split is required because `argon2` (Credentials provider) is a nati
 
 Don't import `@/lib/auth` from any code that may run on the edge runtime.
 
+## Maintenance gate
+
+Switch: `site.maintenance` row of `SiteSetting` (locale `fr` only — it's a global
+operational flag, not localised copy), edited from **`/admin/maintenance`**. It is
+deliberately excluded from `settingsUi`, so it doesn't show up in the generic
+`/admin/settings` form.
+
+Enforcement lives in `apps/web/src/app/(public)/layout.tsx` via
+`enforceMaintenance()` ([`lib/maintenance/guard.ts`](apps/web/src/lib/maintenance/guard.ts)),
+**not** in `middleware.ts`: the layout is the single choke point every
+visitor-facing route renders through, and it can read the DB toggle directly
+instead of the edge runtime round-tripping to an internal API. Blocked visitors
+land on `/maintenance` (top-level route, outside the `(public)` group).
+
+Two ways past a closed gate:
+1. a session whose roles are in `STAFF_ROLES` (éditeur → super-admin), or
+2. the `cpfa_maintenance_access` cookie — an HMAC-SHA256 ticket
+   ([`lib/maintenance/bypass-token.ts`](apps/web/src/lib/maintenance/bypass-token.ts),
+   Web Crypto only, 12 h TTL) issued by the `/maintenance` form after either a
+   staff e-mail + password or the shared preview password. That password is
+   stored argon2-hashed in the setting and never echoed back to the admin form.
+
+Signing key: `MAINTENANCE_SECRET`, falling back to `AUTH_SECRET`. Rotating it
+revokes every outstanding preview ticket.
+
 ## RBAC
 
 Pure logic in `apps/web/src/lib/auth/rbac.ts` (`hasPermission`). Server-only wrapper in `rbac-server.ts` (`requirePermission`). Grants table mirrors the nine roles in §3.3. Tests: `apps/web/tests/rbac.test.ts`.
@@ -69,7 +120,55 @@ In tRPC, prefer `permissionProcedure('library:manage')` over manual checks — s
 
 ## Library business rules (single source of truth)
 
-[`apps/web/src/lib/library-rules.ts`](apps/web/src/lib/library-rules.ts) exports the §4.3 invariants — `LIBRARY_LOAN_DAYS=14`, `LIBRARY_MAX_CONCURRENT=3`, `LIBRARY_DAILY_PENALTY_XOF=500`, plus pure functions (`computeOverdueDays`, `computePenaltyXof`, `dueDateFromNow`, `evaluateSubscription`, `evaluateBorrowEligibility`). The tRPC routers and the BullMQ worker import from here. Don't hard-code these constants anywhere else — the duplicated copies are exactly what the S7 refactor removed.
+[`apps/web/src/lib/library-rules.ts`](apps/web/src/lib/library-rules.ts) exports the invariants of the « Procédure d'abonnement annuel à la bibliothèque » signed by the Directeur — `LIBRARY_TIERS` (10 000 / 15 000 / 50 000 FCFA, cette dernière = 15 000 de droit + 35 000 de caution remboursable), `LIBRARY_LOAN_DAYS=30`, `LIBRARY_LATE_GRACE_DAYS=3`, `LIBRARY_DAILY_PENALTY_XOF=500`, `LIBRARY_PHOTOCOPY_XOF_PER_PAGE=25`, `LIBRARY_OPENING_HOURS`, plus pure functions (`priceForTier`, `evaluateSubscription`, `computeOverdueDays`, `computeLatePenaltyXof`). The tRPC routers and the BullMQ worker import from here. Don't hard-code these constants anywhere else — not even in the message files, which interpolate them as ICU params.
+
+The procedure text itself lives in [`apps/web/src/lib/subscription-procedure.ts`](apps/web/src/lib/subscription-procedure.ts) (FR + EN) and feeds both the page `/bibliotheque/abonnement` and its PDF `/bibliotheque/abonnement/procedure.pdf`. That route serves the official signed PDF instead as soon as an admin attaches one to the `library.documents` → `procedureKey` setting.
+
+## Paiement d'abonnement en semi-automatique (en attendant PayTech)
+
+Tant que PayTech n'est pas activé, l'abonné paie par QR marchand Wave / Orange Money puis **déclare** sa référence de transaction ; la comptabilité vérifie et confirme, ce qui active l'abonnement et déclenche le contrat.
+
+- Les QR + numéros de repli sont un réglage `payments.mobileMoney` (médiathèque, `/admin/settings`) — aucun fichier à déposer côté code.
+- La déclaration vit dans `Payment.metadata.declaration` (`{channel, reference, declaredAt}`), lue/écrite via [`apps/web/src/lib/payment-declaration.ts`](apps/web/src/lib/payment-declaration.ts). Volontairement pas de colonne : c'est un état de transition, à retirer le jour où le webhook PayTech confirme seul.
+- `payments.declare` (tRPC, propriétaire du paiement) ne change jamais le statut : seule `payment:validate` confirme. Un e-mail part vers `accountingEmail` et le menu Admin → Paiements affiche le nombre de déclarations en attente.
+
+## Traduction (FR/EN) — où vit quoi
+
+Quatre dépôts de copie, choisis selon ce que le code peut atteindre à l'exécution :
+
+| Copie | Emplacement | Pourquoi là |
+|---|---|---|
+| Site public + `/me` | [`apps/web/messages/{fr,en}.json`](apps/web/messages/) | rendu dans une requête HTTP → next-intl disponible |
+| Libellés d'enums (`CourseKind`, `ResourceKind`, niveaux) | [`lib/cpfa-mappers.ts`](apps/web/src/lib/cpfa-mappers.ts) | indexés sur des enums Prisma : ajouter une valeur doit casser le build, pas rendre une clé manquante |
+| Erreurs tRPC vues par le visiteur | [`lib/server-errors.ts`](apps/web/src/lib/server-errors.ts) | produites dans un route handler, avant tout rendu |
+| E-mails et PDF | [`packages/emails/src/copy.ts`](packages/emails/src/copy.ts), [`packages/pdf/src/copy.ts`](packages/pdf/src/copy.ts) | rendus par le worker BullMQ, hors requête HTTP |
+
+Dates, montants et durées passent tous par [`@cpfa/lib/i18n`](packages/lib/src/i18n.ts)
+(`formatDate`, `formatXof`, `formatDurationHours`, `intlLocale`) — module sans
+dépendance, importable depuis le web comme depuis le worker. EN mappe sur
+`en-GB` (date en jour-mois-année, comme l'habitude française). Ne jamais
+réintroduire de `toLocaleString('fr-FR')` : le paramètre `locale` de ces
+fonctions a `defaultLocale` (fr) par défaut, donc les appels du back-office
+restent français sans rien passer.
+
+**La langue d'un e-mail ou d'un PDF est celle du destinataire, jamais celle de
+la requête.** Beaucoup d'envois sont déclenchés par un tiers (un admin qui
+valide un dossier), dont la locale n'a aucun rapport. Le worker résout donc
+`User.locale` — alimenté par le sélecteur de langue
+([`app/actions/set-locale.ts`](apps/web/src/app/actions/set-locale.ts)) — via
+[`lib/recipient-locale.ts`](apps/web/src/lib/recipient-locale.ts). Le champ
+`locale` du job ne sert que de repli, pour les adresses sans compte.
+
+Restent volontairement en français : le back-office (`app/admin/**`, les
+admins CPFA sont francophones), les e-mails internes `contact-form` et
+`payment-declared`, et le PDF `subscription-contract` (document contractuel
+reproduisant un original signé — l'ouvrir à l'anglais suppose d'abord de
+traduire le réglage `library.contract` en `en`).
+
+Un filtre d'interface ne doit jamais comparer des libellés affichés : ils sont
+traduits. `formations-catalog` et `library-catalog` filtrent sur des clés
+stables (`CourseKind`, identifiants de catégorie), et `?cat=` transporte
+l'enum — pas le libellé.
 
 ## Production builds
 
@@ -84,7 +183,7 @@ Both copy `node_modules/.prisma` and `node_modules/@prisma/client` from the buil
 §10 of `docs/projet.md` lists 7 decisions. Defaults baked into the scaffold:
 
 - **Paiement (§10.2) — décidé**: PayTech (agrégateur sénégalais — Wave, Orange Money, Free Money, Wizall, E-money, Visa, Mastercard). Implémentation : [`packages/lib/src/payments/paytech.ts`](packages/lib/src/payments/paytech.ts). `PAYMENT_PROVIDER=paytech` en prod, `static-qr` reste comme fallback manuel via `/admin/payments`. IPN HMAC-SHA256 vérifiée par `verifyWebhook`, route publique `/api/webhooks/payments/paytech`, mutation tRPC `payments.initiate` côté serveur.
-- **Multilingue (§10.3) — décidé**: FR + EN actifs. Locale résolu côté serveur via cookie `NEXT_LOCALE` (puis `Accept-Language`, puis défaut FR). Pas de prefix d'URL — toutes les routes restent au même chemin, le contenu s'adapte. UI shell traduit via [`apps/web/messages/{fr,en}.json`](apps/web/messages/). CMS Pages, Articles et SiteSettings sont locale-aware avec fallback FR systématique pour les contenus pas encore localisés. Switcher dans le top-nav + footer.
+- **Multilingue (§10.3) — décidé**: FR + EN actifs. Locale résolu côté serveur via cookie `NEXT_LOCALE` (puis `Accept-Language`, puis défaut FR). Pas de prefix d'URL — toutes les routes restent au même chemin, le contenu s'adapte. Tout le site public et l'espace `/me` sont traduits via [`apps/web/messages/{fr,en}.json`](apps/web/messages/) (735 clés, parité stricte). CMS Pages, Articles et SiteSettings sont locale-aware avec fallback FR systématique pour les contenus pas encore localisés. Switcher dans le top-nav + footer. Voir « Traduction » ci-dessous.
 
 Lock the other open decisions (hébergement, mobile, équipe, souveraineté, budget) before infra freeze.
 

@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_MIN = 60 * 1000;
 
 export function Countdown({ deadline }: { deadline: Date | string }) {
+  const t = useTranslations('countdown');
   const target =
     typeof deadline === 'string' ? new Date(deadline).getTime() : deadline.getTime();
   const [now, setNow] = useState<number | null>(null);
@@ -28,10 +30,10 @@ export function Countdown({ deadline }: { deadline: Date | string }) {
   const seconds = Math.floor((diff % MS_PER_MIN) / 1000);
 
   const cells: { n: string; l: string }[] = [
-    { n: pad(days, 3), l: 'Jours' },
-    { n: pad(hours), l: 'Heures' },
-    { n: pad(minutes), l: 'Minutes' },
-    { n: pad(seconds), l: 'Secondes' },
+    { n: pad(days, 3), l: t('days') },
+    { n: pad(hours), l: t('hours') },
+    { n: pad(minutes), l: t('minutes') },
+    { n: pad(seconds), l: t('seconds') },
   ];
 
   return (

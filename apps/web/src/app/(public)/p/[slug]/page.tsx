@@ -7,6 +7,7 @@
 // permission check before any draft content is fetched.
 
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { fetchCmsPage, fetchCmsPagePreview } from '@/lib/cms-page';
 import { BlockRenderer } from '@/components/cms/block-renderer';
 import { resolveLocale, isLocale } from '@/i18n/request';
@@ -23,7 +24,7 @@ async function canPreview() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const page = await fetchCmsPage(slug, await resolveLocale());
-  if (!page) return { title: 'Page introuvable — CPFA' };
+  if (!page) return { title: (await getTranslations('pageDetail'))('notFound') };
   return {
     title: page.metaTitle ?? `${page.title} — CPFA`,
     description: page.metaDescription ?? undefined,
@@ -52,7 +53,7 @@ export default async function CmsPage({
     <article className="container max-w-3xl py-16">
       {isPreview ? (
         <div className="mb-8 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          Aperçu — cette page peut ne pas être publiée. Visible uniquement par les éditeurs.
+          {(await getTranslations('pageDetail'))('previewDraft')}
         </div>
       ) : null}
       <h1 className="text-4xl font-bold tracking-tight">{page.title}</h1>

@@ -1,35 +1,37 @@
 import { Body, Container, Head, Heading, Html, Preview, Text } from '@react-email/components';
+import { emailCopy, type Locale } from './copy';
 
 export type JobApplicationCandidateEmailProps = {
   firstName: string;
   jobTitle: string;
   companyName: string;
+  locale?: Locale;
 };
 
 export function JobApplicationCandidateEmail({
   firstName,
   jobTitle,
   companyName,
+  locale,
 }: JobApplicationCandidateEmailProps) {
+  const c = emailCopy('jobApplicationCandidate', locale);
   return (
     <Html>
       <Head />
-      <Preview>Candidature reçue — {jobTitle}</Preview>
+      <Preview>{c.preview(jobTitle)}</Preview>
       <Body style={{ fontFamily: 'sans-serif', backgroundColor: '#f8fafc', padding: '24px' }}>
         <Container style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 24, maxWidth: 480 }}>
-          <Heading as="h1">Candidature transmise</Heading>
-          <Text>Bonjour {firstName},</Text>
+          <Heading as="h1">{c.heading}</Heading>
+          <Text>{c.greeting(firstName)}</Text>
           <Text>
-            Votre candidature pour <strong>{jobTitle}</strong> chez <strong>{companyName}</strong>{' '}
-            a bien été transmise au recruteur. Celui-ci reviendra vers vous directement par email
-            ou téléphone selon ses procédures.
+            {c.bodyBefore}
+            <strong>{jobTitle}</strong>
+            {c.bodyMiddle}
+            <strong>{companyName}</strong>
+            {c.bodyAfter}
           </Text>
-          <Text>
-            La plateforme CPFA vous remercie pour votre intérêt et vous souhaite bonne chance.
-          </Text>
-          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>
-            Notification automatique du job board CPFA.
-          </Text>
+          <Text>{c.closing}</Text>
+          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>{c.footer}</Text>
         </Container>
       </Body>
     </Html>

@@ -10,7 +10,7 @@
 
 import { prisma } from '@cpfa/db';
 import { defaultLocale, type Locale } from '@/i18n/request';
-import { settingsRegistry } from './site-settings/registry';
+import { settingDefault } from './site-settings/defaults';
 
 export type KeyFigureView = { value: string; sup: string; label: string };
 export type PartnerView = { name: string; logoKey: string | null; url: string | null };
@@ -31,15 +31,15 @@ export async function getKeyFigures(
       }),
     );
     if (rows) return rows;
-    return defaultKeyFigures(defaultKey);
+    return defaultKeyFigures(defaultKey, locale);
   } catch (err) {
     console.warn('[content-blocks] key figures lookup failed — using default.', err);
-    return defaultKeyFigures(defaultKey);
+    return defaultKeyFigures(defaultKey, locale);
   }
 }
 
-function defaultKeyFigures(key: 'home.stats' | 'about.stats'): KeyFigureView[] {
-  return settingsRegistry[key].default.map((s) => ({
+function defaultKeyFigures(key: 'home.stats' | 'about.stats', locale: Locale): KeyFigureView[] {
+  return settingDefault(key, locale).map((s) => ({
     value: s.value,
     sup: s.sup ?? '',
     label: s.label,
@@ -56,7 +56,7 @@ export async function getPartners(locale: Locale = defaultLocale): Promise<Partn
       }),
     );
     if (rows) return rows;
-    return settingsRegistry['footer.partnerLogos'].default.map((p) => ({
+    return settingDefault('footer.partnerLogos', locale).map((p) => ({
       name: p.name,
       logoKey: p.logoKey || null,
       url: p.url || null,
@@ -77,15 +77,15 @@ export async function getGovernance(locale: Locale = defaultLocale): Promise<Gov
       }),
     );
     if (rows) return rows.map((g) => ({ role: g.role, name: g.name, note: g.note ?? '' }));
-    return defaultGovernance();
+    return defaultGovernance(locale);
   } catch (err) {
     console.warn('[content-blocks] governance lookup failed — using default.', err);
-    return defaultGovernance();
+    return defaultGovernance(locale);
   }
 }
 
-function defaultGovernance(): GovernanceView[] {
-  return settingsRegistry['about.governance'].default.map((g) => ({
+function defaultGovernance(locale: Locale): GovernanceView[] {
+  return settingDefault('about.governance', locale).map((g) => ({
     role: g.role,
     name: g.name,
     note: g.note ?? '',
@@ -100,13 +100,17 @@ export async function getHomeTestimonials(
   try {
     const rows = await firstNonEmpty(locale, (loc) =>
       prisma.testimonial.findMany({
-        where: { published: true, locale: loc },
+        // Les voix d'enseignants ont leur propre section sur
+        // /devenir-formateur — sans ce filtre elles remontaient aussi sous
+        // « Voix d'alumni » sur la page d'accueil.
+        where: { published: true, locale: loc, scope: { not: 'TEACHER' } },
         orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
         select: { quote: true, authorName: true, authorRole: true },
       }),
     );
-    if (rows) return rows.map((t) => ({ quote: t.quote, name: t.authorName, role: t.authorRole ?? '' }));
-    return settingsRegistry['home.testimonials'].default.map((t) => ({
+    if (rows)
+      return rows.map((t) => ({ quote: t.quote, name: t.authorName, role: t.authorRole ?? '' }));
+    return settingDefault('home.testimonials', locale).map((t) => ({
       quote: t.quote,
       name: t.name,
       role: t.role,

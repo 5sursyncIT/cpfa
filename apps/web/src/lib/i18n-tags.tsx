@@ -5,5 +5,6 @@ import type { ReactNode } from 'react';
 // instead of duplicating the inline-tag definitions everywhere.
 export const richTags = {
   em: (chunks: ReactNode) => <em className="italic-emph">{chunks}</em>,
+  strong: (chunks: ReactNode) => <strong>{chunks}</strong>,
   br: () => <br />,
 };

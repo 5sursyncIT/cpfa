@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
+import { LIBRARY_TIERS, type SubscriptionTier } from '@/lib/library-rules';
 import { SubscriberActions } from './subscriber-actions';
 
 export const dynamic = 'force-dynamic';
@@ -18,11 +19,9 @@ const STATUS_PILL: Record<string, { label: string; className: string }> = {
   CANCELLED: { label: 'Annulé', className: '' },
 };
 
-const TIER_LABEL: Record<string, string> = {
-  STUDENT: 'Étudiant',
-  PROFESSIONAL: 'Professionnel',
-  HOME_LOAN: 'Accès étendu',
-};
+// Libellés lus depuis LIBRARY_TIERS : l'ancienne copie locale disait encore
+// « Accès étendu » là où la procédure parle d'emprunt à domicile.
+const tierLabel = (tier: string) => LIBRARY_TIERS[tier as SubscriptionTier]?.label ?? tier;
 
 export default async function SubscriberDetailPage({
   params,
@@ -73,18 +72,33 @@ export default async function SubscriberDetailPage({
       <div className="kpi-row">
         <div className="kpi">
           <div className="label">Carte</div>
-          <div className="value mono" style={{ fontSize: 22 }}>{sub.cardNumber}</div>
-          <div className="delta up">{TIER_LABEL[sub.tier] ?? sub.tier}</div>
+          <div className="value mono" style={{ fontSize: 22 }}>
+            {sub.cardNumber}
+          </div>
+          <div className="delta up">{tierLabel(sub.tier)}</div>
         </div>
         <div className="kpi">
           <div className="label">Échéance</div>
-          <div className="value" style={{ fontSize: 22, color: expired ? 'var(--danger)' : undefined }}>
+          <div
+            className="value"
+            style={{ fontSize: 22, color: expired ? 'var(--danger)' : undefined }}
+          >
             {sub.expiresAt ? fmtDate.format(sub.expiresAt) : '—'}
           </div>
           <div className="delta up">
             {sub.startedAt ? `Depuis ${fmtDate.format(sub.startedAt)}` : 'Pas encore activé'}
           </div>
         </div>
+      </div>
+
+      <div className="row gap-3" style={{ marginTop: 24, flexWrap: 'wrap' }}>
+        <a
+          href={`/api/admin/subscriptions/${sub.id}/contrat`}
+          className="btn btn-ghost"
+          title="Exemplaire à imprimer et à faire signer à l'accueil"
+        >
+          📄 Contrat d&apos;abonnement
+        </a>
       </div>
 
       <SubscriberActions subscriptionId={sub.id} status={sub.status} />
@@ -115,7 +129,11 @@ export default async function SubscriberDetailPage({
                     <span
                       className={
                         'pill ' +
-                        (p.status === 'CONFIRMED' ? 'pill-success' : p.status === 'FAILED' ? '' : 'pill-warning')
+                        (p.status === 'CONFIRMED'
+                          ? 'pill-success'
+                          : p.status === 'FAILED'
+                            ? ''
+                            : 'pill-warning')
                       }
                     >
                       {p.status}

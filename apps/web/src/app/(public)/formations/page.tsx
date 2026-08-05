@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
 import { FormationsCatalog } from '@/components/cpfa/formations-catalog';
+import { resolveLocale } from '@/i18n/request';
 import { courseToCard } from '@/lib/cpfa-mappers';
 import { richTags } from '@/lib/i18n-tags';
 
@@ -16,9 +17,10 @@ export default async function CoursesIndexPage({
 }: {
   searchParams: Promise<{ cat?: string }>;
 }) {
-  const [{ cat }, t, courses] = await Promise.all([
+  const [{ cat }, t, locale, courses] = await Promise.all([
     searchParams,
     getTranslations('formations'),
+    resolveLocale(),
     prisma.course.findMany({
       where: { published: true },
       orderBy: { createdAt: 'desc' },
@@ -36,7 +38,7 @@ export default async function CoursesIndexPage({
     }),
   ]);
 
-  const cards = courses.map(courseToCard);
+  const cards = courses.map((c) => courseToCard(c, locale));
 
   return (
     <div>

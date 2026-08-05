@@ -123,7 +123,11 @@ async function main() {
       status: SubscriptionStatus.ACTIVE,
       startedAt: new Date(),
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      qrPayload: buildQrPayload('subscription', 'abonne@cpfa.local', randomBytes(8).toString('hex')),
+      qrPayload: buildQrPayload(
+        'subscription',
+        'abonne@cpfa.local',
+        randomBytes(8).toString('hex'),
+      ),
     },
   });
 
@@ -301,9 +305,15 @@ async function main() {
       publishedAt: new Date(),
       tags: ['rentrée', 'formations'],
       content: [
-        { kind: 'paragraph', text: "Le CPFA accueille votre dossier de candidature dès aujourd'hui." },
+        {
+          kind: 'paragraph',
+          text: "Le CPFA accueille votre dossier de candidature dès aujourd'hui.",
+        },
         { kind: 'heading', level: 2, text: 'Formations ouvertes' },
-        { kind: 'paragraph', text: 'DTA, BTS Assurance, Certifications professionnelles et séminaires courts.' },
+        {
+          kind: 'paragraph',
+          text: 'DTA, BTS Assurance, Certifications professionnelles et séminaires courts.',
+        },
       ],
     },
   });
@@ -323,20 +333,33 @@ async function main() {
       content: [
         {
           kind: 'paragraph',
-          text:
-            "Bienvenue au Centre Professionnel de Formation en Assurance, unité décentralisée de l'Institut International des Assurances (IIA) de Yaoundé. Notre mission : promouvoir la formation aux métiers de l'assurance à grande échelle, au Sénégal et dans toute la zone CIMA.",
+          text: 'En mettant en ligne ce site, nous espérons avoir posé un nouveau jalon dans notre processus de développement, à savoir promouvoir la formation en assurance sur une grande échelle.',
         },
         {
           kind: 'paragraph',
-          text:
-            "Reconnu par la Direction des Assurances, le CPFA forme depuis sa création des techniciens, cadres et dirigeants capables de répondre aux exigences techniques, juridiques et commerciales d'un secteur en transformation rapide.",
+          text: 'En effet, la gestion et la mise à disposition du public de l’information constituent pour le CPFA un axe stratégique de développement à moyen et long terme. Et l’Internet en constitue un outil fondamental.',
         },
         {
           kind: 'paragraph',
-          text:
-            "Que vous soyez étudiant, professionnel en reconversion ou cadre confirmé, vous trouverez ici le parcours adapté à votre projet : DTA, BTS Assurance, certifications spécialisées, séminaires d'actualité et accès à notre bibliothèque dédiée.",
+          text: 'Aussi, ce site se peut-il être avant tout un moyen de communication permanente et en temps réel entre les professionnels de la formation que nous sommes et l’ensemble des autres acteurs de l’assurance (entreprises d’assurance, associations professionnelles, formateurs, étudiants, etc.)',
         },
-        { kind: 'paragraph', text: '— El Hadji Cheikhou Oumar SECK, Directeur' },
+        {
+          kind: 'paragraph',
+          text: 'Grâce à ce site vous pouvez non seulement vous informer sur nos formations mais aussi participer activement à leur processus de création et d’amélioration à travers vos contributions mais aussi et surtout par l’expression de vos besoins.',
+        },
+        {
+          kind: 'paragraph',
+          text: 'Aussi, nous ne ménagerons aucun effort pour donner un contenu exhaustif à vos préoccupations de formation et ce, en adéquation avec votre vision et vos objectifs stratégiques de développement.',
+        },
+        {
+          kind: 'paragraph',
+          text: 'Toute œuvre humaine étant perfectible, nous tiendrons compte de toutes vos critiques et suggestions afin d’améliorer la qualité de cet outil d’information par excellence.',
+        },
+        {
+          kind: 'paragraph',
+          text: 'Nous vous souhaitons une bonne visite de ce site et vous prions d’agréer, Mesdames, Messieurs, l’assurance de notre considération distinguée.',
+        },
+        { kind: 'paragraph', text: 'Le Directeur — El Hadji Cheikhou Oumar SECK' },
       ],
     },
     {
@@ -345,8 +368,7 @@ async function main() {
       content: [
         {
           kind: 'paragraph',
-          text:
-            "Le CPFA s'appuie sur un réseau de partenaires institutionnels, académiques et professionnels qui soutiennent sa mission de formation aux métiers de l'assurance.",
+          text: "Le CPFA s'appuie sur un réseau de partenaires institutionnels, académiques et professionnels qui soutiennent sa mission de formation aux métiers de l'assurance.",
         },
         { kind: 'heading', level: 2, text: 'Partenaires institutionnels' },
         {
@@ -372,14 +394,12 @@ async function main() {
       content: [
         {
           kind: 'paragraph',
-          text:
-            "Le Centre Professionnel de Formation en Assurance (CPFA) est une unité décentralisée de l'Institut International des Assurances (IIA) de Yaoundé. Implanté à Dakar, il est reconnu par la Direction des Assurances comme centre de référence au Sénégal.",
+          text: "Le Centre Professionnel de Formation en Assurance (CPFA) est une unité décentralisée de l'Institut International des Assurances (IIA) de Yaoundé. Implanté à Dakar, il est reconnu par la Direction des Assurances comme centre de référence au Sénégal.",
         },
         { kind: 'heading', level: 2, text: 'Notre vocation' },
         {
           kind: 'paragraph',
-          text:
-            "Former les techniciens, cadres et dirigeants de l'industrie de l'assurance dans la zone CIMA — par des programmes alignés sur le Code CIMA, des partenariats académiques et un ancrage opérationnel fort sur le marché ouest-africain.",
+          text: "Former les techniciens, cadres et dirigeants de l'industrie de l'assurance dans la zone CIMA — par des programmes alignés sur le Code CIMA, des partenariats académiques et un ancrage opérationnel fort sur le marché ouest-africain.",
         },
         { kind: 'heading', level: 2, text: 'Nos cursus' },
         {

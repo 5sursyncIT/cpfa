@@ -1,5 +1,7 @@
 import { prisma, Prisma } from '@cpfa/db';
 import { getQueue, type PdfJob } from '@cpfa/lib/queues';
+import { LIBRARY_SUBSCRIPTION_DAYS } from './library-rules';
+import { enqueueSubscriptionContract } from './subscription-contract';
 
 export type ConfirmContext = {
   // Actor on whose behalf the confirmation runs. `null` for webhook callbacks.
@@ -61,8 +63,10 @@ export async function confirmPayment(
     }),
   ];
 
+  let activatedSubscriptionId: string | null = null;
   if (payment.purpose === 'LIBRARY_SUBSCRIPTION' && payment.subscription) {
-    const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + LIBRARY_SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000);
+    activatedSubscriptionId = payment.subscription.id;
     ops.push(
       prisma.subscription.update({
         where: { id: payment.subscription.id },
@@ -126,6 +130,12 @@ export async function confirmPayment(
       // eslint-disable-next-line no-console
       console.warn('[confirmPayment] pdf job enqueue failed', err);
     }
+  }
+
+  // Fin du parcours d'abonnement : le contrat est rendu, archivé et envoyé à
+  // l'abonné(e).
+  if (activatedSubscriptionId) {
+    await enqueueSubscriptionContract(activatedSubscriptionId);
   }
 
   return { kind: 'confirmed', paymentId };

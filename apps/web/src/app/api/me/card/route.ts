@@ -2,6 +2,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@cpfa/db';
 import { renderSubscriberCard } from '@cpfa/pdf';
 import { qrToDataUrl } from '@cpfa/lib/qr';
+import { formatDate } from '@cpfa/lib/i18n';
+import { resolveLocale } from '@/i18n/request';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +26,11 @@ export async function GET() {
     subscription.user.email ||
     'Abonné CPFA';
 
+  // La carte est téléchargée par son titulaire : la locale de sa requête est
+  // le signal le plus frais (le sélecteur écrit aussi `User.locale`).
+  const locale = await resolveLocale();
   const validUntil = subscription.expiresAt
-    ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(subscription.expiresAt)
+    ? formatDate(subscription.expiresAt, locale, 'medium')
     : '—';
 
   const qrDataUrl = await qrToDataUrl(subscription.qrPayload);
@@ -34,6 +39,7 @@ export async function GET() {
     cardNumber: subscription.cardNumber,
     validUntil,
     qrDataUrl,
+    locale,
   });
 
   return new Response(new Uint8Array(pdf), {

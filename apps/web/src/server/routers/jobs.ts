@@ -15,12 +15,8 @@ import { z } from 'zod';
 import { Prisma } from '@cpfa/db';
 import { buildKey, presignDownload, presignUpload } from '@cpfa/lib/storage';
 import { getQueue, type EmailJob } from '@cpfa/lib/queues';
-import {
-  router,
-  publicProcedure,
-  protectedProcedure,
-  permissionProcedure,
-} from '../trpc';
+import { router, publicProcedure, protectedProcedure, permissionProcedure } from '../trpc';
+import { serverError } from '@/lib/server-errors';
 
 const TYPE = z.enum(['CDI', 'CDD', 'STAGE', 'FREELANCE', 'ALTERNANCE']);
 const LEVEL = z.enum(['JUNIOR', 'INTERMEDIAIRE', 'SENIOR', 'EXECUTIVE']);
@@ -57,12 +53,18 @@ export const jobsRouter = router({
         ...(input?.location
           ? { location: { contains: input.location, mode: 'insensitive' as const } }
           : {}),
+        // Nested under AND — spreading a second `OR` at the top level would
+        // clobber publicWhere()'s closesAt clause and resurface expired offers.
         ...(input?.q
           ? {
-              OR: [
-                { title: { contains: input.q, mode: 'insensitive' as const } },
-                { companyName: { contains: input.q, mode: 'insensitive' as const } },
-                { description: { contains: input.q, mode: 'insensitive' as const } },
+              AND: [
+                {
+                  OR: [
+                    { title: { contains: input.q, mode: 'insensitive' as const } },
+                    { companyName: { contains: input.q, mode: 'insensitive' as const } },
+                    { description: { contains: input.q, mode: 'insensitive' as const } },
+                  ],
+                },
               ],
             }
           : {}),
@@ -86,28 +88,25 @@ export const jobsRouter = router({
     }),
 
   // Public detail (avec presigned URL pour la fiche de poste si fournie).
-  byId: publicProcedure
-    .input(z.object({ id: z.string().cuid() }))
-    .query(async ({ ctx, input }) => {
-      const job = await ctx.prisma.jobPosting.findUnique({ where: { id: input.id } });
-      if (!job) throw new TRPCError({ code: 'NOT_FOUND' });
-      // L'admin voit DRAFT/REJECTED ; le visiteur ne voit que PUBLISHED non clos.
-      const now = new Date();
-      const visible =
-        job.status === 'PUBLISHED' && (!job.closesAt || job.closesAt >= now);
-      if (!visible) {
-        throw new TRPCError({ code: 'NOT_FOUND' });
+  byId: publicProcedure.input(z.object({ id: z.string().cuid() })).query(async ({ ctx, input }) => {
+    const job = await ctx.prisma.jobPosting.findUnique({ where: { id: input.id } });
+    if (!job) throw new TRPCError({ code: 'NOT_FOUND' });
+    // L'admin voit DRAFT/REJECTED ; le visiteur ne voit que PUBLISHED non clos.
+    const now = new Date();
+    const visible = job.status === 'PUBLISHED' && (!job.closesAt || job.closesAt >= now);
+    if (!visible) {
+      throw new TRPCError({ code: 'NOT_FOUND' });
+    }
+    let fileSheetUrl: string | null = null;
+    if (job.fileSheetKey) {
+      try {
+        fileSheetUrl = await presignDownload(job.fileSheetKey, 600);
+      } catch {
+        /* storage off in dev — ignore */
       }
-      let fileSheetUrl: string | null = null;
-      if (job.fileSheetKey) {
-        try {
-          fileSheetUrl = await presignDownload(job.fileSheetKey, 600);
-        } catch {
-          /* storage off in dev — ignore */
-        }
-      }
-      return { ...job, fileSheetUrl };
-    }),
+    }
+    return { ...job, fileSheetUrl };
+  }),
 
   // Public form: dépôt d'une offre. Statut DRAFT → modération admin requise.
   submitOffer: publicProcedure
@@ -159,7 +158,11 @@ export const jobsRouter = router({
       z.object({
         fileName: z.string().min(1).max(160),
         mimeType: z.string().min(3).max(120),
-        sizeBytes: z.number().int().min(1).max(10 * 1024 * 1024),
+        sizeBytes: z
+          .number()
+          .int()
+          .min(1)
+          .max(10 * 1024 * 1024),
       }),
     )
     .mutation(async ({ input }) => {
@@ -178,7 +181,11 @@ export const jobsRouter = router({
       z.object({
         fileName: z.string().min(1).max(160),
         mimeType: z.string().min(3).max(120),
-        sizeBytes: z.number().int().min(1).max(10 * 1024 * 1024),
+        sizeBytes: z
+          .number()
+          .int()
+          .min(1)
+          .max(10 * 1024 * 1024),
       }),
     )
     .mutation(async ({ input }) => {
@@ -222,7 +229,7 @@ export const jobsRouter = router({
       if (!open) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Cette offre n’est plus ouverte aux candidatures.',
+          message: serverError('jobClosed', ctx.locale),
         });
       }
 
@@ -273,6 +280,10 @@ export const jobsRouter = router({
             jobTitle: job.title,
             companyName: job.companyName,
           },
+          // Le candidat peut postuler sans compte : sa locale de session sert
+          // alors de repli. S'il a un compte, le worker lui préférera la
+          // préférence enregistrée.
+          locale: ctx.locale,
         }),
       ]);
 

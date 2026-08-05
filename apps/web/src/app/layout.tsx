@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Instrument_Serif, Geist, Geist_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages } from 'next-intl/server';
+import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { TrpcProvider } from '@/components/providers/trpc-provider';
 import './globals.css';
 
@@ -38,12 +38,15 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   const messages = await getMessages();
+  // Le skip-link est rendu hors du provider client : on résout son libellé
+  // côté serveur plutôt que via `useTranslations`.
+  const skipLabel = (await getTranslations('common'))('skipToContent');
 
   return (
     <html lang={locale} className={`${serif.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <a href="#main-content" className="skip-link">
-          Aller au contenu
+          {skipLabel}
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <TrpcProvider>{children}</TrpcProvider>

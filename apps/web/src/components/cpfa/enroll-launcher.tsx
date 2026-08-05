@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import { formatNumber, formatXof, type Locale } from '@cpfa/lib/i18n';
 import { trpc } from '@/lib/trpc';
-import { fmtXof } from '@/lib/cpfa-mappers';
 
 type Session = { id: string; label: string };
 
@@ -22,9 +23,10 @@ export function EnrollLauncher({
   priceXof: number;
   sessions: Session[];
   applicationsOpen?: boolean;
-  reopensAt?: string; // pre-formatted FR date — passed in by the server
+  reopensAt?: string; // date déjà formatée dans la locale active — fournie par le serveur
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations('enroll');
 
   if (!applicationsOpen) {
     return (
@@ -38,12 +40,10 @@ export function EnrollLauncher({
         }}
       >
         <div className="fs-15" style={{ fontWeight: 500 }}>
-          Inscriptions fermées
+          {t('closedTitle')}
         </div>
         <div className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
-          {reopensAt
-            ? `Les candidatures rouvriront le ${reopensAt}.`
-            : 'Les candidatures sont fermées en dehors des périodes de concours. Revenez prochainement.'}
+          {reopensAt ? t('closedReopens', { date: reopensAt }) : t('closedGeneric')}
         </div>
       </div>
     );
@@ -56,7 +56,7 @@ export function EnrollLauncher({
         className="btn btn-orange btn-lg"
         onClick={() => setOpen(true)}
       >
-        Démarrer une candidature <span className="arrow">→</span>
+        {t('startCta')} <span className="arrow">→</span>
       </button>
       {open ? (
         <EnrollModal
@@ -85,6 +85,8 @@ function EnrollModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const t = useTranslations('enroll');
+  const locale = useLocale() as Locale;
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [pay, setPay] = useState<'wave' | 'om' | 'card' | 'bank'>('wave');
   const [sessionId, setSessionId] = useState<string | undefined>(sessions[0]?.id);
@@ -128,14 +130,12 @@ function EnrollModal({
               </svg>
             </div>
           </div>
-          <h3 style={{ textAlign: 'center' }}>Candidature reçue</h3>
+          <h3 style={{ textAlign: 'center' }}>{t('receivedTitle')}</h3>
           <p
             className="fs-15 text-mid"
             style={{ textAlign: 'center', maxWidth: 380, margin: '0 auto' }}
           >
-            Votre dossier a bien été transmis. Vous recevrez un email de confirmation sous 48
-            heures à l&apos;adresse renseignée. Référence :{' '}
-            <span className="mono">{reference}</span>
+            {t('receivedBody')} <span className="mono">{reference}</span>
           </p>
           <button
             type="button"
@@ -145,26 +145,36 @@ function EnrollModal({
               router.push(`/me/inscriptions/${reference}`);
             }}
           >
-            Voir mon dossier
+            {t('viewFileCta')}
           </button>
         </div>
       </div>
     );
   }
 
+  const stepTitles = [t('step1Title'), t('step2Title'), t('step3Title')];
+  const documents = [
+    { name: t('docCv'), req: true },
+    { name: t('docDiploma'), req: true },
+    { name: t('docMotivation'), req: true },
+    { name: t('docId'), req: true },
+    { name: t('docFunding'), req: false },
+  ];
+  const payMethods = [
+    { id: 'wave' as const, name: 'Wave', desc: t('payWaveDesc') },
+    { id: 'om' as const, name: t('payOmName'), desc: t('payOmDesc') },
+    { id: 'card' as const, name: t('payCardName'), desc: t('payCardDesc') },
+    { id: 'bank' as const, name: t('payBankName'), desc: t('payBankDesc') },
+  ];
+  const mobileProvider = pay === 'wave' ? 'Wave' : t('payOmName');
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Étape {step + 1} sur 3</span>
-            <h3 style={{ marginTop: 8 }}>
-              {step === 0
-                ? 'Vos informations'
-                : step === 1
-                  ? 'Pièces justificatives'
-                  : 'Paiement des frais de dossier'}
-            </h3>
+            <span className="eyebrow">{t('stepCounter', { step: step + 1, total: 3 })}</span>
+            <h3 style={{ marginTop: 8 }}>{stepTitles[step]}</h3>
           </div>
           <button type="button" className="modal-close" onClick={onClose}>
             ✕
@@ -185,25 +195,25 @@ function EnrollModal({
           <div className="col gap-4">
             <div className="row gap-3">
               <div style={{ flex: 1 }}>
-                <label className="label">Prénom</label>
+                <label className="label">{t('firstNameLabel')}</label>
                 <input className="input" placeholder="Aïssatou" />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="label">Nom</label>
+                <label className="label">{t('lastNameLabel')}</label>
                 <input className="input" placeholder="Ndiaye" />
               </div>
             </div>
             <div>
-              <label className="label">Email</label>
+              <label className="label">{t('emailLabel')}</label>
               <input className="input" type="email" placeholder="vous@exemple.sn" />
             </div>
             <div>
-              <label className="label">Téléphone</label>
+              <label className="label">{t('phoneLabel')}</label>
               <input className="input" placeholder="+221 77 000 00 00" />
             </div>
             {sessions.length > 1 ? (
               <div>
-                <label className="label">Session souhaitée</label>
+                <label className="label">{t('sessionLabel')}</label>
                 <select
                   className="select"
                   value={sessionId ?? ''}
@@ -218,12 +228,12 @@ function EnrollModal({
               </div>
             ) : null}
             <div>
-              <label className="label">Diplôme le plus élevé</label>
+              <label className="label">{t('degreeLabel')}</label>
               <select className="select" defaultValue="m1">
-                <option value="l3">Licence (Bac+3)</option>
-                <option value="m1">Master 1 (Bac+4)</option>
-                <option value="m2">Master 2 / Ingénieur (Bac+5)</option>
-                <option value="phd">Doctorat</option>
+                <option value="l3">{t('degreeL3')}</option>
+                <option value="m1">{t('degreeM1')}</option>
+                <option value="m2">{t('degreeM2')}</option>
+                <option value="phd">{t('degreePhd')}</option>
               </select>
             </div>
           </div>
@@ -231,13 +241,7 @@ function EnrollModal({
 
         {step === 1 && (
           <div className="col gap-3">
-            {[
-              { name: 'CV à jour', req: true },
-              { name: 'Copie du diplôme et relevés', req: true },
-              { name: 'Lettre de motivation', req: true },
-              { name: "Pièce d'identité", req: true },
-              { name: 'Justificatif de financement (employeur ou perso)', req: false },
-            ].map((d) => (
+            {documents.map((d) => (
               <div
                 key={d.name}
                 className="row gap-3"
@@ -275,10 +279,10 @@ function EnrollModal({
                     {d.name}{' '}
                     {d.req ? <span style={{ color: 'var(--orange-deep)' }}>*</span> : null}
                   </div>
-                  <div className="fs-13 text-soft">PDF, JPG ou PNG · max 5 MB</div>
+                  <div className="fs-13 text-soft">{t('fileHint')}</div>
                 </div>
                 <button type="button" className="btn btn-ghost btn-sm">
-                  Téléverser
+                  {t('uploadCta')}
                 </button>
               </div>
             ))}
@@ -297,29 +301,26 @@ function EnrollModal({
               }}
             >
               <div>
-                <div className="fs-13 text-soft">Frais de dossier</div>
+                <div className="fs-13 text-soft">{t('applicationFeeLabel')}</div>
                 <div className="fs-15" style={{ fontWeight: 500 }}>
                   {courseTitle}
                 </div>
               </div>
               <div className="serif" style={{ fontSize: 32, lineHeight: 1 }}>
-                {ENROLL_FEE_XOF.toLocaleString('fr-FR')}{' '}
+                {formatNumber(ENROLL_FEE_XOF, locale)}{' '}
                 <small className="mono fs-13 text-soft">FCFA</small>
               </div>
             </div>
             <p className="fs-13 text-soft">
-              Frais de scolarité (réglés après admission) :{' '}
-              <strong>{fmtXof(priceXof)}</strong>.
+              {t.rich('tuitionNote', {
+                strong: (chunks) => <strong>{chunks}</strong>,
+                price: formatXof(priceXof, locale),
+              })}
             </p>
             <div>
-              <label className="label">Mode de paiement</label>
+              <label className="label">{t('payMethodLabel')}</label>
               <div className="pay-grid">
-                {[
-                  { id: 'wave' as const, name: 'Wave', desc: 'Mobile money — instantané' },
-                  { id: 'om' as const, name: 'Orange Money', desc: 'OM Pay — *144#' },
-                  { id: 'card' as const, name: 'Carte bancaire', desc: 'Visa / Mastercard' },
-                  { id: 'bank' as const, name: 'Virement', desc: 'CBAO — délai 24-48h' },
-                ].map((p) => (
+                {payMethods.map((p) => (
                   <button
                     type="button"
                     key={p.id}
@@ -339,13 +340,10 @@ function EnrollModal({
             </div>
             {pay === 'wave' || pay === 'om' ? (
               <div>
-                <label className="label">
-                  Numéro {pay === 'wave' ? 'Wave' : 'Orange Money'}
-                </label>
+                <label className="label">{t('payNumberLabel', { provider: mobileProvider })}</label>
                 <input className="input" placeholder="+221 77 000 00 00" />
                 <p className="fs-13 text-soft" style={{ marginTop: 8 }}>
-                  Vous recevrez une notification {pay === 'wave' ? 'Wave' : 'Orange Money'} sur
-                  votre téléphone pour confirmer.
+                  {t('payNumberHint', { provider: mobileProvider })}
                 </p>
               </div>
             ) : null}
@@ -367,7 +365,7 @@ function EnrollModal({
               className="btn btn-ghost"
               onClick={() => setStep((step - 1) as 0 | 1)}
             >
-              ← Précédent
+              ← {t('previousCta')}
             </button>
           ) : (
             <span></span>
@@ -378,7 +376,7 @@ function EnrollModal({
               className="btn btn-primary"
               onClick={() => setStep((step + 1) as 1 | 2)}
             >
-              Continuer <span className="arrow">→</span>
+              {t('continueCta')} <span className="arrow">→</span>
             </button>
           ) : (
             <button
@@ -398,8 +396,8 @@ function EnrollModal({
               }}
             >
               {register.isPending
-                ? 'Traitement…'
-                : `Payer ${ENROLL_FEE_XOF.toLocaleString('fr-FR')} FCFA`}{' '}
+                ? t('processing')
+                : t('payCta', { amount: `${formatNumber(ENROLL_FEE_XOF, locale)} FCFA` })}{' '}
               {!register.isPending ? <span className="arrow">→</span> : null}
             </button>
           )}

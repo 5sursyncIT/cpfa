@@ -4,6 +4,7 @@ const publicPages = [
   { path: '/a-propos', heading: /à propos/i },
   { path: '/mot-du-directeur', heading: /mot du directeur/i },
   { path: '/partenaires', heading: /partenaires/i },
+  { path: '/bibliotheque/abonnement', heading: /s'abonner à la bibliothèque/i },
   { path: '/contact', heading: /contactez-nous/i },
 ];
 

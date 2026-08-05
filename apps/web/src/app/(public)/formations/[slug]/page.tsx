@@ -1,29 +1,28 @@
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
+import { formatDate, formatNumber, formatXof } from '@cpfa/lib/i18n';
 import { EnrollLauncher } from '@/components/cpfa/enroll-launcher';
-import { fmtXof, durationLabel } from '@/lib/cpfa-mappers';
+import { resolveLocale } from '@/i18n/request';
+import { courseCategoryLabel, courseLevelLabel, durationLabel } from '@/lib/cpfa-mappers';
 import { applicationStatusAt } from '@/lib/course-rules';
+import { richTags } from '@/lib/i18n-tags';
 import { mediaUrl } from '@/lib/media';
 
 export const dynamic = 'force-dynamic';
 
-const fmtDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
-
-const COURSE_CATEGORY: Record<string, string> = {
-  DIPLOMANT: 'Cursus diplômant',
-  CERTIFIANT: 'Certification',
-  CARTE: 'Sur mesure',
-  AUDITORAT: 'Auditorat',
-};
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, t] = await Promise.all([params, getTranslations('courseDetail')]);
   const course = await prisma.course.findUnique({ where: { slug }, select: { title: true } });
-  return { title: course ? `${course.title} — CPFA` : 'Formation introuvable — CPFA' };
+  return { title: course ? `${course.title} — CPFA` : t('notFound') };
 }
 
 export default async function CoursePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, t, locale] = await Promise.all([
+    params,
+    getTranslations('courseDetail'),
+    resolveLocale(),
+  ]);
   const course = await prisma.course.findUnique({
     where: { slug },
     include: {
@@ -36,33 +35,33 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
   });
   if (!course || !course.published) notFound();
 
-  const category = COURSE_CATEGORY[course.kind] ?? course.kind;
+  const category = courseCategoryLabel(course.kind, locale);
   const coverUrl = mediaUrl(course.coverImageKey);
+  // Brochure de la formation (§1.3 du Directeur) — le bouton n'apparaît que
+  // si un PDF a été téléversé depuis /admin/courses.
+  const brochureUrl = mediaUrl(course.brochureKey);
   const sessionsLabel =
     course.sessions.length > 0
       ? course.sessions
           .slice(0, 2)
-          .map((s) => fmtDate.format(s.startsAt))
+          .map((s) => formatDate(s.startsAt, locale))
           .join(' · ')
-      : 'À programmer';
+      : t('sessionsTbd');
 
   // Admission criteria — per-course when set by the admin, otherwise the
-  // generic CPFA criteria as a fallback.
-  const GENERIC_ADMISSIONS = [
-    'Diplôme reconnu CAMES de niveau Bac+4 minimum (toutes disciplines)',
-    "Réussite au concours d'entrée — 4 épreuves écrites + entretien",
-    'Expérience professionnelle bienvenue mais non obligatoire',
-    'Maîtrise du français écrit et oral · niveau B2 anglais souhaitable',
-  ];
+  // generic CPFA criteria as a fallback. The admin-entered ones are stored in
+  // whatever language they were typed in; only the fallback is localised.
   const admissions =
-    course.admissionCriteria.length > 0 ? course.admissionCriteria : GENERIC_ADMISSIONS;
+    course.admissionCriteria.length > 0
+      ? course.admissionCriteria
+      : t('genericAdmissions').split('|');
 
   return (
     <div>
       <div className="container">
         <div className="page-head" style={{ paddingBottom: 0 }}>
           <div className="breadcrumb">
-            CPFA · Formations · <span>{course.title}</span>
+            CPFA · {t('breadcrumb')} · <span>{course.title}</span>
           </div>
           <div className="detail-hero">
             {coverUrl ? (
@@ -100,7 +99,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
             {course.modules.length > 0 ? (
               <>
                 <h3 style={{ marginBottom: 24 }}>
-                  Programme — <em className="italic-emph">{course.modules.length} modules</em>
+                  {t.rich('programmeHeading', { ...richTags, count: course.modules.length })}
                 </h3>
                 <div className="module-list">
                   {course.modules.map((mod) => {
@@ -130,7 +129,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
               </>
             ) : null}
 
-            <h3 style={{ marginBottom: 24 }}>Conditions d&apos;admission</h3>
+            <h3 style={{ marginBottom: 24 }}>{t('admissionsHeading')}</h3>
             <div className="col gap-3" style={{ maxWidth: 720 }}>
               {admissions.map((t, i) => (
                 <div
@@ -153,29 +152,25 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
 
           <aside className="enroll-card">
             <div>
-              <div className="label">Frais de scolarité</div>
+              <div className="label">{t('tuitionLabel')}</div>
               <div className="enroll-price">
-                {course.priceXof.toLocaleString('fr-FR')}{' '}
-                <small>FCFA</small>
+                {formatNumber(course.priceXof, locale)} <small>FCFA</small>
               </div>
             </div>
             <div className="enroll-stat-row">
-              <span className="label">Durée</span>
-              <span className="value">{durationLabel(course.durationHours)}</span>
+              <span className="label">{t('durationLabel')}</span>
+              <span className="value">{durationLabel(course.durationHours, locale)}</span>
             </div>
             <div className="enroll-stat-row">
-              <span className="label">Niveau requis</span>
-              <span className="value">{course.level}</span>
+              <span className="label">{t('levelLabel')}</span>
+              <span className="value">{courseLevelLabel(course.level, locale)}</span>
             </div>
             <div className="enroll-stat-row">
-              <span className="label">Catégorie</span>
+              <span className="label">{t('categoryLabel')}</span>
               <span className="value">{category}</span>
             </div>
-            <div
-              className="enroll-stat-row"
-              style={{ borderBottom: '1px solid var(--line-soft)' }}
-            >
-              <span className="label">Sessions</span>
+            <div className="enroll-stat-row" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+              <span className="label">{t('sessionsLabel')}</span>
               <span className="value">{sessionsLabel}</span>
             </div>
 
@@ -186,21 +181,23 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
               applicationsOpen={applicationStatusAt(course).state === 'open'}
               reopensAt={(() => {
                 const s = applicationStatusAt(course);
-                return s.state === 'before' ? fmtDate.format(s.opensAt) : undefined;
+                return s.state === 'before' ? formatDate(s.opensAt, locale) : undefined;
               })()}
               sessions={course.sessions.map((s) => ({
                 id: s.id,
-                label: fmtDate.format(s.startsAt),
+                label: formatDate(s.startsAt, locale),
               }))}
             />
-            <button className="btn btn-ghost" type="button">
-              Télécharger la brochure (PDF)
-            </button>
+            {brochureUrl ? (
+              <a className="btn btn-ghost" href={brochureUrl} target="_blank" rel="noreferrer">
+                {t('brochureCta')}
+              </a>
+            ) : null}
             <p className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
-              Paiement échelonné disponible · Wave, Orange Money, virement, carte.
+              {t('paymentNote')}
             </p>
             <p className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
-              Prix affiché : <strong>{fmtXof(course.priceXof)}</strong>.
+              {t.rich('priceNote', { ...richTags, price: formatXof(course.priceXof, locale) })}
             </p>
           </aside>
         </div>

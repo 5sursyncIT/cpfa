@@ -1,4 +1,5 @@
 import { Body, Container, Head, Heading, Html, Link, Preview, Text } from '@react-email/components';
+import { emailCopy, type Locale } from './copy';
 
 export type JobApplicationRecruiterEmailProps = {
   companyName: string;
@@ -10,6 +11,7 @@ export type JobApplicationRecruiterEmailProps = {
   motivation: string;
   cvUrl: string;
   applicationsUrl: string;
+  locale?: Locale;
 };
 
 export function JobApplicationRecruiterEmail({
@@ -22,21 +24,28 @@ export function JobApplicationRecruiterEmail({
   motivation,
   cvUrl,
   applicationsUrl,
+  locale,
 }: JobApplicationRecruiterEmailProps) {
+  const c = emailCopy('jobApplicationRecruiter', locale);
   return (
     <Html>
       <Head />
-      <Preview>Nouvelle candidature pour « {jobTitle} »</Preview>
+      <Preview>{c.preview(jobTitle)}</Preview>
       <Body style={{ fontFamily: 'sans-serif', backgroundColor: '#f8fafc', padding: '24px' }}>
         <Container style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 24, maxWidth: 560 }}>
-          <Heading as="h1">Nouvelle candidature</Heading>
-          <Text>Bonjour,</Text>
+          <Heading as="h1">{c.heading}</Heading>
+          <Text>{c.greeting}</Text>
           <Text>
-            <strong>{companyName}</strong> a reçu une nouvelle candidature pour l&apos;offre{' '}
-            <strong>{jobTitle}</strong>.
+            {c.bodyBefore}
+            <strong>{companyName}</strong>
+            {c.bodyMiddle}
+            <strong>{jobTitle}</strong>
+            {c.bodyAfter}
           </Text>
           <Text style={{ background: '#f1f5f9', padding: 12, borderRadius: 6 }}>
-            <strong>{candidateFirstName} {candidateLastName}</strong>
+            <strong>
+              {candidateFirstName} {candidateLastName}
+            </strong>
             <br />
             <Link href={`mailto:${candidateEmail}`}>{candidateEmail}</Link>
             {candidatePhone ? (
@@ -47,20 +56,16 @@ export function JobApplicationRecruiterEmail({
             ) : null}
           </Text>
           <Text style={{ marginTop: 16 }}>
-            <strong>Motivation</strong>
+            <strong>{c.motivationLabel}</strong>
           </Text>
           <Text style={{ whiteSpace: 'pre-wrap', color: '#334155' }}>{motivation}</Text>
           <Text style={{ marginTop: 16 }}>
-            <Link href={cvUrl}>Télécharger le CV (PDF)</Link>
+            <Link href={cvUrl}>{c.cvCta}</Link>
           </Text>
           <Text>
-            <Link href={applicationsUrl}>
-              Voir toutes les candidatures sur la plateforme CPFA
-            </Link>
+            <Link href={applicationsUrl}>{c.allApplicationsCta}</Link>
           </Text>
-          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>
-            Notification automatique du job board CPFA — ne répondez pas à cet email.
-          </Text>
+          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>{c.footer}</Text>
         </Container>
       </Body>
     </Html>

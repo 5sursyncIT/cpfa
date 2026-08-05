@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import type { Prisma } from '@cpfa/db';
+import { declarationFromMetadata } from '@/lib/payment-declaration';
 import { ConfirmPaymentButton } from './confirm-payment-button';
 import { RefundPaymentButton } from './refund-payment-button';
 
@@ -82,10 +83,30 @@ export default async function AdminPaymentsPage({
   ]);
 
   const filterChips: Array<{ label: string; href: string; active: boolean; count: number }> = [
-    { label: 'En attente', href: '/admin/payments?status=PENDING', active: status === 'PENDING', count: counts[0] },
-    { label: 'Confirmés', href: '/admin/payments?status=CONFIRMED', active: status === 'CONFIRMED', count: counts[1] },
-    { label: 'Échoués', href: '/admin/payments?status=FAILED', active: status === 'FAILED', count: counts[2] },
-    { label: 'Remboursés', href: '/admin/payments?status=REFUNDED', active: status === 'REFUNDED', count: counts[3] },
+    {
+      label: 'En attente',
+      href: '/admin/payments?status=PENDING',
+      active: status === 'PENDING',
+      count: counts[0],
+    },
+    {
+      label: 'Confirmés',
+      href: '/admin/payments?status=CONFIRMED',
+      active: status === 'CONFIRMED',
+      count: counts[1],
+    },
+    {
+      label: 'Échoués',
+      href: '/admin/payments?status=FAILED',
+      active: status === 'FAILED',
+      count: counts[2],
+    },
+    {
+      label: 'Remboursés',
+      href: '/admin/payments?status=REFUNDED',
+      active: status === 'REFUNDED',
+      count: counts[3],
+    },
   ];
 
   return (
@@ -115,7 +136,9 @@ export default async function AdminPaymentsPage({
       <form className="panel" style={{ padding: 16, marginBottom: 16 }}>
         <div className="row gap-3" style={{ flexWrap: 'wrap', alignItems: 'end' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <label className="label" htmlFor="filter-q">Recherche</label>
+            <label className="label" htmlFor="filter-q">
+              Recherche
+            </label>
             <input
               id="filter-q"
               name="q"
@@ -125,17 +148,33 @@ export default async function AdminPaymentsPage({
             />
           </div>
           <div>
-            <label className="label" htmlFor="filter-purpose">Objet</label>
-            <select id="filter-purpose" name="purpose" defaultValue={purpose ?? ''} className="select">
+            <label className="label" htmlFor="filter-purpose">
+              Objet
+            </label>
+            <select
+              id="filter-purpose"
+              name="purpose"
+              defaultValue={purpose ?? ''}
+              className="select"
+            >
               <option value="">Tous</option>
               {Object.entries(PURPOSE_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+                <option key={k} value={k}>
+                  {v}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="label" htmlFor="filter-provider">Provider</label>
-            <select id="filter-provider" name="provider" defaultValue={provider ?? ''} className="select">
+            <label className="label" htmlFor="filter-provider">
+              Provider
+            </label>
+            <select
+              id="filter-provider"
+              name="provider"
+              defaultValue={provider ?? ''}
+              className="select"
+            >
               <option value="">Tous</option>
               <option value="WAVE">Wave</option>
               <option value="ORANGE_MONEY">Orange Money</option>
@@ -146,8 +185,10 @@ export default async function AdminPaymentsPage({
             </select>
           </div>
           {status ? <input type="hidden" name="status" value={status} /> : null}
-          <button type="submit" className="btn btn-ghost btn-sm">Filtrer</button>
-          {(q || purpose || provider) ? (
+          <button type="submit" className="btn btn-ghost btn-sm">
+            Filtrer
+          </button>
+          {q || purpose || provider ? (
             <Link
               href={status ? `/admin/payments?status=${status}` : '/admin/payments'}
               className="btn-link fs-13"
@@ -180,7 +221,9 @@ export default async function AdminPaymentsPage({
 
       <div className="panel">
         {payments.length === 0 ? (
-          <p className="text-soft" style={{ padding: 24 }}>Aucun paiement ne correspond.</p>
+          <p className="text-soft" style={{ padding: 24 }}>
+            Aucun paiement ne correspond.
+          </p>
         ) : (
           <table className="tbl">
             <thead>
@@ -213,9 +256,30 @@ export default async function AdminPaymentsPage({
                         <div className="fs-13 text-soft">{p.user.email}</div>
                       </Link>
                     </td>
-                    <td className="fs-13">{PURPOSE_LABEL[p.purpose] ?? p.purpose}</td>
-                    <td className="fs-13 mono">{p.provider}</td>
-                    <td><span className={'pill ' + pill.className}>{pill.label}</span></td>
+                    <td className="fs-13">
+                      {PURPOSE_LABEL[p.purpose] ?? p.purpose}
+                      {p.subscription?.cardNumber ? (
+                        <div className="fs-13 text-soft mono">{p.subscription.cardNumber}</div>
+                      ) : null}
+                    </td>
+                    <td className="fs-13 mono">
+                      {p.provider}
+                      {/* Référence déclarée par l'abonné : de quoi retrouver la
+                          transaction dans Wave / Orange Money avant de confirmer. */}
+                      {declarationFromMetadata(p.metadata) ? (
+                        <div className="fs-13" style={{ color: 'var(--orange-deep)' }}>
+                          réf. {declarationFromMetadata(p.metadata)!.reference}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td>
+                      <span className={'pill ' + pill.className}>{pill.label}</span>
+                      {p.status === 'PENDING' && declarationFromMetadata(p.metadata) ? (
+                        <div className="fs-13 text-soft" style={{ marginTop: 4 }}>
+                          à vérifier
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="mono">{p.amountXof.toLocaleString('fr-FR')} FCFA</td>
                     <td>
                       <div className="row gap-2">

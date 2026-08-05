@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { auth, signOut } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
-import { prisma } from '@cpfa/db';
+import { Prisma, prisma } from '@cpfa/db';
 import { AdminSideNav } from '@/components/cpfa/admin-side-nav';
 import { AdminUiProvider } from '@/components/cpfa/admin-ui';
+import { getMaintenanceSettings } from '@/lib/maintenance/guard';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -24,6 +25,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     pendingJobOffers,
     catalogCount,
     activeSubsCount,
+    declaredPayments,
   ] = await Promise.all([
     prisma.registration.count({
       where: {
@@ -38,6 +40,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     prisma.jobPosting.count({ where: { status: 'DRAFT' } }),
     prisma.resource.count(),
     prisma.subscription.count({ where: { status: 'ACTIVE' } }),
+    // Paiements déclarés par un abonné (Wave / Orange Money) et pas encore
+    // vérifiés : c'est la file d'attente de la comptabilité.
+    prisma.payment.count({
+      where: { status: 'PENDING', metadata: { path: ['declaration'], not: Prisma.DbNull } },
+    }),
   ]);
 
   const sections = [
@@ -85,21 +92,38 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       title: 'Système',
       items: [
         { href: '/admin/users', label: 'Utilisateurs' },
-        { href: '/admin/payments', label: 'Paiements' },
+        { href: '/admin/payments', label: 'Paiements', count: declaredPayments },
+        { href: '/admin/maintenance', label: 'Mode maintenance' },
       ],
     },
   ];
 
+  const maintenance = await getMaintenanceSettings();
+
   return (
     <div>
+      {maintenance.enabled ? (
+        <div
+          style={{
+            background: 'var(--warning)',
+            color: 'var(--navy-deep)',
+            padding: '10px 24px',
+            textAlign: 'center',
+            fontSize: 14,
+          }}
+        >
+          <strong>Le site public est en maintenance.</strong> Les visiteurs voient la page
+          d&apos;attente.{' '}
+          <Link href="/admin/maintenance" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            Remettre le site en ligne
+          </Link>
+        </div>
+      ) : null}
       <div className="admin-topbar">
-        <div className="container admin-topbar-inner">
+        <div className="admin-topbar-inner container">
           <span className="admin-topbar-kicker">Espace administrateur</span>
           <div className="admin-topbar-actions">
-            <Link
-              href="/"
-              className="btn btn-ghost btn-sm admin-topbar-button"
-            >
+            <Link href="/" className="btn btn-ghost btn-sm admin-topbar-button">
               ← Retour au site public
             </Link>
             <form
@@ -108,10 +132,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                 await signOut({ redirectTo: '/' });
               }}
             >
-              <button
-                type="submit"
-                className="btn btn-ghost btn-sm admin-topbar-button"
-              >
+              <button type="submit" className="btn btn-ghost btn-sm admin-topbar-button">
                 Déconnexion
               </button>
             </form>

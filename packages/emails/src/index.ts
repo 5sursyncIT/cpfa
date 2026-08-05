@@ -14,4 +14,14 @@ export {
 } from './job-application-candidate';
 export { JobPostedEmail, type JobPostedEmailProps } from './job-posted';
 export { ReceiptEmail, type ReceiptEmailProps } from './receipt';
+export {
+  SubscriptionContractEmail,
+  type SubscriptionContractEmailProps,
+} from './subscription-contract';
+export {
+  PaymentInstructionsEmail,
+  type PaymentInstructionsEmailProps,
+} from './payment-instructions';
+export { PaymentDeclaredEmail, type PaymentDeclaredEmailProps } from './payment-declared';
+export { emailCopy, emailXof } from './copy';
 export { render } from '@react-email/render';

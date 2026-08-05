@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
 import { prisma } from '@cpfa/db';
 import { settingsRegistry, SETTING_KEYS } from '@/lib/site-settings/registry';
+import { settingDefault } from '@/lib/site-settings/defaults';
 import { settingsUi } from '@/lib/site-settings/ui';
 import { SettingEditor } from './setting-editor';
 
@@ -72,7 +73,9 @@ export default async function AdminSettingsPage({
           const ui = settingsUi[key]!;
           const own = ownRows.get(key);
           const fallback = locale === 'fr' ? null : frRows.get(key) ?? null;
-          const value = own?.value ?? fallback?.value ?? entry.default;
+          // Onglet EN sans ligne saisie : on pré-remplit avec le défaut
+          // anglais, pas le français — l'éditeur part d'un texte déjà traduit.
+          const value = own?.value ?? fallback?.value ?? settingDefault(key, locale);
           const source: 'locale' | 'fallback' | 'default' = own
             ? 'locale'
             : fallback

@@ -5,6 +5,7 @@ import {
   isKnownKey,
   SETTING_KEYS,
 } from '@/lib/site-settings/registry';
+import { hasLocalizedDefault, settingDefault } from '@/lib/site-settings/defaults';
 
 describe('site-settings registry', () => {
   it('isKnownKey is strict — only registry entries pass', () => {
@@ -44,5 +45,35 @@ describe('site-settings registry', () => {
       email: 'not-an-email',
     });
     expect(result.success).toBe(false);
+  });
+
+  // Un défaut anglais qui ne satisfait pas son schéma ne casserait rien de
+  // visible : `parseSettingValue` le rejetterait en silence et la page
+  // repartirait en français. D'où ce test.
+  it('every EN default round-trips through its own schema', () => {
+    for (const key of SETTING_KEYS) {
+      if (!hasLocalizedDefault(key, 'en')) continue;
+      const entry = settingsRegistry[key];
+      expect(() => entry.schema.parse(settingDefault(key, 'en'))).not.toThrow();
+    }
+  });
+
+  it('settingDefault serves English copy for translated keys', () => {
+    expect(settingDefault('home.hero', 'en').headline).not.toBe(
+      settingsRegistry['home.hero'].default.headline,
+    );
+    expect(settingDefault('home.blocks', 'en').aboutEyebrow).toBe('About us');
+  });
+
+  it('settingDefault falls back to French when a key has no translation', () => {
+    // `library.pricing` ne contient que des montants : pas de version anglaise.
+    expect(hasLocalizedDefault('library.pricing', 'en')).toBe(false);
+    expect(settingDefault('library.pricing', 'en')).toEqual(
+      settingsRegistry['library.pricing'].default,
+    );
+  });
+
+  it('defaults to French when no locale is given', () => {
+    expect(settingDefault('home.hero')).toEqual(settingsRegistry['home.hero'].default);
   });
 });

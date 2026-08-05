@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { LogoMark } from './logo-mark';
 
 export type MemberCardProps = {
@@ -8,13 +9,14 @@ export type MemberCardProps = {
   validUntil?: string;
 };
 
-export function MemberCard({
+export async function MemberCard({
   fullName,
   cardNumber,
   promotion = '—',
-  status = 'Abonné',
+  status,
   validUntil = '—',
 }: MemberCardProps) {
+  const t = await getTranslations('memberCard');
   return (
     <div className="member-card">
       <div className="member-card-top">
@@ -28,15 +30,15 @@ export function MemberCard({
       </div>
       <div className="member-card-bottom">
         <div>
-          <div className="label">Promotion</div>
+          <div className="label">{t('promotionLabel')}</div>
           <div className="value">{promotion}</div>
         </div>
         <div>
-          <div className="label">Statut</div>
-          <div className="value">{status}</div>
+          <div className="label">{t('statusLabel')}</div>
+          <div className="value">{status ?? t('defaultStatus')}</div>
         </div>
         <div>
-          <div className="label">Valide jusqu&apos;au</div>
+          <div className="label">{t('validUntilLabel')}</div>
           <div className="value">{validUntil}</div>
         </div>
       </div>

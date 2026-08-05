@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { buildKey, presignUpload } from '@cpfa/lib/storage';
 import { router, protectedProcedure } from '../trpc';
+import { serverError } from '@/lib/server-errors';
 
 export const attachmentsRouter = router({
   // Step 1: client requests a presigned PUT URL for a file it's about to upload.
@@ -25,7 +26,7 @@ export const attachmentsRouter = router({
       if (reg.status === 'VALIDATED' || reg.status === 'REJECTED' || reg.status === 'CANCELLED') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Cette inscription ne peut plus recevoir de pièces.',
+          message: serverError('attachmentsClosed', ctx.locale),
         });
       }
 

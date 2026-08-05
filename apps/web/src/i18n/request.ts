@@ -5,15 +5,20 @@ import { getRequestConfig } from 'next-intl/server';
 // in the DB). EN is fully wired but its body copy depends on editors creating
 // `locale: 'en'` rows in Page / Article / SiteSetting. The shell (nav, footer,
 // CTAs) ships translated via the JSON message files.
-export const locales = ['fr', 'en'] as const;
-export type Locale = (typeof locales)[number];
-export const defaultLocale: Locale = 'fr';
+//
+// Les constantes vivent dans ./locales (sans `next/headers`) pour rester
+// importables depuis le worker ; on les ré-exporte ici, où tout le code les
+// cherche déjà.
+export {
+  locales,
+  defaultLocale,
+  LOCALE_COOKIE,
+  isLocale,
+  intlLocale,
+  type Locale,
+} from './locales';
 
-export const LOCALE_COOKIE = 'NEXT_LOCALE';
-
-export function isLocale(value: unknown): value is Locale {
-  return typeof value === 'string' && (locales as readonly string[]).includes(value);
-}
+import { defaultLocale, isLocale, LOCALE_COOKIE, type Locale } from './locales';
 
 // Server-side resolver. Honoured precedence:
 //   1. NEXT_LOCALE cookie (set by the switcher in the top nav)

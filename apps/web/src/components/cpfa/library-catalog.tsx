@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ResourceKind } from '@cpfa/db';
 import { Book, type BookData } from './book';
 
@@ -11,27 +12,32 @@ type Item = {
   book: BookData;
 };
 
+// `id` sert de clé de filtre, `labelKey` d'étiquette traduite et `match` de
+// terme cherché dans les mots-clés du catalogue. Les trois sont distincts à
+// dessein : les mots-clés saisis par la bibliothécaire restent en français,
+// alors que la puce, elle, doit se traduire.
 const CATEGORIES = [
-  'Tout',
-  'Droit',
-  'Actuariat',
-  'Réassurance',
-  'Gestion',
-  'Études CIMA',
-  'Mémoires',
+  { id: 'all', labelKey: 'catAll', match: null },
+  { id: 'law', labelKey: 'catLaw', match: 'droit' },
+  { id: 'actuarial', labelKey: 'catActuarial', match: 'actuariat' },
+  { id: 'reinsurance', labelKey: 'catReinsurance', match: 'réassurance' },
+  { id: 'management', labelKey: 'catManagement', match: 'gestion' },
+  { id: 'cima', labelKey: 'catCima', match: 'cima' },
+  { id: 'theses', labelKey: 'catTheses', match: 'mémoires' },
 ] as const;
-type Category = (typeof CATEGORIES)[number];
+type CategoryId = (typeof CATEGORIES)[number]['id'];
 
 const SUPPORT_OPTIONS = [
-  { value: 'all', label: 'Tous les supports' },
-  { value: 'BOOK', label: 'Ouvrages' },
-  { value: 'JOURNAL', label: 'Périodiques' },
-  { value: 'THESIS', label: 'Mémoires' },
-  { value: 'DIGITAL', label: 'Numérique' },
+  { value: 'all', labelKey: 'supportAll' },
+  { value: 'BOOK', labelKey: 'supportBook' },
+  { value: 'JOURNAL', labelKey: 'supportJournal' },
+  { value: 'THESIS', labelKey: 'supportThesis' },
+  { value: 'DIGITAL', labelKey: 'supportDigital' },
 ] as const;
 
 export function LibraryCatalog({ items }: { items: Item[] }) {
-  const [filter, setFilter] = useState<Category>('Tout');
+  const t = useTranslations('libraryCatalog');
+  const [filter, setFilter] = useState<CategoryId>('all');
   const [support, setSupport] = useState<string>('all');
   const [availability, setAvailability] = useState<string>('all');
   const [q, setQ] = useState('');
@@ -43,10 +49,10 @@ export function LibraryCatalog({ items }: { items: Item[] }) {
       if (support !== 'all' && it.kind !== support) return false;
       if (availability === 'available' && it.book.status !== 'dispo') return false;
       if (availability === 'reserved' && it.book.status !== 'emprunte') return false;
-      if (filter !== 'Tout') {
-        const target = filter.toLowerCase();
+      const match = CATEGORIES.find((c) => c.id === filter)?.match;
+      if (match) {
         const hay = (it.keywords.join(' ') + ' ' + it.book.title).toLowerCase();
-        if (!hay.includes(target.split(' ')[0]!)) return false;
+        if (!hay.includes(match)) return false;
       }
       if (term) {
         const hay = (it.book.title + ' ' + it.book.author + ' ' + it.keywords.join(' '))
@@ -61,16 +67,16 @@ export function LibraryCatalog({ items }: { items: Item[] }) {
     <>
       <div className="row gap-4" style={{ marginBottom: 32, alignItems: 'end', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 240, maxWidth: 460 }}>
-          <label className="label">Recherche</label>
+          <label className="label">{t('searchLabel')}</label>
           <input
             className="input"
-            placeholder="Titre, auteur, sujet, ISBN…"
+            placeholder={t('searchPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
         <div style={{ minWidth: 180 }}>
-          <label className="label">Type de support</label>
+          <label className="label">{t('supportLabel')}</label>
           <select
             className="select"
             value={support}
@@ -78,21 +84,21 @@ export function LibraryCatalog({ items }: { items: Item[] }) {
           >
             {SUPPORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
         </div>
         <div style={{ minWidth: 180 }}>
-          <label className="label">Disponibilité</label>
+          <label className="label">{t('availabilityLabel')}</label>
           <select
             className="select"
             value={availability}
             onChange={(e) => setAvailability(e.target.value)}
           >
-            <option value="all">Tout</option>
-            <option value="available">Disponible immédiatement</option>
-            <option value="reserved">Sur réservation</option>
+            <option value="all">{t('availabilityAll')}</option>
+            <option value="available">{t('availabilityAvailable')}</option>
+            <option value="reserved">{t('availabilityReserved')}</option>
           </select>
         </div>
       </div>
@@ -101,40 +107,38 @@ export function LibraryCatalog({ items }: { items: Item[] }) {
         {CATEGORIES.map((c) => (
           <button
             type="button"
-            key={c}
-            className={'filter-chip' + (c === filter ? ' active' : '')}
-            onClick={() => setFilter(c)}
+            key={c.id}
+            className={'filter-chip' + (c.id === filter ? ' active' : '')}
+            onClick={() => setFilter(c.id)}
           >
-            {c}
+            {t(c.labelKey)}
           </button>
         ))}
       </div>
 
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 24 }}>
-        <span className="text-soft fs-13 mono">
-          {filtered.length} résultat{filtered.length > 1 ? 's' : ''} · trié par nouveauté
-        </span>
+        <span className="text-soft fs-13 mono">{t('resultCount', { count: filtered.length })}</span>
         <div className="row gap-2">
           <button
             type="button"
             className={'filter-chip' + (view === 'covers' ? ' active' : '')}
             onClick={() => setView('covers')}
           >
-            Couvertures
+            {t('viewCovers')}
           </button>
           <button
             type="button"
             className={'filter-chip' + (view === 'list' ? ' active' : '')}
             onClick={() => setView('list')}
           >
-            Liste
+            {t('viewList')}
           </button>
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <p className="text-soft" style={{ padding: '48px 0', textAlign: 'center' }}>
-          Aucune ressource ne correspond à votre recherche.
+          {t('empty')}
         </p>
       ) : view === 'covers' ? (
         <div className="book-grid" style={{ marginBottom: 96 }}>
@@ -152,10 +156,10 @@ export function LibraryCatalog({ items }: { items: Item[] }) {
                 <div className="loan-author">{it.book.author}</div>
               </div>
               <span className={'pill ' + (it.book.status === 'dispo' ? 'pill-success' : '')}>
-                {it.book.status === 'dispo' ? 'Disponible' : 'Sortie'}
+                {it.book.status === 'dispo' ? t('statusAvailable') : t('statusOut')}
               </span>
               <div></div>
-              <span className="btn btn-ghost btn-sm">Voir →</span>
+              <span className="btn btn-ghost btn-sm">{t('viewCta')} →</span>
             </a>
           ))}
         </div>

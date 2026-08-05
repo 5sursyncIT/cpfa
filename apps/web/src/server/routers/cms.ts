@@ -8,6 +8,7 @@ import {
   settingsRegistry,
   SETTING_KEYS,
 } from '@/lib/site-settings/registry';
+import { settingDefault } from '@/lib/site-settings/defaults';
 
 const blockSchema = z
   .object({
@@ -555,7 +556,7 @@ export const cmsRouter = router({
             locale,
             label: entry.label,
             kind: entry.kind,
-            value: row?.value ?? entry.default,
+            value: row?.value ?? settingDefault(key, locale),
             source,
             updatedAt: own?.updatedAt ?? null,
             updatedByEmail: own?.updatedBy?.email ?? null,

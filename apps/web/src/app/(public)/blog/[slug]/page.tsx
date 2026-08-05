@@ -1,6 +1,9 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@cpfa/db';
+import { getTranslations } from 'next-intl/server';
+import { formatDate } from '@cpfa/lib/i18n';
 import { BlockRenderer } from '@/components/cms/block-renderer';
+import { resolveLocale } from '@/i18n/request';
 import { mediaUrl } from '@/lib/media';
 import { auth } from '@/lib/auth';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -18,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     where: { slug, published: true },
     select: { title: true, excerpt: true },
   });
-  if (!article) return { title: 'Article introuvable — CPFA' };
+  if (!article) return { title: (await getTranslations('blogDetail'))('notFound') };
   return {
     title: `${article.title} — CPFA`,
     description: article.excerpt ?? undefined,
@@ -35,6 +38,7 @@ export default async function ArticlePage({
   const { slug } = await params;
   const { preview } = await searchParams;
   const isPreview = preview === '1' && (await canPreview());
+  const [t, locale] = await Promise.all([getTranslations('blogDetail'), resolveLocale()]);
 
   const article = await prisma.article.findFirst({
     where: { slug, ...(isPreview ? {} : { published: true }) },
@@ -49,13 +53,11 @@ export default async function ArticlePage({
     <article className="container max-w-3xl py-16">
       {isPreview && !article.published ? (
         <div className="mb-8 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          Aperçu — brouillon non publié. Visible uniquement par les éditeurs.
+          {t('previewDraft')}
         </div>
       ) : null}
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
-        {article.publishedAt
-          ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(article.publishedAt)
-          : 'Brouillon'}
+        {article.publishedAt ? formatDate(article.publishedAt, locale) : t('draft')}
         {fullName ? ` · ${fullName}` : ''}
       </p>
       <h1 className="mt-3 text-4xl font-bold tracking-tight">{article.title}</h1>

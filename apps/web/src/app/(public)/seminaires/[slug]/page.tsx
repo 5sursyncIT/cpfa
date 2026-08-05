@@ -1,20 +1,26 @@
 import { notFound } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@cpfa/db';
+import { formatDateTime, formatNumber, formatXof } from '@cpfa/lib/i18n';
 import { RegisterSeminarButton } from '@/components/training/register-seminar-button';
-import { fmtXof } from '@/lib/cpfa-mappers';
+import { resolveLocale } from '@/i18n/request';
+import { richTags } from '@/lib/i18n-tags';
+import { mediaUrl } from '@/lib/media';
 
 export const dynamic = 'force-dynamic';
 
-const fmt = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, t] = await Promise.all([params, getTranslations('seminarDetail')]);
   const seminar = await prisma.seminar.findUnique({ where: { slug }, select: { title: true } });
-  return { title: seminar ? `${seminar.title} — CPFA` : 'Séminaire introuvable — CPFA' };
+  return { title: seminar ? `${seminar.title} — CPFA` : t('notFound') };
 }
 
 export default async function SeminarPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, t, locale] = await Promise.all([
+    params,
+    getTranslations('seminarDetail'),
+    resolveLocale(),
+  ]);
   const seminar = await prisma.seminar.findUnique({
     where: { slug },
     include: { speakers: true },
@@ -25,13 +31,15 @@ export default async function SeminarPage({ params }: { params: Promise<{ slug: 
     where: { seminarId: seminar.id, status: { in: ['SUBMITTED', 'PAID', 'VALIDATED'] } },
   });
   const seatsLeft = Math.max(0, seminar.capacity - taken);
+  // Brochure du séminaire (§1.3) — téléversée depuis /admin/seminars.
+  const brochureUrl = mediaUrl(seminar.brochureKey);
 
   return (
     <div>
       <div className="container">
         <div className="page-head" style={{ paddingBottom: 0 }}>
           <div className="breadcrumb">
-            CPFA · Séminaires · <span>{seminar.title}</span>
+            CPFA · {t('breadcrumb')} · <span>{seminar.title}</span>
           </div>
           <div className="detail-hero">
             <div>
@@ -44,7 +52,7 @@ export default async function SeminarPage({ params }: { params: Promise<{ slug: 
                   marginBottom: 16,
                 }}
               >
-                Séminaire · {fmt.format(seminar.startsAt)}
+                {t('pillPrefix')} · {formatDateTime(seminar.startsAt, locale)}
               </span>
               <h1>{seminar.title}</h1>
             </div>
@@ -64,9 +72,7 @@ export default async function SeminarPage({ params }: { params: Promise<{ slug: 
 
             {seminar.speakers.length > 0 ? (
               <>
-                <h3 style={{ marginBottom: 24 }}>
-                  Intervenant·e·s — <em className="italic-emph">premier plan</em>
-                </h3>
+                <h3 style={{ marginBottom: 24 }}>{t.rich('speakersHeading', richTags)}</h3>
                 <div
                   style={{
                     display: 'grid',
@@ -96,37 +102,41 @@ export default async function SeminarPage({ params }: { params: Promise<{ slug: 
 
           <aside className="enroll-card">
             <div>
-              <div className="label">Frais d&apos;inscription</div>
+              <div className="label">{t('feeLabel')}</div>
               <div className="enroll-price">
                 {seminar.priceXof === 0
-                  ? 'Gratuit'
-                  : seminar.priceXof.toLocaleString('fr-FR')}{' '}
+                  ? formatXof(0, locale)
+                  : formatNumber(seminar.priceXof, locale)}{' '}
                 {seminar.priceXof === 0 ? null : <small>FCFA</small>}
               </div>
             </div>
             <div className="enroll-stat-row">
-              <span className="label">Quand</span>
-              <span className="value">{fmt.format(seminar.startsAt)}</span>
+              <span className="label">{t('whenLabel')}</span>
+              <span className="value">{formatDateTime(seminar.startsAt, locale)}</span>
             </div>
             {seminar.location ? (
               <div className="enroll-stat-row">
-                <span className="label">Lieu</span>
+                <span className="label">{t('placeLabel')}</span>
                 <span className="value">{seminar.location}</span>
               </div>
             ) : null}
-            <div
-              className="enroll-stat-row"
-              style={{ borderBottom: '1px solid var(--line-soft)' }}
-            >
-              <span className="label">Disponibilité</span>
+            <div className="enroll-stat-row" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+              <span className="label">{t('availabilityLabel')}</span>
               <span className="value">
-                {seatsLeft > 0 ? `${seatsLeft} place(s)` : 'Complet'}
+                {seatsLeft > 0 ? t('seatsLeft', { count: seatsLeft }) : t('soldOut')}
               </span>
             </div>
             <RegisterSeminarButton seminarId={seminar.id} disabled={seatsLeft === 0} />
+            {brochureUrl ? (
+              <a className="btn btn-ghost" href={brochureUrl} target="_blank" rel="noreferrer">
+                {t('brochureCta')}
+              </a>
+            ) : null}
             <p className="fs-13 text-soft" style={{ lineHeight: 1.4 }}>
-              Tarif réduit -30% pour les abonnés CPFA. Total à régler :{' '}
-              <strong>{fmtXof(seminar.priceXof)}</strong>.
+              {t.rich('discountNote', {
+                ...richTags,
+                price: formatXof(seminar.priceXof, locale),
+              })}
             </p>
           </aside>
         </div>

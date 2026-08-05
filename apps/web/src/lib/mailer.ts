@@ -14,8 +14,13 @@ import {
   JobApplicationCandidateEmail,
   JobPostedEmail,
   ReceiptEmail,
+  SubscriptionContractEmail,
+  PaymentInstructionsEmail,
+  PaymentDeclaredEmail,
+  emailCopy,
   render,
 } from '@cpfa/emails';
+import type { Locale } from '@cpfa/lib/i18n';
 
 let _transporter: Transporter | null | undefined;
 
@@ -65,7 +70,16 @@ export type EmailTemplate =
       data: import('@cpfa/emails').JobApplicationCandidateEmailProps;
     }
   | { kind: 'job-posted'; data: import('@cpfa/emails').JobPostedEmailProps }
-  | { kind: 'receipt'; data: import('@cpfa/emails').ReceiptEmailProps };
+  | { kind: 'receipt'; data: import('@cpfa/emails').ReceiptEmailProps }
+  | {
+      kind: 'subscription-contract';
+      data: import('@cpfa/emails').SubscriptionContractEmailProps;
+    }
+  | {
+      kind: 'payment-instructions';
+      data: import('@cpfa/emails').PaymentInstructionsEmailProps;
+    }
+  | { kind: 'payment-declared'; data: import('@cpfa/emails').PaymentDeclaredEmailProps };
 
 // Optional attachments. Use either `path` (server-side fetched URL — practical
 // for our presigned S3 download URLs) or `content` (raw base64). Nodemailer
@@ -83,14 +97,16 @@ export async function sendEmail({
   template,
   replyTo,
   attachments,
+  locale,
 }: {
   to: string;
   subject: string;
   template: EmailTemplate;
   replyTo?: string;
   attachments?: EmailAttachment[];
+  locale?: Locale;
 }): Promise<{ id: string | null; mocked: boolean }> {
-  const html = await render(componentFor(template));
+  const html = await render(componentFor(template, locale));
   const from = process.env.EMAIL_FROM ?? 'CPFA <noreply@cpfa.local>';
   const transporter = getTransporter();
 
@@ -124,48 +140,63 @@ export async function sendEmail({
   return { id: result.messageId ?? null, mocked: false };
 }
 
-function componentFor(template: EmailTemplate) {
+// `contact` et `payment-declared` n'acceptent pas de locale : ces deux messages
+// partent vers le personnel du CPFA (accueil, comptabilité) et restent en
+// français, comme le back-office.
+function componentFor(template: EmailTemplate, locale?: Locale) {
   switch (template.kind) {
     case 'magic-link':
-      return MagicLinkEmail(template.data);
+      return MagicLinkEmail({ ...template.data, locale });
     case 'contact':
       return ContactFormEmail(template.data);
     case 'convocation':
-      return ConvocationEmail(template.data);
+      return ConvocationEmail({ ...template.data, locale });
     case 'trainer-approved':
-      return TrainerApprovedEmail(template.data);
+      return TrainerApprovedEmail({ ...template.data, locale });
     case 'trainer-rejected':
-      return TrainerRejectedEmail(template.data);
+      return TrainerRejectedEmail({ ...template.data, locale });
     case 'job-application-recruiter':
-      return JobApplicationRecruiterEmail(template.data);
+      return JobApplicationRecruiterEmail({ ...template.data, locale });
     case 'job-application-candidate':
-      return JobApplicationCandidateEmail(template.data);
+      return JobApplicationCandidateEmail({ ...template.data, locale });
     case 'job-posted':
-      return JobPostedEmail(template.data);
+      return JobPostedEmail({ ...template.data, locale });
     case 'receipt':
-      return ReceiptEmail(template.data);
+      return ReceiptEmail({ ...template.data, locale });
+    case 'subscription-contract':
+      return SubscriptionContractEmail({ ...template.data, locale });
+    case 'payment-instructions':
+      return PaymentInstructionsEmail({ ...template.data, locale });
+    case 'payment-declared':
+      return PaymentDeclaredEmail(template.data);
   }
 }
 
-export function subjectFor(template: EmailTemplate): string {
+export function subjectFor(template: EmailTemplate, locale?: Locale): string {
   switch (template.kind) {
     case 'magic-link':
-      return 'Votre lien de connexion CPFA';
+      return emailCopy('magicLink', locale).subject;
     case 'contact':
       return `[Contact CPFA] ${template.data.subject}`;
     case 'convocation':
-      return `Convocation — ${template.data.target}`;
+      return emailCopy('convocation', locale).subject(template.data.target);
     case 'trainer-approved':
-      return 'Votre candidature formateur est acceptée — CPFA';
+      return emailCopy('trainerApproved', locale).subject;
     case 'trainer-rejected':
-      return 'Suite donnée à votre candidature formateur — CPFA';
+      return emailCopy('trainerRejected', locale).subject;
     case 'job-application-recruiter':
-      return `Nouvelle candidature — ${template.data.jobTitle}`;
+      return emailCopy('jobApplicationRecruiter', locale).subject(template.data.jobTitle);
     case 'job-application-candidate':
-      return `Candidature transmise — ${template.data.jobTitle}`;
+      return emailCopy('jobApplicationCandidate', locale).subject(template.data.jobTitle);
     case 'job-posted':
-      return `Votre offre est en ligne — ${template.data.jobTitle}`;
+      return emailCopy('jobPosted', locale).subject(template.data.jobTitle);
     case 'receipt':
-      return `Reçu N° ${template.data.invoiceNumber} — CPFA`;
+      return emailCopy('receipt', locale).subject(template.data.invoiceNumber);
+    case 'subscription-contract':
+      return emailCopy('subscriptionContract', locale).subject;
+    case 'payment-instructions':
+      return emailCopy('paymentInstructions', locale).subject;
+    case 'payment-declared':
+      return `Paiement déclaré à vérifier — ${template.data.reference}`;
   }
 }

@@ -7,7 +7,7 @@ import { getKeyFigures, getPartners, getGovernance } from '@/lib/content-blocks'
 import { resolveLocale } from '@/i18n/request';
 import { Breadcrumb } from '@/components/cpfa/breadcrumb';
 import { richTags } from '@/lib/i18n-tags';
-import directorPhoto from '../mot-du-directeur/DG.jpg';
+import { directorPhoto } from '@/lib/director-photo';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,10 +15,7 @@ const STATIC_SLUG = 'a-propos';
 
 export async function generateMetadata() {
   const locale = await resolveLocale();
-  const [cms, t] = await Promise.all([
-    fetchCmsPage(STATIC_SLUG, locale),
-    getTranslations('about'),
-  ]);
+  const [cms, t] = await Promise.all([fetchCmsPage(STATIC_SLUG, locale), getTranslations('about')]);
   return {
     title: cms?.metaTitle ?? `${cms?.title ?? t('title')} — CPFA`,
     description: cms?.metaDescription ?? undefined,
@@ -51,7 +48,7 @@ export default async function AboutPage() {
 
   return (
     <div>
-      <div className="container page-head">
+      <div className="page-head container">
         <Breadcrumb items={[{ href: '/', label: 'CPFA' }, { label: t('title') }]} />
         <h1 style={{ maxWidth: 1100, fontSize: 'clamp(56px, 6.5vw, 96px)' }}>
           {t.rich('h1', richTags)}
@@ -80,17 +77,22 @@ export default async function AboutPage() {
             <span className="eyebrow" style={{ marginBottom: 16 }}>
               {t('directorEyebrow')}
             </span>
-            <blockquote className="director-quote">
-              {t.rich('directorQuote', richTags)}
+            {/* Lettre intégrale du Directeur : le paragraphe d'ouverture sert
+                d'accroche en serif, la suite se lit en corps de texte. */}
+            <blockquote className="director-letter">
+              <p className="director-quote">{t.rich('directorQuote', richTags)}</p>
+              <p>{t('directorLetter1')}</p>
+              <p>{t('directorLetter2')}</p>
+              <p>{t('directorLetter3')}</p>
+              <p>{t('directorLetter4')}</p>
+              <p>{t('directorLetter5')}</p>
+              <p>{t('directorLetter6')}</p>
             </blockquote>
             <div className="director-meta">
               <div className="director-name">{t('directorName')}</div>
               <div className="director-role">{t('directorRole')}</div>
             </div>
             <div className="row gap-3" style={{ marginTop: 24, flexWrap: 'wrap' }}>
-              <Link href="/mot-du-directeur" className="btn btn-primary">
-                {t('ctaReadFull')} <span className="arrow">→</span>
-              </Link>
               <Link href="/contact" className="btn btn-ghost">
                 {t('ctaBookMeeting')}
               </Link>

@@ -1,10 +1,12 @@
 import { Document, Image, Page, StyleSheet, Text, View, renderToBuffer } from '@react-pdf/renderer';
+import { pdfCopy, type Locale } from './copy';
 
 export type SubscriberCardProps = {
   fullName: string;
   cardNumber: string;
   validUntil: string;
   qrDataUrl: string;
+  locale?: Locale;
 };
 
 const styles = StyleSheet.create({
@@ -24,18 +26,25 @@ const styles = StyleSheet.create({
   qr: { width: 96, height: 96 },
 });
 
-export function SubscriberCard({ fullName, cardNumber, validUntil, qrDataUrl }: SubscriberCardProps) {
+export function SubscriberCard({
+  fullName,
+  cardNumber,
+  validUntil,
+  qrDataUrl,
+  locale,
+}: SubscriberCardProps) {
+  const c = pdfCopy('card', locale);
   return (
     <Document>
       <Page size="A6" orientation="landscape" style={styles.page}>
         <View style={styles.card}>
           <View>
-            <Text style={styles.title}>CPFA — Bibliothèque</Text>
-            <Text style={styles.label}>Titulaire</Text>
+            <Text style={styles.title}>{c.title}</Text>
+            <Text style={styles.label}>{c.holder}</Text>
             <Text>{fullName}</Text>
-            <Text style={styles.label}>N° Carte</Text>
+            <Text style={styles.label}>{c.cardNumber}</Text>
             <Text>{cardNumber}</Text>
-            <Text style={styles.label}>Valide jusqu&apos;au</Text>
+            <Text style={styles.label}>{c.validUntil}</Text>
             <Text>{validUntil}</Text>
           </View>
           <Image src={qrDataUrl} style={styles.qr} />

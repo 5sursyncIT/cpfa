@@ -1,7 +1,13 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
+import { richTags } from '@/lib/i18n-tags';
 
-export const metadata = { title: 'Paiement annulé — CPFA' };
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata() {
+  const t = await getTranslations('payment');
+  return { title: t('cancelMetaTitle') };
+}
 
 // Landing reached via PayTech `cancel_url`. The Payment row stays PENDING — the
 // user can retry from the same page that triggered initiate(), or contact the
@@ -11,29 +17,23 @@ export default async function PaymentCancelPage({
 }: {
   searchParams: Promise<{ ref?: string }>;
 }) {
-  const { ref } = await searchParams;
+  const [{ ref }, t] = await Promise.all([searchParams, getTranslations('payment')]);
   return (
     <div className="container" style={{ padding: '64px 0' }}>
       <div className="breadcrumb">
-        CPFA · <span>Paiement</span>
+        CPFA · <span>{t('breadcrumb')}</span>
       </div>
-      <h1>
-        Paiement <em className="italic-emph">annulé</em>
-      </h1>
-      <p>
-        Le paiement n&apos;a pas été finalisé. Aucun montant n&apos;a été débité.
-        Vous pouvez relancer la transaction depuis votre espace, ou contacter
-        notre service comptable pour un règlement par QR statique.
-      </p>
+      <h1>{t.rich('cancelH1', richTags)}</h1>
+      <p>{t('cancelBody')}</p>
       {ref ? (
         <p style={{ color: 'var(--cpfa-muted, #64748b)', fontSize: 13 }}>
-          Référence : <code>{ref}</code>
+          {t('referenceLabel')} <code>{ref}</code>
         </p>
       ) : null}
       <p style={{ marginTop: 24 }}>
-        <Link href="/me/abonnement">Réessayer</Link>
+        <Link href="/me/abonnement">{t('retryCta')}</Link>
         {' · '}
-        <Link href="/contact">Nous contacter</Link>
+        <Link href="/contact">{t('contactCta')}</Link>
       </p>
     </div>
   );

@@ -1,4 +1,5 @@
 import { Body, Container, Head, Heading, Html, Preview, Text } from '@react-email/components';
+import { emailCopy, emailXof, type Locale } from './copy';
 
 export type LoanReminderEmailProps = {
   firstName?: string;
@@ -6,6 +7,7 @@ export type LoanReminderEmailProps = {
   dueDate: string;
   daysOverdue?: number;
   penaltyXof?: number;
+  locale?: Locale;
 };
 
 export function LoanReminderEmail({
@@ -14,25 +16,27 @@ export function LoanReminderEmail({
   dueDate,
   daysOverdue = 0,
   penaltyXof = 0,
+  locale,
 }: LoanReminderEmailProps) {
+  const c = emailCopy('loanReminder', locale);
   const isOverdue = daysOverdue > 0;
   return (
     <Html>
       <Head />
-      <Preview>Rappel d&apos;échéance — Bibliothèque CPFA</Preview>
+      <Preview>{c.preview}</Preview>
       <Body style={{ fontFamily: 'sans-serif', backgroundColor: '#f8fafc', padding: '24px' }}>
         <Container style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 24, maxWidth: 480 }}>
-          <Heading as="h1">{isOverdue ? 'Retour en retard' : 'Rappel d’échéance'}</Heading>
-          <Text>Bonjour {firstName ?? ''},</Text>
+          <Heading as="h1">{isOverdue ? c.headingOverdue : c.headingDue}</Heading>
+          <Text>{c.greeting(firstName ?? '')}</Text>
           <Text>
-            L&apos;ouvrage <strong>{resourceTitle}</strong> doit être restitué le <strong>{dueDate}</strong>.
+            {c.bodyBefore}
+            <strong>{resourceTitle}</strong>
+            {c.bodyMiddle}
+            <strong>{dueDate}</strong>
+            {c.bodyAfter}
           </Text>
-          {isOverdue ? (
-            <Text>
-              Retard : {daysOverdue} jour(s). Pénalité accumulée : <strong>{penaltyXof} FCFA</strong>.
-            </Text>
-          ) : null}
-          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>Merci de passer à la bibliothèque pour le retour.</Text>
+          {isOverdue ? <Text>{c.overdue(daysOverdue, emailXof(penaltyXof, locale))}</Text> : null}
+          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 24 }}>{c.footer}</Text>
         </Container>
       </Body>
     </Html>

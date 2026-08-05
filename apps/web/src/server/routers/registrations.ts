@@ -4,6 +4,9 @@ import { getPaymentProvider } from '@cpfa/lib/payments';
 import { getQueue } from '@cpfa/lib/queues';
 import { router, protectedProcedure, permissionProcedure } from '../trpc';
 import { applicationStatusAt } from '@/lib/course-rules';
+import { formatDate, formatDateTime } from '@cpfa/lib/i18n';
+import { recipientLocale } from '@/lib/recipient-locale';
+import { serverError } from '@/lib/server-errors';
 
 const registerCourseInput = z.object({
   courseId: z.string().cuid(),
@@ -118,9 +121,9 @@ export const registrationsRouter = router({
 
       const target = reg.course?.title ?? reg.seminar?.title ?? reg.exam?.title ?? 'CPFA';
       const date = reg.session?.startsAt ?? reg.seminar?.startsAt ?? reg.exam?.examAt ?? null;
-      const startsAt = date
-        ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).format(date)
-        : undefined;
+      // Date rendue dans la langue du candidat, pas dans celle de l'admin qui
+      // valide — c'est lui qui lira la convocation.
+      const startsAt = date ? formatDateTime(date, recipientLocale(reg.user)) : undefined;
       const location = reg.session?.location ?? reg.seminar?.location ?? undefined;
       const fullName =
         [reg.user.firstName, reg.user.lastName].filter(Boolean).join(' ') || reg.user.email;
@@ -161,7 +164,11 @@ export const registrationsRouter = router({
     }),
 });
 
-type Ctx = { prisma: import('@cpfa/db').PrismaClient; session: { user: { id: string; email?: string | null } } };
+type Ctx = {
+  prisma: import('@cpfa/db').PrismaClient;
+  session: { user: { id: string; email?: string | null } };
+  locale: import('@cpfa/lib/i18n').Locale;
+};
 
 type CreateRegistrationInput =
   | ({ kind: 'course' } & z.infer<typeof registerCourseInput>)
@@ -193,8 +200,10 @@ async function createRegistration(ctx: Ctx, input: CreateRegistrationInput) {
         code: 'BAD_REQUEST',
         message:
           status.state === 'before'
-            ? `Inscriptions fermées — réouverture le ${status.opensAt.toLocaleDateString('fr-FR')}.`
-            : 'Inscriptions fermées pour cette session.',
+            ? serverError('applicationsReopenOn', ctx.locale, {
+                date: formatDate(status.opensAt, ctx.locale),
+              })
+            : serverError('applicationsClosedForSession', ctx.locale),
       });
     }
     amountXof = course.priceXof;
@@ -210,7 +219,7 @@ async function createRegistration(ctx: Ctx, input: CreateRegistrationInput) {
       where: { seminarId: seminar.id, status: { in: ['SUBMITTED', 'PAID', 'VALIDATED'] } },
     });
     if (taken >= seminar.capacity) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Séminaire complet.' });
+      throw new TRPCError({ code: 'BAD_REQUEST', message: serverError('seminarFull', ctx.locale) });
     }
     amountXof = seminar.priceXof;
     purpose = 'SEMINAR_REGISTRATION';
@@ -223,7 +232,7 @@ async function createRegistration(ctx: Ctx, input: CreateRegistrationInput) {
     if (!exam?.published) throw new TRPCError({ code: 'NOT_FOUND' });
     const now = new Date();
     if (now < exam.openAt || now > exam.closeAt) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Inscriptions fermées.' });
+      throw new TRPCError({ code: 'BAD_REQUEST', message: serverError('registrationsClosed', ctx.locale) });
     }
     amountXof = exam.feeXof;
     purpose = 'EXAM_FEE';

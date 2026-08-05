@@ -5,22 +5,26 @@ import { z } from 'zod';
 import { buildQrPayload } from '@cpfa/lib/qr';
 import { getPaymentProvider } from '@cpfa/lib/payments';
 import { router, protectedProcedure, publicProcedure, permissionProcedure } from '../trpc';
-import { LIBRARY_TIERS, priceForTier, type SubscriptionTier } from '@/lib/library-rules';
+import {
+  LIBRARY_SUBSCRIPTION_DAYS,
+  priceForTier,
+  type SubscriptionTier,
+} from '@/lib/library-rules';
+import { enqueueSubscriptionContract } from '@/lib/subscription-contract';
+import { getLibraryTiers } from '@/lib/library-pricing';
+import { getQueue, type EmailJob } from '@cpfa/lib/queues';
+import { getSetting } from '@/lib/site-settings/get';
+import { serverError } from '@/lib/server-errors';
 
-const LIBRARY_SUBSCRIPTION_DAYS_DEFAULT = 365;
 const SUBSCRIPTION_STATUSES = ['PENDING', 'ACTIVE', 'EXPIRED', 'CANCELLED'] as const;
-
-const LIBRARY_SUBSCRIPTION_DURATION_DAYS = 365;
 const tierSchema = z.enum(['STUDENT', 'PROFESSIONAL', 'HOME_LOAN']);
 
 export const subscriptionsRouter = router({
   // Public price list — used to render the 3 formules before sign-up.
-  tiers: publicProcedure.query(() =>
-    (Object.keys(LIBRARY_TIERS) as SubscriptionTier[]).map((tier) => ({
-      tier,
-      ...LIBRARY_TIERS[tier],
-    })),
-  ),
+  tiers: publicProcedure.query(async () => {
+    const tiers = await getLibraryTiers();
+    return (Object.keys(tiers) as SubscriptionTier[]).map((tier) => ({ tier, ...tiers[tier] }));
+  }),
 
   mine: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.subscription.findFirst({
@@ -37,7 +41,10 @@ export const subscriptionsRouter = router({
     .input(z.object({ tier: tierSchema.default('PROFESSIONAL') }).optional())
     .mutation(async ({ ctx, input }) => {
       const tier = input?.tier ?? 'PROFESSIONAL';
-      const amountXof = priceForTier(tier);
+      // Grille lue au moment de la souscription : le montant encaissé est
+      // exactement celui que l'abonné vient de voir à l'écran.
+      const tiers = await getLibraryTiers();
+      const amountXof = priceForTier(tier, tiers);
 
       const existing = await ctx.prisma.subscription.findFirst({
         where: { userId: ctx.session.user.id, status: 'ACTIVE' },
@@ -45,7 +52,7 @@ export const subscriptionsRouter = router({
       if (existing) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Un abonnement actif existe déjà.',
+          message: serverError('subscriptionAlreadyActive', ctx.locale),
         });
       }
 
@@ -70,7 +77,7 @@ export const subscriptionsRouter = router({
           id: ctx.session.user.id,
           email: ctx.session.user.email ?? undefined,
         },
-        description: `Abonnement bibliothèque CPFA — ${LIBRARY_TIERS[tier].label}`,
+        description: `Abonnement bibliothèque CPFA — ${tiers[tier].label}`,
       });
 
       const payment = await ctx.prisma.payment.create({
@@ -97,12 +104,48 @@ export const subscriptionsRouter = router({
         },
       });
 
+      // Consignes de paiement par e-mail : QR Wave / Orange Money en pièces
+      // jointes, montant et référence à rappeler. Tolérant à la panne — l'écran
+      // « paiement en attente » porte les mêmes informations.
+      if (ctx.session.user.email) {
+        const mobileMoney = await getSetting('payments.mobileMoney', 'fr');
+        const attachments = [
+          { key: mobileMoney.waveQrKey, filename: 'qr-wave.png' },
+          { key: mobileMoney.orangeQrKey, filename: 'qr-orange-money.png' },
+        ]
+          .filter((a) => a.key)
+          .map((a) => ({ filename: a.filename, storageKey: a.key }));
+        try {
+          await getQueue<EmailJob>('email').add(
+            'payment-instructions',
+            {
+              to: ctx.session.user.email,
+              template: 'payment-instructions',
+              data: {
+                payerName: ctx.session.user.name ?? ctx.session.user.email,
+                amountXof,
+                reference: cardNumber,
+                tierLabel: tiers[tier].label,
+                waveNumber: mobileMoney.waveNumber,
+                orangeNumber: mobileMoney.orangeNumber,
+                instructions: mobileMoney.instructions,
+              },
+              locale: ctx.locale,
+              ...(attachments.length > 0 ? { attachments } : {}),
+            },
+            { jobId: `payment-instructions:${payment.id}` },
+          );
+        } catch (err) {
+          console.warn('[subscriptions.initiate] payment instructions enqueue failed', err);
+        }
+      }
+
       return {
         subscriptionId: subscription.id,
         paymentId: payment.id,
         tier,
         amountXof,
-        durationDays: LIBRARY_SUBSCRIPTION_DURATION_DAYS,
+        durationDays: LIBRARY_SUBSCRIPTION_DAYS,
         ...init,
       };
     }),
@@ -119,9 +162,7 @@ export const subscriptionsRouter = router({
       if (!payment?.subscription) throw new TRPCError({ code: 'NOT_FOUND' });
       if (payment.status === 'CONFIRMED') return payment;
 
-      const expiresAt = new Date(
-        Date.now() + LIBRARY_SUBSCRIPTION_DURATION_DAYS * 24 * 60 * 60 * 1000,
-      );
+      const expiresAt = new Date(Date.now() + LIBRARY_SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1000);
 
       const [confirmed] = await ctx.prisma.$transaction([
         ctx.prisma.payment.update({
@@ -142,18 +183,21 @@ export const subscriptionsRouter = router({
           },
         }),
       ]);
+      await enqueueSubscriptionContract(payment.subscription.id);
       return confirmed;
     }),
 
   // ── Admin / librarian operations ─────────────────────────────────────────
   adminList: permissionProcedure('library:manage')
     .input(
-      z.object({
-        q: z.string().trim().max(120).optional(),
-        status: z.enum(SUBSCRIPTION_STATUSES).optional(),
-        take: z.number().int().min(1).max(100).default(50),
-        cursor: z.string().optional(),
-      }).optional(),
+      z
+        .object({
+          q: z.string().trim().max(120).optional(),
+          status: z.enum(SUBSCRIPTION_STATUSES).optional(),
+          take: z.number().int().min(1).max(100).default(50),
+          cursor: z.string().optional(),
+        })
+        .optional(),
     )
     .query(async ({ ctx, input }) => {
       const q = input?.q?.trim();
@@ -208,7 +252,7 @@ export const subscriptionsRouter = router({
       z.object({
         userId: z.string().cuid(),
         tier: z.enum(['STUDENT', 'PROFESSIONAL', 'HOME_LOAN']).default('PROFESSIONAL'),
-        durationDays: z.number().int().min(30).max(730).default(LIBRARY_SUBSCRIPTION_DAYS_DEFAULT),
+        durationDays: z.number().int().min(30).max(730).default(LIBRARY_SUBSCRIPTION_DAYS),
         activate: z.boolean().default(true),
       }),
     )
@@ -248,6 +292,7 @@ export const subscriptionsRouter = router({
           diff: { tier: input.tier, activate: input.activate },
         },
       });
+      if (input.activate) await enqueueSubscriptionContract(sub.id);
       return sub;
     }),
 
@@ -255,7 +300,7 @@ export const subscriptionsRouter = router({
     .input(
       z.object({
         id: z.string().cuid(),
-        durationDays: z.number().int().min(30).max(730).default(LIBRARY_SUBSCRIPTION_DAYS_DEFAULT),
+        durationDays: z.number().int().min(30).max(730).default(LIBRARY_SUBSCRIPTION_DAYS),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -276,6 +321,7 @@ export const subscriptionsRouter = router({
           diff: { expiresAt },
         },
       });
+      await enqueueSubscriptionContract(input.id);
       return updated;
     }),
 

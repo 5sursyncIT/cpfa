@@ -17,6 +17,7 @@
     "react": "^19.0.0"
   },
   "dependencies": {
+    "@cpfa/lib": "workspace:*",
     "@react-email/components": "^0.0.32",
     "@react-email/render": "^1.0.3"
   },

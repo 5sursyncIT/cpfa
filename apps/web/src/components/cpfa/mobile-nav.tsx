@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 type Link = { href: string; label: string };
 
@@ -22,6 +23,7 @@ export function MobileNav({
   searchPlaceholder: string;
   active?: string;
 }) {
+  const t = useTranslations('nav');
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -50,7 +52,7 @@ export function MobileNav({
       <button
         type="button"
         className="mobile-nav-trigger"
-        aria-label="Ouvrir le menu"
+        aria-label={t('openMenu')}
         aria-expanded={open}
         aria-controls="mobile-nav-drawer"
         onClick={() => setOpen(true)}
@@ -65,18 +67,18 @@ export function MobileNav({
         className={'mobile-nav-drawer' + (open ? ' is-open' : '')}
         role="dialog"
         aria-modal="true"
-        aria-label="Navigation principale"
+        aria-label={t('mainNavLabel')}
         aria-hidden={!open}
       >
         <div className="mobile-nav-backdrop" onClick={() => setOpen(false)} />
         <div className="mobile-nav-panel">
           <div className="mobile-nav-head">
-            <span className="eyebrow">Menu</span>
+            <span className="eyebrow">{t('menuLabel')}</span>
             <button
               ref={closeRef}
               type="button"
               className="mobile-nav-close"
-              aria-label="Fermer le menu"
+              aria-label={t('closeMenu')}
               onClick={() => setOpen(false)}
             >
               ✕
